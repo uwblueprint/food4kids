@@ -141,17 +141,11 @@ class Settings(BaseSettings):
     # Default Credentials, not settings — only the billed project is named here.
     route_opt_project_id: str = Field(default="")
 
-    # Route generation quotas — each Google SKU's free monthly allowance, in
-    # that SKU's own billing unit. Google grants these per SKU and they do not
-    # pool, so they are tracked and configured separately.
-    #
-    # Route Optimization bills per *shipment*, and one generation sends one
-    # shipment per delivery plus one per vehicle, so 1000 covers only ~11 runs
-    # of a typical 75-stop group. Set below the true allowance to leave headroom
-    # for our counter drifting from Google's.
-    quota_fleet_routing_shipments: int = Field(default=1000)
-    # One-vehicle Route Optimization requests bill to their own SKU.
-    quota_single_vehicle_shipments: int = Field(default=5000)
+    # Monthly Google Maps credit in USD (Google for Nonprofits grants $250).
+    # Paid route generation is checked against the GCP budget net of credits,
+    # and the export cannot say how much of this is left, so it is configured.
+    # Zero is the safe default: every paid call then counts at full price.
+    google_maps_monthly_credit_usd: float = Field(default=0.0, ge=0)
 
     # GCP. Storage credentials come from Application Default Credentials, not
     # settings — only the bucket is named here.

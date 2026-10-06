@@ -19,7 +19,6 @@ from alembic import context
 from app.database_url import SYNC_DRIVER, get_database_url
 from app.models.admin import Admin
 from app.models.announcement import Announcement
-from app.models.api_usage import ApiUsage
 from app.models.driver import Driver
 from app.models.job import Job
 from app.models.location import Location
@@ -32,6 +31,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.routing_charge import RoutingCharge
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.models.user_invite import UserInvite

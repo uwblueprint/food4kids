@@ -1,9 +1,8 @@
-"""Route generation that drains each API's free quota before falling back.
+"""Route generation that uses the best engine the budget allows.
 
-Each Google routing API has its own free monthly allowance. Walking them in
-quality order — best routes first — and dropping to the next only once the
-current one's free room is gone gives the best routes obtainable without
-paying. The in-house cluster+sweep is the floor: no quota, always available.
+Tiers run in quality order. A paid tier runs only if the spend service approves
+its estimated cost; otherwise, or if it fails, generation falls to the next.
+The in-house sweep is the floor: free, so always available.
 
 Implements ``RoutingAlgorithmProtocol`` so the generation runner is unchanged;
 it sees one algorithm and never learns there were tiers.
@@ -15,61 +14,90 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.models.api_usage import ApiSku
-from app.services.implementations.quota_service import fleet_routing_units
+from app.services.implementations.google_maps_routing_service import (
+    GoogleMapsFleetRoutingAlgorithm,
+    billed_shipments,
+)
+from app.services.implementations.single_vehicle_routing import (
+    SingleVehicleRoutingAlgorithm,
+)
+from app.services.implementations.sweep_clustering import SweepRoutingAlgorithm
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
-    from app.services.implementations.quota_service import QuotaService
+    from app.services.implementations.routing_spend_service import (
+        RoutingSpendService,
+    )
     from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 
 logger = logging.getLogger(__name__)
 
+# Route Optimization list prices per shipment, first paid volume band
+# (https://developers.google.com/maps/billing-and-pricing/pricing). Free
+# allowances are ignored, so estimates only ever run high.
+FLEET_ROUTING_USD_PER_SHIPMENT = 30.0 / 1000
+SINGLE_VEHICLE_USD_PER_SHIPMENT = 10.0 / 1000
 
-@dataclass
+
+@dataclass(frozen=True)
+class Pricing:
+    usd_per_shipment: float
+    # Billed shipments for (locations, routes requested).
+    shipments_for: Callable[[int, int], int]
+
+
+@dataclass(frozen=True)
 class Tier:
-    """One rung of the cascade, in quality order.
-
-    ``sku`` is None for tiers that cost nothing, which are therefore always
-    available and need no reservation.
-    """
-
     name: str
     algorithm: RoutingAlgorithmProtocol
-    sku: ApiSku | None = None
-    # Billable units this tier would consume, given (locations, vehicles).
-    # Units differ per SKU: Route Optimization bills per shipment, the Routes
-    # API per request, so each tier brings its own conversion.
-    units_for: Callable[[int, int], int] | None = None
+    # None for the free in-house floor.
+    pricing: Pricing | None = None
 
 
-def single_vehicle_units(num_locations: int, _num_vehicles: int) -> int:
-    """One-vehicle requests send no forced pickup, so only the deliveries.
+def fleet_routing_tier() -> Tier:
+    return Tier(
+        name="fleet_routing",
+        algorithm=GoogleMapsFleetRoutingAlgorithm(),
+        pricing=Pricing(FLEET_ROUTING_USD_PER_SHIPMENT, billed_shipments),
+    )
 
-    Clusters of one stop skip the request, so this can overcount, never under.
-    """
-    return num_locations
+
+def single_vehicle_tier() -> Tier:
+    # One request per route, each with one vehicle. Single-stop routes skip
+    # the request, so this can overcount but never undercounts.
+    return Tier(
+        name="single_vehicle",
+        algorithm=SingleVehicleRoutingAlgorithm(),
+        pricing=Pricing(
+            SINGLE_VEHICLE_USD_PER_SHIPMENT,
+            lambda locations, _routes: billed_shipments(locations, 1),
+        ),
+    )
+
+
+def cluster_sweep_tier() -> Tier:
+    return Tier(name="cluster_sweep", algorithm=SweepRoutingAlgorithm())
 
 
 class CascadingRoutingAlgorithm:
-    """Tries each tier in turn, skipping any whose free quota is spent."""
+    """Tries each tier in turn, skipping any the budget cannot cover.
+
+    With ``enforce_budget`` off, paid tiers are recorded but never refused:
+    pinning an engine is a deliberate choice to pay for it.
+    """
 
     def __init__(
         self,
-        logger_: logging.Logger,
-        quota_service: QuotaService,
-        session_maker: async_sessionmaker[AsyncSession],
+        spend: RoutingSpendService,
         tiers: list[Tier],
+        enforce_budget: bool = True,
     ) -> None:
-        self.logger = logger_
-        self.quota_service = quota_service
-        self.session_maker = session_maker
+        self.spend = spend
         self.tiers = tiers
+        self.enforce_budget = enforce_budget
 
     async def generate_routes(
         self,
@@ -79,29 +107,24 @@ class CascadingRoutingAlgorithm:
         settings: RouteGenerationSettings,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
-        """Generate routes with the best tier that still has free quota."""
         attempts: list[str] = []
 
         for tier in self.tiers:
-            units = self._units_for(tier, len(locations), settings.num_routes)
-
-            # Inside the fallback like the call itself: a database blip while
-            # reserving must cost this tier, not the job. Nothing has been sent
-            # to Google yet, so skipping is free — and the cluster+sweep floor
-            # needs no reservation, so it stays reachable.
+            # A database blip while checking spend costs this tier, not the
+            # job: nothing has been sent yet, and the free floor needs no check.
             try:
-                reserved = await self._reserve(tier, units)
+                approved = await self._approve(tier, len(locations), settings)
             except Exception:
-                attempts.append(f"{tier.name} (quota check failed)")
-                self.logger.exception(
-                    "Could not reserve quota for tier %s; skipping it", tier.name
-                )
+                logger.exception("Could not check spend for tier %s", tier.name)
+                attempts.append(f"{tier.name} (spend check failed)")
+                continue
+            if not approved:
+                attempts.append(f"{tier.name} (over budget)")
                 continue
 
-            if not reserved:
-                attempts.append(f"{tier.name} (no free quota)")
-                continue
-
+            # Any failure, a timeout included, falls back. The charge stands:
+            # the request may have been billed, and an overestimate only lasts
+            # until the billing export catches up.
             try:
                 routes = await tier.algorithm.generate_routes(
                     locations,
@@ -110,118 +133,27 @@ class CascadingRoutingAlgorithm:
                     settings,
                     timeout_seconds=timeout_seconds,
                 )
-            except TimeoutError:
-                # The request may well have reached Google and been billed, so
-                # the reservation stands. Overcounting costs a worse route;
-                # undercounting costs money.
-                attempts.append(f"{tier.name} (timed out)")
-                self.logger.warning(
-                    "Tier %s timed out; keeping its reservation and falling back",
-                    tier.name,
-                )
-                continue
-            except Exception:
-                # Never reached the optimizer — a misconfiguration or a
-                # rejected payload. Hand the units back, or a persistently
-                # broken tier would burn a month of quota failing.
-                await self._release(tier, units)
-                attempts.append(f"{tier.name} (failed)")
-                self.logger.exception(
-                    "Tier %s failed; released its reservation and falling back",
-                    tier.name,
-                )
+            except Exception as error:
+                logger.exception("Tier %s failed; falling back", tier.name)
+                attempts.append(f"{tier.name} (failed: {error!r})")
                 continue
 
             if attempts:
-                self.logger.info(
-                    "Generated with %s after skipping: %s",
-                    tier.name,
-                    ", ".join(attempts),
+                logger.info(
+                    "Generated with %s after: %s", tier.name, ", ".join(attempts)
                 )
             return routes
 
-        # Only reachable if every tier is quota-gated, which would mean the
-        # free cluster+sweep floor was left out of the cascade.
-        raise RuntimeError(
-            "No routing tier could run. Tried: "
-            + (", ".join(attempts) or "none configured")
-        )
+        raise RuntimeError("No routing tier could run. Tried: " + ", ".join(attempts))
 
-    @staticmethod
-    def _units_for(tier: Tier, num_locations: int, num_vehicles: int) -> int:
-        if tier.sku is None or tier.units_for is None:
-            return 0
-        return tier.units_for(num_locations, num_vehicles)
-
-    async def _reserve(self, tier: Tier, units: int) -> bool:
-        """Claim quota for a tier, in its own committed transaction.
-
-        Separate from the job's session on purpose: Google bills for the call
-        whether or not the job later succeeds, so the usage must not roll back
-        with it.
-        """
-        if tier.sku is None:
+    async def _approve(
+        self, tier: Tier, num_locations: int, settings: RouteGenerationSettings
+    ) -> bool:
+        if tier.pricing is None:
             return True
-
-        async with self.session_maker() as session:
-            granted = await self.quota_service.try_reserve(session, tier.sku, units)
-            await session.commit()
-            return granted
-
-    async def _release(self, tier: Tier, units: int) -> None:
-        """Hand back a failed tier's unspent units, without ever raising.
-
-        Runs on the way to the next tier, so an error here would fail a job
-        the fallback could still save. Losing a release only overcounts, the
-        direction that costs a worse route rather than money.
-        """
-        if tier.sku is None or units <= 0:
-            return
-
-        try:
-            async with self.session_maker() as session:
-                await self.quota_service.release(session, tier.sku, units)
-                await session.commit()
-        except Exception:
-            self.logger.exception(
-                "Could not release %d unit(s) for tier %s; the counter will "
-                "over-report",
-                units,
-                tier.name,
-            )
-
-
-def build_default_cascade(
-    quota_service: QuotaService,
-    session_maker: async_sessionmaker[AsyncSession],
-    fleet_routing: RoutingAlgorithmProtocol,
-    single_vehicle: RoutingAlgorithmProtocol,
-    cluster_sweep: RoutingAlgorithmProtocol,
-) -> CascadingRoutingAlgorithm:
-    """The Auto cascade: best quality first, free in-house engine last.
-
-    The rungs degrade by who decides what. Fleet Routing assigns stops to
-    drivers *and* orders them, weighing every stop against every vehicle at
-    once. The middle rung keeps Google's ordering but inherits our clustering's
-    assignment. The floor does both in-house.
-    """
-    return CascadingRoutingAlgorithm(
-        logger,
-        quota_service,
-        session_maker,
-        [
-            Tier(
-                name="fleet_routing",
-                algorithm=fleet_routing,
-                sku=ApiSku.FLEET_ROUTING,
-                units_for=fleet_routing_units,
-            ),
-            Tier(
-                name="single_vehicle",
-                algorithm=single_vehicle,
-                sku=ApiSku.SINGLE_VEHICLE_ROUTING,
-                units_for=single_vehicle_units,
-            ),
-            Tier(name="cluster_sweep", algorithm=cluster_sweep),
-        ],
-    )
+        shipments = tier.pricing.shipments_for(num_locations, settings.num_routes)
+        cost_usd = shipments * tier.pricing.usd_per_shipment
+        if not self.enforce_budget:
+            await self.spend.charge(tier.name, shipments, cost_usd)
+            return True
+        return await self.spend.try_charge(tier.name, shipments, cost_usd)

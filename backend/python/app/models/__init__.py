@@ -81,7 +81,6 @@ def register_models() -> None:
     from .admin import Admin  # noqa: F401
     from .announcement import Announcement  # noqa: F401
     from .announcement_last_read import AnnouncementLastRead  # noqa: F401
-    from .api_usage import ApiUsage  # noqa: F401
     from .driver import Driver  # noqa: F401
     from .job import Job  # noqa: F401
     from .location import Location  # noqa: F401
@@ -94,6 +93,7 @@ def register_models() -> None:
     from .route_snapshot import RouteSnapshot  # noqa: F401
     from .route_stop import RouteStop  # noqa: F401
     from .route_stop_snapshot import RouteStopSnapshot  # noqa: F401
+    from .routing_charge import RoutingCharge  # noqa: F401
     from .system_settings import SystemSettings  # noqa: F401
     from .user import User  # noqa: F401
     from .user_invite import UserInvite  # noqa: F401

@@ -58,6 +58,11 @@ def forced_pickup_count(num_routes: int) -> int:
     return num_routes if num_routes > 1 else 0
 
 
+def billed_shipments(num_locations: int, num_routes: int) -> int:
+    """Shipments a request is billed for: every delivery plus forced pickups."""
+    return num_locations + forced_pickup_count(num_routes)
+
+
 def _localize(moment: datetime) -> datetime:
     """Return `moment` as a timezone-aware datetime in warehouse-local time.
 

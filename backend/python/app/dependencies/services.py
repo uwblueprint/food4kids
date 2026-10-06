@@ -24,27 +24,23 @@ from app.services.implementations.announcement_service import AnnouncementServic
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.billing_service import BillingService
 from app.services.implementations.cascading_routing_algorithm import (
-    build_default_cascade,
+    CascadingRoutingAlgorithm,
+    cluster_sweep_tier,
+    fleet_routing_tier,
+    single_vehicle_tier,
 )
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
-from app.services.implementations.google_maps_routing_service import (
-    GoogleMapsFleetRoutingAlgorithm,
-)
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
 from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
-from app.services.implementations.quota_service import QuotaService
 from app.services.implementations.route_group_service import RouteGroupService
+from app.services.implementations.routing_spend_service import RoutingSpendService
 from app.services.implementations.scheduler_service import SchedulerService
-from app.services.implementations.single_vehicle_routing import (
-    SingleVehicleRoutingAlgorithm,
-)
-from app.services.implementations.sweep_clustering import SweepRoutingAlgorithm
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
@@ -176,39 +172,38 @@ def get_route_group_service() -> RouteGroupService:
     return RouteGroupService(logger)
 
 
-@lru_cache
-def get_quota_service() -> QuotaService:
-    """Get quota service instance"""
-    logger = get_logger()
-    return QuotaService(logger, settings)
-
-
 def build_routing_algorithm(
     method: RouteGenerationMethod,
     session_maker: async_sessionmaker[AsyncSession],
 ) -> RoutingAlgorithmProtocol:
     """Build the routing engine for one generation job.
 
-    ``AUTO`` returns the cascade, which spends each API's free monthly
-    allowance in quality order before falling back. The explicit methods pin
-    generation to a single engine and skip the quota check entirely — forcing a
-    paid engine past its free room is a deliberate decision to start paying.
+    ``AUTO`` cascades through the tiers the GCP budget allows. The explicit
+    methods pin one engine: a paid one is still recorded, so later budget
+    checks see it, but never refused.
     """
+    spend = RoutingSpendService(
+        get_logger(),
+        BillingService(get_logger(), get_billing_client()),
+        session_maker,
+        settings.google_maps_monthly_credit_usd,
+    )
     match method:
-        case RouteGenerationMethod.FLEET_ROUTING:
-            return GoogleMapsFleetRoutingAlgorithm()
-        case RouteGenerationMethod.SINGLE_VEHICLE:
-            return SingleVehicleRoutingAlgorithm()
-        case RouteGenerationMethod.CLUSTER_SWEEP:
-            return SweepRoutingAlgorithm()
         case RouteGenerationMethod.AUTO:
-            return build_default_cascade(
-                get_quota_service(),
-                session_maker,
-                GoogleMapsFleetRoutingAlgorithm(),
-                SingleVehicleRoutingAlgorithm(),
-                SweepRoutingAlgorithm(),
+            return CascadingRoutingAlgorithm(
+                spend,
+                [fleet_routing_tier(), single_vehicle_tier(), cluster_sweep_tier()],
             )
+        case RouteGenerationMethod.FLEET_ROUTING:
+            return CascadingRoutingAlgorithm(
+                spend, [fleet_routing_tier()], enforce_budget=False
+            )
+        case RouteGenerationMethod.SINGLE_VEHICLE:
+            return CascadingRoutingAlgorithm(
+                spend, [single_vehicle_tier()], enforce_budget=False
+            )
+        case RouteGenerationMethod.CLUSTER_SWEEP:
+            return cluster_sweep_tier().algorithm
 
 
 @lru_cache

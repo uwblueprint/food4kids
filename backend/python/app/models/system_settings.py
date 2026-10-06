@@ -106,10 +106,8 @@ class SystemSettingsBase(SQLModel):
         default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
-    # Default Auto spends each routing API's free monthly allowance in quality
-    # order before falling back. The explicit values pin generation to one
-    # engine and ignore quota entirely, so forcing a paid engine past its free
-    # room is a deliberate choice to start paying.
+    # See RouteGenerationMethod: Auto stays inside the GCP budget, the
+    # explicit values pin one engine regardless of it.
     route_generation_method: RouteGenerationMethod = Field(
         default=RouteGenerationMethod.AUTO,
         sa_column=Column(String(32), nullable=False, server_default="auto"),

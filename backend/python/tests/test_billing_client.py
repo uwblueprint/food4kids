@@ -46,6 +46,7 @@ class FakeRow:
     gross_cost: float | None
     credit_amount: float | None
     currency: str | None
+    usd_conversion_rate: float | None
     last_export_time: datetime | None
 
 
@@ -177,6 +178,7 @@ class TestParseCostRow:
             gross_cost=100.0,
             credit_amount=-25.0,
             currency="CAD",
+            usd_conversion_rate=1.37,
             last_export_time=datetime(2026, 7, 29, 15, 0),
         )
 
@@ -186,24 +188,34 @@ class TestParseCostRow:
         assert cost.credits == -25.0
         assert cost.net_cost == 75.0
         assert cost.currency == "CAD"
+        assert cost.usd_conversion_rate == 1.37
 
     def test_no_rows_reads_as_zero(self) -> None:
         cost = BillingClient._parse_cost_row(None)
 
         assert cost == CostInfo(
-            gross_cost=0.0, credits=0.0, currency="", last_export_time=None
+            gross_cost=0.0,
+            credits=0.0,
+            currency="",
+            usd_conversion_rate=None,
+            last_export_time=None,
         )
 
     def test_month_with_no_usage_aggregates_to_nulls(self) -> None:
         """SUM over zero rows yields one all-NULL row rather than no rows."""
         row = FakeRow(
-            gross_cost=None, credit_amount=None, currency=None, last_export_time=None
+            gross_cost=None,
+            credit_amount=None,
+            currency=None,
+            usd_conversion_rate=None,
+            last_export_time=None,
         )
 
         cost = BillingClient._parse_cost_row(row)
 
         assert cost.net_cost == 0.0
         assert cost.currency == ""
+        assert cost.usd_conversion_rate is None
 
 
 class TestConfigurationGuards:
@@ -365,7 +377,7 @@ class _FakeBQClient:
 
     def query(self, _query: str, job_config: Any = None) -> _FakeQueryJob:
         self.job_configs.append(job_config)
-        return _FakeQueryJob([FakeRow(1.0, -0.25, "CAD", datetime(2026, 7, 29))])
+        return _FakeQueryJob([FakeRow(1.0, -0.25, "CAD", 1.37, datetime(2026, 7, 29))])
 
 
 @pytest.fixture

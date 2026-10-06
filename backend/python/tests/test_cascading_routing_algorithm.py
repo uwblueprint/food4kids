@@ -1,35 +1,39 @@
-"""Tests for the tiered route generation cascade.
+"""Tests for the budget-aware route generation cascade.
 
-The cascade decides how much we pay for routes and how good they are, so the
-cases that matter are the transitions: when a tier is skipped, when its quota
-is handed back, and when it is deliberately kept.
+The cases that matter are the transitions: when a paid tier is approved,
+refused, or fails, and what generation falls back to each time.
 """
 
 from __future__ import annotations
 
-import logging
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.config import Settings
-from app.models.api_usage import ApiSku
+from app.dependencies.services import build_routing_algorithm
+from app.models.enum import RouteGenerationMethod
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.cascading_routing_algorithm import (
+    FLEET_ROUTING_USD_PER_SHIPMENT,
+    SINGLE_VEHICLE_USD_PER_SHIPMENT,
     CascadingRoutingAlgorithm,
+    Pricing,
     Tier,
-    single_vehicle_units,
+    cluster_sweep_tier,
+    fleet_routing_tier,
+    single_vehicle_tier,
 )
-from app.services.implementations.quota_service import (
-    QuotaService,
-    fleet_routing_units,
+from app.services.implementations.google_maps_routing_service import (
+    GoogleMapsFleetRoutingAlgorithm,
 )
+from app.services.implementations.single_vehicle_routing import (
+    SingleVehicleRoutingAlgorithm,
+)
+from app.services.implementations.sweep_clustering import SweepRoutingAlgorithm
 
 pytestmark = pytest.mark.asyncio
 
@@ -38,19 +42,16 @@ pytestmark = pytest.mark.asyncio
 class FakeLocation:
     """Lightweight stand-in for Location that avoids SQLAlchemy mapper init."""
 
-    latitude: float = 43.0
-    longitude: float = -79.0
-    address: str = "123 Test St"
     location_id: UUID = field(default_factory=uuid4)
-    num_children: int = 2
 
 
 class FakeAlgorithm:
     """Routing algorithm that records its calls, or fails on demand."""
 
-    def __init__(self, error: Exception | None = None) -> None:
+    def __init__(self, error: BaseException | None = None) -> None:
         self.error = error
         self.calls = 0
+        self.timeouts: list[float | None] = []
 
     async def generate_routes(
         self,
@@ -58,12 +59,39 @@ class FakeAlgorithm:
         _warehouse_lat: float,
         _warehouse_lon: float,
         _settings: Any,
-        timeout_seconds: float | None = None,  # noqa: ARG002
+        timeout_seconds: float | None = None,
     ) -> list[list[Any]]:
         self.calls += 1
+        self.timeouts.append(timeout_seconds)
         if self.error is not None:
             raise self.error
         return [list(locations)]
+
+
+class FakeSpend:
+    """Approves tiers by name and records every charge it is asked for."""
+
+    def __init__(
+        self, approve: set[str] | None = None, error: Exception | None = None
+    ) -> None:
+        self.approve = approve or set()
+        self.error = error
+        self.checked: list[tuple[str, int, float]] = []
+        self.charged: list[tuple[str, int, float]] = []
+
+    async def try_charge(self, tier: str, shipments: int, cost_usd: float) -> bool:
+        self.checked.append((tier, shipments, cost_usd))
+        if self.error is not None:
+            raise self.error
+        if tier in self.approve:
+            self.charged.append((tier, shipments, cost_usd))
+            return True
+        return False
+
+    async def charge(self, tier: str, shipments: int, cost_usd: float) -> None:
+        if self.error is not None:
+            raise self.error
+        self.charged.append((tier, shipments, cost_usd))
 
 
 @pytest.fixture
@@ -82,293 +110,261 @@ def locations() -> list[Any]:
     return [FakeLocation() for _ in range(9)]
 
 
-@pytest_asyncio.fixture
-async def maker(test_db_engine: Any) -> Any:
-    """Session factory plus cleanup — the cascade commits outside the test's
-    rolled-back session, deliberately, so rows have to be removed by hand."""
-    factory = async_sessionmaker(
-        test_db_engine, class_=AsyncSession, expire_on_commit=False
-    )
-    yield factory
-    async with factory() as session:
-        await session.execute(text("DELETE FROM api_usage"))
-        await session.commit()
-
-
-def _quota(**budgets: int) -> QuotaService:
-    return QuotaService(
-        logging.getLogger(__name__),
-        Settings(
-            quota_fleet_routing_shipments=budgets.get("fleet", 1000),
-            quota_single_vehicle_shipments=budgets.get("single", 5000),
-        ),
+def _paid(name: str, algorithm: FakeAlgorithm) -> Tier:
+    return Tier(
+        name=name,
+        algorithm=algorithm,
+        pricing=Pricing(0.01, lambda locations, routes: locations + routes),
     )
 
 
-def _cascade(
-    quota: QuotaService,
-    maker: Any,
-    paid: FakeAlgorithm,
-    free: FakeAlgorithm,
-    middle: FakeAlgorithm | None = None,
-) -> CascadingRoutingAlgorithm:
-    """Two rungs by default; pass ``middle`` to exercise all three."""
-    tiers = [
-        Tier(
-            name="fleet_routing",
-            algorithm=paid,
-            sku=ApiSku.FLEET_ROUTING,
-            units_for=fleet_routing_units,
-        )
-    ]
-    if middle is not None:
-        tiers.append(
-            Tier(
-                name="single_vehicle",
-                algorithm=middle,
-                sku=ApiSku.SINGLE_VEHICLE_ROUTING,
-                units_for=single_vehicle_units,
-            )
-        )
-    tiers.append(Tier(name="cluster_sweep", algorithm=free))
-    return CascadingRoutingAlgorithm(logging.getLogger(__name__), quota, maker, tiers)
+class Ladder:
+    """Fleet, single-vehicle and free tiers over fake engines."""
 
-
-class TestQualityOrder:
-    """The best tier runs whenever its free allowance can cover the job."""
-
-    async def test_uses_the_top_tier_when_quota_allows(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        paid, free = FakeAlgorithm(), FakeAlgorithm()
-        cascade = _cascade(_quota(fleet=1000), maker, paid, free)
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert paid.calls == 1
-        assert free.calls == 0
-
-    async def test_consumes_shipments_including_the_per_vehicle_pickups(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        quota = _quota(fleet=1000)
-        cascade = _cascade(quota, maker, FakeAlgorithm(), FakeAlgorithm())
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        async with maker() as session:
-            used = await quota.units_used(session, ApiSku.FLEET_ROUTING)
-        assert used == 9 + 4
-
-
-class TestFallback:
-    """Exhausting a tier's free room drops to the next, never to an error."""
-
-    async def test_falls_back_when_the_top_tier_has_no_free_room(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        paid, free = FakeAlgorithm(), FakeAlgorithm()
-        # Room for 12 shipments; this job needs 13.
-        cascade = _cascade(_quota(fleet=12), maker, paid, free)
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert paid.calls == 0
-        assert free.calls == 1
-
-    async def test_the_free_floor_needs_no_quota(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """cluster+sweep is in-house, so it runs with every budget at zero."""
-        free = FakeAlgorithm()
-        cascade = _cascade(_quota(fleet=0), maker, FakeAlgorithm(), free)
-
-        routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert free.calls == 1
-        assert routes == [locations]
-
-    async def test_raises_when_no_tier_can_run(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """Only reachable if the free floor was left out of the cascade."""
-        cascade = CascadingRoutingAlgorithm(
-            logging.getLogger(__name__),
-            _quota(fleet=0),
-            maker,
+    def __init__(self, spend: FakeSpend, **errors: BaseException) -> None:
+        self.fleet = FakeAlgorithm(errors.get("fleet"))
+        self.single = FakeAlgorithm(errors.get("single"))
+        self.free = FakeAlgorithm(errors.get("free"))
+        self.cascade = CascadingRoutingAlgorithm(
+            spend,  # type: ignore[arg-type]
             [
-                Tier(
-                    name="fleet_routing",
-                    algorithm=FakeAlgorithm(),
-                    sku=ApiSku.FLEET_ROUTING,
-                    units_for=fleet_routing_units,
-                )
+                _paid("fleet_routing", self.fleet),
+                _paid("single_vehicle", self.single),
+                Tier(name="cluster_sweep", algorithm=self.free),
             ],
         )
 
-        with pytest.raises(RuntimeError, match="No routing tier"):
+    @property
+    def calls(self) -> tuple[int, int, int]:
+        return (self.fleet.calls, self.single.calls, self.free.calls)
+
+    async def run(
+        self, locations: list[Any], settings: Any, **kwargs: Any
+    ) -> list[list[Any]]:
+        return await self.cascade.generate_routes(
+            locations, 43.0, -79.0, settings, **kwargs
+        )
+
+
+class TestQualityOrder:
+    @pytest.mark.parametrize(
+        ("approved", "calls"),
+        [
+            ({"fleet_routing", "single_vehicle"}, (1, 0, 0)),
+            ({"fleet_routing"}, (1, 0, 0)),
+            ({"single_vehicle"}, (0, 1, 0)),
+            (set(), (0, 0, 1)),
+        ],
+    )
+    async def test_runs_the_best_tier_the_budget_approves(
+        self,
+        locations: list[Any],
+        gen_settings: Any,
+        approved: set[str],
+        calls: tuple[int, int, int],
+    ) -> None:
+        ladder = Ladder(FakeSpend(approve=approved))
+
+        assert await ladder.run(locations, gen_settings) == [locations]
+        assert ladder.calls == calls
+
+    async def test_stops_asking_once_a_tier_is_approved(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        """Asking about a lower tier would record a charge nobody makes."""
+        spend = FakeSpend(approve={"fleet_routing", "single_vehicle"})
+
+        await Ladder(spend).run(locations, gen_settings)
+
+        assert [tier for tier, _, _ in spend.checked] == ["fleet_routing"]
+
+    async def test_the_free_tier_is_never_checked(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        spend = FakeSpend()
+
+        await Ladder(spend).run(locations, gen_settings)
+
+        assert [tier for tier, _, _ in spend.checked] == [
+            "fleet_routing",
+            "single_vehicle",
+        ]
+
+    async def test_charge_is_shipments_times_price(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        spend = FakeSpend(approve={"fleet_routing"})
+
+        await Ladder(spend).run(locations, gen_settings)
+
+        # 9 locations + 4 routes, at the fake tier's $0.01.
+        ((tier, shipments, cost),) = spend.charged
+        assert (tier, shipments) == ("fleet_routing", 13)
+        assert cost == pytest.approx(0.13)
+
+    async def test_passes_the_timeout_to_the_tier(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        ladder = Ladder(FakeSpend(approve={"fleet_routing"}))
+
+        await ladder.run(locations, gen_settings, timeout_seconds=12.5)
+
+        assert ladder.fleet.timeouts == [12.5]
+
+
+class TestFallback:
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(TimeoutError(), id="timeout"),
+            pytest.param(RuntimeError("upstream 500"), id="api error"),
+            pytest.param(ValueError("bad payload"), id="rejected request"),
+        ],
+    )
+    async def test_a_failed_tier_falls_to_the_next_and_keeps_its_charge(
+        self, locations: list[Any], gen_settings: Any, error: Exception
+    ) -> None:
+        """The request may have been billed, so its charge is never undone."""
+        spend = FakeSpend(approve={"fleet_routing", "single_vehicle"})
+        ladder = Ladder(spend, fleet=error)
+
+        assert await ladder.run(locations, gen_settings) == [locations]
+        assert ladder.calls == (1, 1, 0)
+        assert [tier for tier, _, _ in spend.charged] == [
+            "fleet_routing",
+            "single_vehicle",
+        ]
+
+    async def test_a_failed_spend_check_skips_the_tier_not_the_job(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        ladder = Ladder(FakeSpend(error=ConnectionError("pool exhausted")))
+
+        assert await ladder.run(locations, gen_settings) == [locations]
+        assert ladder.calls == (0, 0, 1)
+
+    async def test_cancellation_is_not_treated_as_a_failure(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        """The job-level timeout cancels; falling back would outlive it."""
+        ladder = Ladder(
+            FakeSpend(approve={"fleet_routing"}), fleet=asyncio.CancelledError()
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await ladder.run(locations, gen_settings)
+        assert ladder.calls == (1, 0, 0)
+
+    async def test_names_every_attempt_when_nothing_can_run(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        ladder = Ladder(
+            FakeSpend(approve={"single_vehicle"}),
+            single=RuntimeError("upstream 500"),
+            free=ValueError("not enough drivers"),
+        )
+
+        with pytest.raises(RuntimeError) as raised:
+            await ladder.run(locations, gen_settings)
+
+        message = str(raised.value)
+        assert "fleet_routing (over budget)" in message
+        assert "single_vehicle (failed: RuntimeError('upstream 500'))" in message
+        assert "cluster_sweep (failed: ValueError('not enough drivers'))" in message
+
+
+class TestPinnedEngine:
+    """With the budget not enforced, a paid tier is recorded but not refused."""
+
+    async def test_records_and_runs_without_asking(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        spend = FakeSpend()  # would refuse everything
+        engine = FakeAlgorithm()
+        cascade = CascadingRoutingAlgorithm(
+            spend,  # type: ignore[arg-type]
+            [_paid("fleet_routing", engine)],
+            enforce_budget=False,
+        )
+
+        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
+
+        assert engine.calls == 1
+        assert spend.checked == []
+        assert [tier for tier, _, _ in spend.charged] == ["fleet_routing"]
+
+    async def test_a_failure_fails_the_job_with_the_cause(
+        self, locations: list[Any], gen_settings: Any
+    ) -> None:
+        cascade = CascadingRoutingAlgorithm(
+            FakeSpend(),  # type: ignore[arg-type]
+            [_paid("fleet_routing", FakeAlgorithm(RuntimeError("quota exceeded")))],
+            enforce_budget=False,
+        )
+
+        with pytest.raises(RuntimeError, match="quota exceeded"):
             await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
 
 
-class TestFailureHandling:
-    """A tier that breaks must not quietly eat a month of quota."""
+class TestShippedTiers:
+    """The real tiers bill what their engines send, at Google's list price."""
 
-    async def test_a_failing_tier_hands_its_quota_back(
-        self, maker: Any, locations: list[Any], gen_settings: Any
+    async def test_engines_and_order(self) -> None:
+        tiers = [fleet_routing_tier(), single_vehicle_tier(), cluster_sweep_tier()]
+
+        assert [type(t.algorithm) for t in tiers] == [
+            GoogleMapsFleetRoutingAlgorithm,
+            SingleVehicleRoutingAlgorithm,
+            SweepRoutingAlgorithm,
+        ]
+        assert tiers[2].pricing is None
+
+    @pytest.mark.parametrize(
+        ("tier", "shipments", "per_shipment"),
+        [
+            # Fleet adds one forced pickup per route.
+            (fleet_routing_tier, 75 + 12, FLEET_ROUTING_USD_PER_SHIPMENT),
+            # One vehicle per request, so no forced pickups at all.
+            (single_vehicle_tier, 75, SINGLE_VEHICLE_USD_PER_SHIPMENT),
+        ],
+    )
+    async def test_pricing(
+        self, tier: Any, shipments: int, per_shipment: float
     ) -> None:
-        """Otherwise a misconfigured tier burns the allowance failing."""
-        quota = _quota(fleet=1000)
-        paid = FakeAlgorithm(error=ValueError("bad credentials"))
-        free = FakeAlgorithm()
-        cascade = _cascade(quota, maker, paid, free)
+        pricing = tier().pricing
 
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
+        assert pricing.shipments_for(75, 12) == shipments
+        assert pricing.usd_per_shipment == per_shipment
 
-        async with maker() as session:
-            assert await quota.units_used(session, ApiSku.FLEET_ROUTING) == 0
-        assert free.calls == 1
 
-    async def test_a_timeout_keeps_its_reservation(
-        self, maker: Any, locations: list[Any], gen_settings: Any
+class TestBuildRoutingAlgorithm:
+    """Each configured method gets the engine and budget rule it promises."""
+
+    @pytest.mark.parametrize(
+        ("method", "tiers", "enforced"),
+        [
+            (
+                RouteGenerationMethod.AUTO,
+                ["fleet_routing", "single_vehicle", "cluster_sweep"],
+                True,
+            ),
+            (RouteGenerationMethod.FLEET_ROUTING, ["fleet_routing"], False),
+            (RouteGenerationMethod.SINGLE_VEHICLE, ["single_vehicle"], False),
+        ],
+    )
+    async def test_cascading_methods(
+        self, method: RouteGenerationMethod, tiers: list[str], enforced: bool
     ) -> None:
-        """A timed-out request may still have reached Google and been billed.
+        algorithm = build_routing_algorithm(method, session_maker=None)  # type: ignore[arg-type]
 
-        Overcounting costs a slightly worse route; undercounting costs money.
-        """
-        quota = _quota(fleet=1000)
-        paid = FakeAlgorithm(error=TimeoutError())
-        free = FakeAlgorithm()
-        cascade = _cascade(quota, maker, paid, free)
+        assert isinstance(algorithm, CascadingRoutingAlgorithm)
+        assert [tier.name for tier in algorithm.tiers] == tiers
+        assert algorithm.enforce_budget is enforced
 
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        async with maker() as session:
-            assert await quota.units_used(session, ApiSku.FLEET_ROUTING) == 13
-        assert free.calls == 1
-
-    async def test_generation_still_succeeds_when_the_paid_tier_breaks(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        free = FakeAlgorithm()
-        cascade = _cascade(
-            _quota(fleet=1000),
-            maker,
-            FakeAlgorithm(error=RuntimeError("upstream 500")),
-            free,
+    async def test_cluster_sweep_is_the_bare_free_engine(self) -> None:
+        algorithm = build_routing_algorithm(
+            RouteGenerationMethod.CLUSTER_SWEEP,
+            session_maker=None,  # type: ignore[arg-type]
         )
 
-        routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert routes == [locations]
-        assert free.calls == 1
-
-    async def test_a_failed_quota_check_skips_the_tier_not_the_job(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """A database blip while reserving costs the paid tier, never the job:
-        the free floor needs no reservation."""
-
-        class _UnreachableQuota(QuotaService):
-            async def try_reserve(self, *_args: Any, **_kwargs: Any) -> bool:
-                raise ConnectionError("pool exhausted")
-
-        paid, free = FakeAlgorithm(), FakeAlgorithm()
-        cascade = _cascade(
-            _UnreachableQuota(logging.getLogger(__name__), Settings()),
-            maker,
-            paid,
-            free,
-        )
-
-        routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert routes == [locations]
-        assert (paid.calls, free.calls) == (0, 1)
-
-    async def test_a_failed_release_does_not_fail_the_job(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """Losing a release leaves the reservation standing — an overcount,
-        the safe direction — and generation carries on down the ladder."""
-
-        class _NoRelease(QuotaService):
-            async def release(self, *_args: Any, **_kwargs: Any) -> None:
-                raise ConnectionError("connection reset")
-
-        quota = _NoRelease(
-            logging.getLogger(__name__), Settings(quota_fleet_routing_shipments=1000)
-        )
-        free = FakeAlgorithm()
-        cascade = _cascade(
-            quota, maker, FakeAlgorithm(error=ValueError("bad credentials")), free
-        )
-
-        routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert routes == [locations]
-        assert free.calls == 1
-        async with maker() as session:
-            assert await quota.units_used(session, ApiSku.FLEET_ROUTING) == 13
-
-
-class TestUsageIsIndependentOfTheJob:
-    """Google bills for the call however the job ends."""
-
-    async def test_reservation_survives_a_rolled_back_job(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """The cascade commits quota on its own session, not the job's."""
-        quota = _quota(fleet=1000)
-        cascade = _cascade(quota, maker, FakeAlgorithm(), FakeAlgorithm())
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        async with maker() as fresh:
-            assert await quota.units_used(fresh, ApiSku.FLEET_ROUTING) == 13
-
-
-class TestBillingUnitsPerTier:
-    """Units are not comparable across SKUs."""
-
-    async def test_single_vehicle_skips_the_forced_pickups(self) -> None:
-        """One-vehicle requests carry only deliveries; fleet adds a pickup each."""
-        assert single_vehicle_units(75, 12) == 75
-        assert fleet_routing_units(75, 12) == 87
-
-
-class TestThreeRungCascade:
-    """The shipped ladder: Fleet Routing, then single-vehicle, then in-house."""
-
-    async def test_middle_rung_catches_the_job_when_the_top_is_spent(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        paid, middle, free = FakeAlgorithm(), FakeAlgorithm(), FakeAlgorithm()
-        cascade = _cascade(_quota(fleet=12), maker, paid, free, middle)
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert (paid.calls, middle.calls, free.calls) == (0, 1, 0)
-
-    async def test_middle_rung_bills_only_the_deliveries(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """9 stops over 4 drivers: 9 shipments, against fleet routing's 13."""
-        quota = _quota(fleet=12)
-        cascade = _cascade(
-            quota, maker, FakeAlgorithm(), FakeAlgorithm(), FakeAlgorithm()
-        )
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        async with maker() as session:
-            assert await quota.units_used(session, ApiSku.SINGLE_VEHICLE_ROUTING) == 9
-
-    async def test_drops_to_the_floor_only_when_both_apis_are_spent(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        paid, middle, free = FakeAlgorithm(), FakeAlgorithm(), FakeAlgorithm()
-        cascade = _cascade(_quota(fleet=0, single=0), maker, paid, free, middle)
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert (paid.calls, middle.calls, free.calls) == (0, 0, 1)
+        assert isinstance(algorithm, SweepRoutingAlgorithm)

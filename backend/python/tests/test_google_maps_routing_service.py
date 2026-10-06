@@ -18,6 +18,7 @@ from app.services.implementations.google_maps_routing_service import (
     SCOPES,
     VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
+    billed_shipments,
 )
 
 
@@ -277,7 +278,9 @@ class TestBuildPayload:
         delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["duration"] == "600s"  # 10 min * 60
 
-    @pytest.mark.parametrize(("num_routes", "forced"), [(1, 0), (2, 2), (5, 5)])
+    @pytest.mark.parametrize(
+        ("num_routes", "forced"), [(1, 0), (2, 2), (3, 3), (12, 12)]
+    )
     def test_forced_pickups_only_with_more_than_one_vehicle(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
@@ -294,6 +297,8 @@ class TestBuildPayload:
         ]
 
         assert len(shipments) == forced + len(locs)
+        # The spend estimate is pinned to what the payload actually bills.
+        assert len(shipments) == billed_shipments(len(locs), num_routes)
         assert all("pickups" in s for s in shipments[:forced])
         assert all("deliveries" in s for s in shipments[forced:])
 
