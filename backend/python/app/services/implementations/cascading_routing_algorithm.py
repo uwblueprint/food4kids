@@ -32,8 +32,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Route Optimization list prices per shipment, first paid volume band
-# (https://developers.google.com/maps/billing-and-pricing/pricing). Free
-# allowances are ignored, so estimates only ever run high.
+# (https://developers.google.com/maps/billing-and-pricing/pricing). Estimates
+# ignore free allowances, which only affects calls the billing export hasn't
+# caught up with yet (about a day's worth), and errs toward caution.
 FLEET_ROUTING_USD_PER_SHIPMENT = 30.0 / 1000
 SINGLE_VEHICLE_USD_PER_SHIPMENT = 10.0 / 1000
 
