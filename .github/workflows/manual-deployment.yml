@@ -31,6 +31,7 @@ jobs:
             --source ./backend/python \
             --region us-east1 \
             --project food4kids-473501 \
+            --max-instances=1 \
             --set-secrets=/secrets/config.json=food4kids-config-dev:latest
 
   # Frontend Deployment (Firebase Hosting)
