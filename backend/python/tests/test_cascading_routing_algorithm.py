@@ -190,10 +190,10 @@ class TestQualityOrder:
 
         await Ladder(spend).run(locations, gen_settings)
 
-        # 9 locations at the fake tier's $0.01.
+        # 9 locations + 4 forced pickups, at the fake tier's $0.01.
         ((tier, shipments, cost),) = spend.charged
-        assert (tier, shipments) == ("fleet_routing", 9)
-        assert cost == pytest.approx(0.09)
+        assert (tier, shipments) == ("fleet_routing", 13)
+        assert cost == pytest.approx(0.13)
 
     async def test_passes_the_timeout_to_the_tier(
         self, locations: list[Any], gen_settings: Any

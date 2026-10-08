@@ -128,6 +128,24 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             for i in range(settings.num_routes)
         ]
 
+        # Force every vehicle to be used by giving each a mandatory pickup.
+        # Without this some drivers may be left idle.
+        # loadDemands is explicitly 0 so it doesn't consume capacity meant
+        # for actual deliveries (each delivery adds its box count to the load).
+        forced_pickups = [
+            {
+                "displayName": f"initial_load_driver_{i}",
+                "pickups": [
+                    {
+                        "arrivalLocation": warehouse,
+                        "loadDemands": {"load": {"amount": "0"}},
+                    }
+                ],
+                "allowedVehicleIndices": [i],
+            }
+            for i in range(settings.num_routes)
+        ]
+
         service_duration = f"{settings.service_time_minutes * 60}s"
 
         deliveries = []
@@ -183,7 +201,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "globalStartTime": _to_rfc3339(global_start),
                 "globalEndTime": _to_rfc3339(global_end),
                 "vehicles": vehicles,
-                "shipments": deliveries,
+                "shipments": forced_pickups + deliveries,
             }
         }
 
@@ -242,7 +260,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         """Parse the optimizeTours response into grouped, ordered routes.
 
         The API response contains a list of routes (one per vehicle) with visits.
-        Each visit's shipment index is the index of its location.
+        Each visit references a shipment index. We skip the forced-pickup shipments
+        (indices 0..num_routes-1) and map the remaining delivery shipments back to
+        locations using: location_index = shipment_index - num_routes.
         """
 
         # Every delivery is mandatory — if the API skipped any, something is
@@ -268,13 +288,15 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 continue
 
             for visit in route_data.get("visits", []):
-                # JSON omits proto3 zero values, so a missing index is shipment 0.
+                if visit.get("isPickup", False):
+                    continue
                 shipment_index = visit.get("shipmentIndex", 0)
-                if not 0 <= shipment_index < len(locations):
-                    raise RuntimeError(
-                        f"Fleet Routing API returned shipment {shipment_index}, "
-                        f"but only {len(locations)} were sent"
-                    )
-                routes[vehicle_index].append(locations[shipment_index])
+                # Offset by num_routes because forced-pickup shipments occupy
+                # indices 0..num_routes-1 in the shipments array.
+                location_index = shipment_index - num_routes
+                # Guard also protects against missing shipmentIndex
+                # (defaults to 0, yielding a negative location_index)
+                if 0 <= location_index < len(locations):
+                    routes[vehicle_index].append(locations[location_index])
 
         return routes
