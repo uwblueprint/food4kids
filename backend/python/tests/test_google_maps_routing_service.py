@@ -274,7 +274,7 @@ class TestBuildPayload:
         make_location: Any,
         num_routes: int,
     ) -> None:
-        """Each shipment is billed, and the spend estimate counts locations."""
+        """Every location is one shipment, however many vehicles there are."""
         settings = _settings(num_routes=num_routes)
         locs = [make_location() for _ in range(5)]
 
@@ -458,18 +458,55 @@ class TestParseResponse:
         with pytest.raises(RuntimeError, match=f"shipment {shipment_index}"):
             algorithm._parse_response(response, locs, num_routes=1)
 
-    def test_empty_response(
+    @pytest.mark.parametrize("vehicle_index", [-1, 2, 99])
+    def test_unknown_vehicle_raises(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        vehicle_index: int,
+    ) -> None:
+        """A vehicle index we never sent fails loudly instead of dropping a route."""
+        locs = [make_location()]
+
+        response = {
+            "routes": [
+                {"vehicleIndex": vehicle_index, "visits": [{"shipmentIndex": 0}]}
+            ]
+        }
+
+        with pytest.raises(RuntimeError, match=f"vehicle {vehicle_index}"):
+            algorithm._parse_response(response, locs, num_routes=2)
+
+    @pytest.mark.parametrize(
+        "visits",
+        [
+            [],  # nothing visited
+            [{"shipmentIndex": 0}],  # one location missing
+            [{"shipmentIndex": 0}, {"shipmentIndex": 0}, {"shipmentIndex": 1}],
+        ],
+    )
+    def test_every_location_exactly_once(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        visits: list[dict],
+    ) -> None:
+        """A missing or repeated stop fails loudly rather than reaching a route."""
+        locs = [make_location(), make_location()]
+
+        response = {"routes": [{"vehicleIndex": 0, "visits": visits}]}
+
+        with pytest.raises(RuntimeError, match="exactly once"):
+            algorithm._parse_response(response, locs, num_routes=1)
+
+    def test_empty_response_raises(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
         make_location: Any,
     ) -> None:
-        """No routes in response returns list of empty lists."""
-        locs = [make_location()]
-        num_routes = 2
-
-        routes = algorithm._parse_response({}, locs, num_routes)
-
-        assert routes == [[], []]
+        """No routes at all for real locations is an error, not empty routes."""
+        with pytest.raises(RuntimeError, match="exactly once"):
+            algorithm._parse_response({}, [make_location()], num_routes=2)
 
     def test_skipped_shipments_raises(
         self,

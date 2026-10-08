@@ -256,25 +256,28 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             )
 
         routes: list[list[Location]] = [[] for _ in range(num_routes)]
+        visited: list[int] = []
 
+        # JSON omits proto3 zero values, so a missing index is 0.
         for route_data in result.get("routes", []):
             vehicle_index = route_data.get("vehicleIndex", 0)
-            if vehicle_index >= num_routes:
-                logger.warning(
-                    "Unexpected vehicleIndex %d (expected < %d), skipping route",
-                    vehicle_index,
-                    num_routes,
+            if not 0 <= vehicle_index < num_routes:
+                raise RuntimeError(
+                    f"Fleet Routing API returned vehicle {vehicle_index}, "
+                    f"but only {num_routes} were sent"
                 )
-                continue
-
             for visit in route_data.get("visits", []):
-                # JSON omits proto3 zero values, so a missing index is shipment 0.
                 shipment_index = visit.get("shipmentIndex", 0)
                 if not 0 <= shipment_index < len(locations):
                     raise RuntimeError(
                         f"Fleet Routing API returned shipment {shipment_index}, "
                         f"but only {len(locations)} were sent"
                     )
+                visited.append(shipment_index)
                 routes[vehicle_index].append(locations[shipment_index])
 
+        if sorted(visited) != list(range(len(locations))):
+            raise RuntimeError(
+                "Fleet Routing API did not visit every location exactly once"
+            )
         return routes
