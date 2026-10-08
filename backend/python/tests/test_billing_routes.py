@@ -37,6 +37,7 @@ def _summary() -> BillingSummary:
         budget_currency="CAD",
         budget_display_name="Monthly budget",
         budget_scope="project",
+        usd_conversion_rate=1.37,
         data_as_of=datetime(2026, 7, 29, 15, 0),
     )
 

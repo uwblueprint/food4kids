@@ -31,6 +31,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.routing_charge import RoutingCharge
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.models.user_invite import UserInvite

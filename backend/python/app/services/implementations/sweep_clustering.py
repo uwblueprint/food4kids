@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.models.location import Location
+    from app.schemas.route_generation import RouteGenerationSettings
 
 
 # Cities that should receive fewer stops per route (matched in address text).
@@ -440,3 +441,32 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             locations_with_angles, key=lambda item: (item[1], item[2])
         )
         return [location for (location, _angle, _distance) in sorted_locations]
+
+
+class SweepRoutingAlgorithm:
+    """Sweep clustering as a complete routing engine, at no API cost.
+
+    Each cluster is already in sweep order (angle, then distance from the
+    warehouse), so it doubles as the visit order.
+    """
+
+    async def generate_routes(
+        self,
+        locations: list[Location],
+        warehouse_lat: float,
+        warehouse_lon: float,
+        settings: RouteGenerationSettings,
+        timeout_seconds: float | None = None,
+    ) -> list[list[Location]]:
+        clustering = SweepClusteringAlgorithm(
+            warehouse_lat=warehouse_lat,
+            warehouse_lon=warehouse_lon,
+            children_per_box=settings.children_per_box,
+            service_minutes_per_stop=settings.service_time_minutes,
+        )
+        return await clustering.cluster_locations(
+            locations=locations,
+            num_clusters=settings.num_routes,
+            max_boxes_per_cluster=settings.max_boxes_per_driver,
+            timeout_seconds=timeout_seconds,
+        )

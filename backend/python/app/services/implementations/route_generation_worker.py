@@ -201,7 +201,13 @@ async def route_generation_worker_loop() -> None:
             await _wake_event.wait()
             _wake_event.clear()
             while True:
-                ran = await _claim_and_run_one()
+                try:
+                    ran = await _claim_and_run_one()
+                except Exception:
+                    # Jobs mark themselves terminal, so this is the queue itself
+                    # failing. Wait for the next wake rather than let the task die.
+                    logger.exception("Route generation worker failed while draining")
+                    break
                 if not ran:
                     break
     except asyncio.CancelledError:
@@ -222,7 +228,7 @@ async def _claim_and_run_one() -> bool:
         )
         return False
 
-    algorithm = get_routing_algorithm()
+    algorithm = get_routing_algorithm(session_maker)
     async with session_maker() as session:
         job_id = await claim_next_pending_job(session)
         if job_id is None:
