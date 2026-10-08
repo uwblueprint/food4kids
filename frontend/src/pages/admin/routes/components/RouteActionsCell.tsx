@@ -115,7 +115,9 @@ export function RouteActionsCell({ row, onUpdated }: RouteActionsCellProps) {
         open={reassignOpen}
         onOpenChange={setReassignOpen}
         routeId={row.route_id}
+        routeGroupId={row.route_group_id}
         currentDriverName={row.driver_name}
+        startTime={row.start_time}
         contextLabel={
           <>
             {row.name} • {row.group_name} • {formatContextDate(row.drive_date)}
