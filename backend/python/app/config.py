@@ -141,6 +141,10 @@ class Settings(BaseSettings):
     # Default Credentials, not settings — only the billed project is named here.
     route_opt_project_id: str = Field(default="")
 
+    # Monthly Google Maps credit in USD; the billing export cannot report how
+    # much is left, so it is configured. Zero counts every paid call in full.
+    google_maps_monthly_credit_usd: float = Field(default=0.0, ge=0)
+
     # GCP. Storage credentials come from Application Default Credentials, not
     # settings — only the bucket is named here.
     gcp_bucket_name: str = Field(default="")

@@ -23,6 +23,7 @@ class _FakeBillingClient:
             gross_cost=100.0,
             credits=-25.0,
             currency="CAD",
+            usd_conversion_rate=1.37,
             last_export_time=datetime(2026, 7, 29, 15, 0),
         )
 
@@ -53,6 +54,7 @@ class TestMonthToDateSummary:
         assert summary.project_id == "f4k-123"
         assert summary.gross_cost == 100.0
         assert summary.credits == -25.0
+        assert summary.usd_conversion_rate == 1.37
         assert summary.month_to_date_cost == 75.0
         assert summary.budget_amount == 500.0
         assert summary.budget_scope == "project"

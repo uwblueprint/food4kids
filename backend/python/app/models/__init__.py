@@ -93,6 +93,7 @@ def register_models() -> None:
     from .route_snapshot import RouteSnapshot  # noqa: F401
     from .route_stop import RouteStop  # noqa: F401
     from .route_stop_snapshot import RouteStopSnapshot  # noqa: F401
+    from .routing_charge import RoutingCharge  # noqa: F401
     from .system_settings import SystemSettings  # noqa: F401
     from .user import User  # noqa: F401
     from .user_invite import UserInvite  # noqa: F401

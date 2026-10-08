@@ -15,18 +15,22 @@ import logging
 from functools import lru_cache
 
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
 from app.services.implementations.admin_service import AdminService
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.billing_service import BillingService
+from app.services.implementations.cascading_routing_algorithm import (
+    CascadingRoutingAlgorithm,
+    cluster_sweep_tier,
+    fleet_routing_tier,
+    single_vehicle_tier,
+)
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
-from app.services.implementations.google_maps_routing_service import (
-    GoogleMapsFleetRoutingAlgorithm,
-)
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
 from app.services.implementations.note_chain_service import NoteChainService
@@ -34,6 +38,7 @@ from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
 from app.services.implementations.route_group_service import RouteGroupService
+from app.services.implementations.routing_spend_service import RoutingSpendService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_invite_service import UserInviteService
@@ -166,14 +171,19 @@ def get_route_group_service() -> RouteGroupService:
     return RouteGroupService(logger)
 
 
-@lru_cache
-def get_routing_algorithm() -> RoutingAlgorithmProtocol:
-    """Select the routing algorithm to use for route generation.
-
-    Currently always returns the real Google Fleet Routing implementation.
-
-    """
-    return GoogleMapsFleetRoutingAlgorithm()
+def get_routing_algorithm(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> RoutingAlgorithmProtocol:
+    """The best routing engine the GCP budget allows, falling back to free."""
+    spend = RoutingSpendService(
+        get_logger(),
+        BillingService(get_logger(), get_billing_client()),
+        session_maker,
+        settings.google_maps_monthly_credit_usd,
+    )
+    return CascadingRoutingAlgorithm(
+        spend, [fleet_routing_tier(), single_vehicle_tier(), cluster_sweep_tier()]
+    )
 
 
 @lru_cache

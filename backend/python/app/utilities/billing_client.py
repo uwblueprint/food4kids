@@ -110,6 +110,8 @@ class CostInfo:
     gross_cost: float
     credits: float
     currency: str
+    # USD to ``currency``; None until the month has export rows.
+    usd_conversion_rate: float | None
     last_export_time: datetime | None
 
     @property
@@ -301,6 +303,7 @@ class BillingClient:
               SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))
                 AS credit_amount,
               ANY_VALUE(currency) AS currency,
+              MAX(currency_conversion_rate) AS usd_conversion_rate,
               MAX(export_time) AS last_export_time
             FROM `{settings.billing_target_project_id}.{settings.billing_export_dataset}.{settings.billing_export_table}`
             WHERE project.id = @project_id
@@ -367,5 +370,6 @@ class BillingClient:
             gross_cost=float(_get("gross_cost") or 0.0),  # type: ignore[arg-type]
             credits=float(_get("credit_amount") or 0.0),  # type: ignore[arg-type]
             currency=str(_get("currency") or ""),
+            usd_conversion_rate=_get("usd_conversion_rate"),  # type: ignore[arg-type]
             last_export_time=_get("last_export_time"),  # type: ignore[arg-type]
         )

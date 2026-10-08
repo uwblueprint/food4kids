@@ -33,6 +33,7 @@ class BillingSummary:
     budget_currency: str | None
     budget_display_name: str | None
     budget_scope: str | None
+    usd_conversion_rate: float | None
     data_as_of: datetime | None
 
 
@@ -71,6 +72,7 @@ class BillingService:
             budget_currency=budget.currency if budget else None,
             budget_display_name=budget.display_name if budget else None,
             budget_scope=budget.scope if budget else None,
+            usd_conversion_rate=cost.usd_conversion_rate,
             data_as_of=cost.last_export_time,
         )
 

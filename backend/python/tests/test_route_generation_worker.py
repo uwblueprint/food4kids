@@ -342,7 +342,7 @@ class TestWorkerLoop:
         job = await _queue_pending_job(maker, group)
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
-        monkeypatch.setattr(worker, "get_routing_algorithm", lambda: algorithm)
+        monkeypatch.setattr(worker, "get_routing_algorithm", lambda _maker: algorithm)
 
         start_route_generation_worker()
         wake_route_generation_worker()
@@ -388,7 +388,7 @@ class TestWorkerLoop:
         second = await _queue_pending_job(maker, group)
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
-        monkeypatch.setattr(worker, "get_routing_algorithm", lambda: algorithm)
+        monkeypatch.setattr(worker, "get_routing_algorithm", lambda _maker: algorithm)
 
         start_route_generation_worker()
         wake_route_generation_worker()
@@ -414,6 +414,31 @@ class TestWorkerLoop:
                 pytest.fail("worker did not drain both jobs in time")
 
             assert algorithm.calls == 2
+
+        await stop_route_generation_worker()
+
+    @pytest.mark.asyncio
+    async def test_a_broken_claim_does_not_kill_the_worker(
+        self, test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Failures in the queue machinery itself end the drain, not the task."""
+        maker = _maker(test_db_engine)
+        monkeypatch.setattr("app.models.async_session_maker_instance", maker)
+
+        async def boom(*_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError("db unavailable")
+
+        monkeypatch.setattr(worker, "claim_next_pending_job", boom)
+
+        task = start_route_generation_worker()
+        wake_route_generation_worker()
+
+        for _ in range(40):
+            await asyncio.sleep(0.05)
+            if not worker._wake_event.is_set():
+                break
+
+        assert not task.done()
 
         await stop_route_generation_worker()
 
