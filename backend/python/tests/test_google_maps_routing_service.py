@@ -118,22 +118,12 @@ class TestBuildPayload:
         # --- global duration cost per hour: minimize total time between first start and last end ---
         assert model["globalDurationCostPerHour"] == GLOBAL_DURATION_COST_PER_HOUR
 
-        # --- shipments = forced_pickups + deliveries ---
+        # --- shipments: one delivery per location, in order ---
         shipments = model["shipments"]
-        assert len(shipments) == 4  # 2 forced pickups + 2 deliveries
+        assert len(shipments) == 2
 
-        # forced pickups (explicit loadDemands of 0 to preserve capacity)
-        for i in range(2):
-            fp = shipments[i]
-            assert fp["displayName"] == f"initial_load_driver_{i}"
-            pickup = fp["pickups"][0]
-            assert pickup["arrivalLocation"] == {"latitude": 43.0, "longitude": -79.0}
-            assert pickup["loadDemands"] == {"load": {"amount": "0"}}
-            assert fp["allowedVehicleIndices"] == [i]
-
-        # deliveries
         for idx, loc in enumerate(locs):
-            d = shipments[2 + idx]
+            d = shipments[idx]
             assert d["displayName"] == f"ship_{idx}"
             assert d["penaltyCost"] == MANDATORY_DELIVERY_PENALTY
             delivery = d["deliveries"][0]
@@ -274,8 +264,28 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
 
-        delivery = payload["model"]["shipments"][1]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["duration"] == "600s"  # 10 min * 60
+
+    @pytest.mark.parametrize("num_routes", [1, 2, 12])
+    def test_one_shipment_per_location_for_any_fleet_size(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        num_routes: int,
+    ) -> None:
+        """Every location is one shipment, however many vehicles there are."""
+        settings = _settings(num_routes=num_routes)
+        locs = [make_location() for _ in range(5)]
+
+        shipments = algorithm._build_payload(locs, 43.0, -79.0, settings)["model"][
+            "shipments"
+        ]
+
+        assert len(shipments) == len(locs)
+        assert all(
+            list(s) == ["displayName", "penaltyCost", "deliveries"] for s in shipments
+        )
 
     def test_return_to_warehouse_sets_end_location(
         self,
@@ -329,7 +339,7 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
-        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["loadDemands"] == {"load": {"amount": str(cap_boxes)}}
 
     def test_demand_at_capacity_not_clamped(
@@ -344,7 +354,7 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
-        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["loadDemands"] == {"load": {"amount": str(cap_boxes)}}
 
     def test_demand_below_capacity_rounds_up_to_whole_boxes(
@@ -359,7 +369,7 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
-        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["loadDemands"] == {"load": {"amount": "3"}}
 
     def test_custom_children_per_box(
@@ -377,7 +387,7 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
 
-        delivery = payload["model"]["shipments"][1]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["loadDemands"] == {"load": {"amount": "3"}}
 
 
@@ -400,18 +410,11 @@ class TestParseResponse:
             "routes": [
                 {
                     "vehicleIndex": 0,
-                    "visits": [
-                        {"shipmentIndex": 0, "isPickup": True},  # forced pickup
-                        {"shipmentIndex": 2},  # locs[0]
-                        {"shipmentIndex": 4},  # locs[2]
-                    ],
+                    "visits": [{"shipmentIndex": 2}, {"shipmentIndex": 0}],
                 },
                 {
                     "vehicleIndex": 1,
-                    "visits": [
-                        {"shipmentIndex": 1, "isPickup": True},  # forced pickup
-                        {"shipmentIndex": 3},  # locs[1]
-                    ],
+                    "visits": [{"shipmentIndex": 1}],
                 },
             ]
         }
@@ -419,47 +422,91 @@ class TestParseResponse:
         routes = algorithm._parse_response(response, locs, num_routes)
 
         assert len(routes) == 2
-        assert routes[0] == [locs[0], locs[2]]
+        assert routes[0] == [locs[2], locs[0]]
         assert routes[1] == [locs[1]]
 
-    def test_skips_pickup_visits(
+    def test_omitted_indices_are_zero(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
         make_location: Any,
     ) -> None:
-        """Visits with isPickup=True are excluded from routes."""
-        locs = [make_location()]
-        num_routes = 1
+        """JSON drops proto3 zero values: no vehicleIndex/shipmentIndex means 0."""
+        locs = [make_location(address="a"), make_location(address="b")]
+
+        response = {"routes": [{"visits": [{"shipmentIndex": 1}, {}]}]}
+
+        routes = algorithm._parse_response(response, locs, num_routes=1)
+
+        assert routes == [[locs[1], locs[0]]]
+
+    @pytest.mark.parametrize("shipment_index", [-1, 2, 99])
+    def test_unknown_shipment_raises(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        shipment_index: int,
+    ) -> None:
+        """A shipment index we never sent fails loudly instead of dropping a stop."""
+        locs = [make_location(), make_location()]
 
         response = {
             "routes": [
-                {
-                    "vehicleIndex": 0,
-                    "visits": [
-                        {"shipmentIndex": 0, "isPickup": True},
-                        {"shipmentIndex": 1},  # locs[0]
-                    ],
-                }
+                {"vehicleIndex": 0, "visits": [{"shipmentIndex": shipment_index}]}
             ]
         }
 
-        routes = algorithm._parse_response(response, locs, num_routes)
+        with pytest.raises(RuntimeError, match=f"shipment {shipment_index}"):
+            algorithm._parse_response(response, locs, num_routes=1)
 
-        assert len(routes) == 1
-        assert routes[0] == [locs[0]]
+    @pytest.mark.parametrize("vehicle_index", [-1, 2, 99])
+    def test_unknown_vehicle_raises(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        vehicle_index: int,
+    ) -> None:
+        """A vehicle index we never sent fails loudly instead of dropping a route."""
+        locs = [make_location()]
 
-    def test_empty_response(
+        response = {
+            "routes": [
+                {"vehicleIndex": vehicle_index, "visits": [{"shipmentIndex": 0}]}
+            ]
+        }
+
+        with pytest.raises(RuntimeError, match=f"vehicle {vehicle_index}"):
+            algorithm._parse_response(response, locs, num_routes=2)
+
+    @pytest.mark.parametrize(
+        "visits",
+        [
+            [],  # nothing visited
+            [{"shipmentIndex": 0}],  # one location missing
+            [{"shipmentIndex": 0}, {"shipmentIndex": 0}, {"shipmentIndex": 1}],
+        ],
+    )
+    def test_every_location_exactly_once(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        visits: list[dict],
+    ) -> None:
+        """A missing or repeated stop fails loudly rather than reaching a route."""
+        locs = [make_location(), make_location()]
+
+        response = {"routes": [{"vehicleIndex": 0, "visits": visits}]}
+
+        with pytest.raises(RuntimeError, match="exactly once"):
+            algorithm._parse_response(response, locs, num_routes=1)
+
+    def test_empty_response_raises(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
         make_location: Any,
     ) -> None:
-        """No routes in response returns list of empty lists."""
-        locs = [make_location()]
-        num_routes = 2
-
-        routes = algorithm._parse_response({}, locs, num_routes)
-
-        assert routes == [[], []]
+        """No routes at all for real locations is an error, not empty routes."""
+        with pytest.raises(RuntimeError, match="exactly once"):
+            algorithm._parse_response({}, [make_location()], num_routes=2)
 
     def test_skipped_shipments_raises(
         self,
@@ -515,18 +562,11 @@ class TestGenerateRoutes:
             "routes": [
                 {
                     "vehicleIndex": 0,
-                    "visits": [
-                        {"shipmentIndex": 0, "isPickup": True},
-                        {"shipmentIndex": 2},  # locs[0]
-                    ],
+                    "visits": [{"shipmentIndex": 0}],
                 },
                 {
                     "vehicleIndex": 1,
-                    "visits": [
-                        {"shipmentIndex": 1, "isPickup": True},
-                        {"shipmentIndex": 3},  # locs[1]
-                        {"shipmentIndex": 4},  # locs[2]
-                    ],
+                    "visits": [{"shipmentIndex": 1}, {"shipmentIndex": 2}],
                 },
             ]
         }
