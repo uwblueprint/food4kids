@@ -48,19 +48,6 @@ VEHICLE_COST_PER_HOUR = 1
 GLOBAL_HORIZON_HOURS = 24
 
 
-def forced_pickup_count(num_routes: int) -> int:
-    """Forced pickups ahead of the deliveries, each a billed shipment.
-
-    They stop a fleet leaving a driver idle; one vehicle gets every delivery.
-    """
-    return num_routes if num_routes > 1 else 0
-
-
-def billed_shipments(num_locations: int, num_routes: int) -> int:
-    """Shipments a request is billed for: every delivery plus forced pickups."""
-    return num_locations + forced_pickup_count(num_routes)
-
-
 def _localize(moment: datetime) -> datetime:
     """Return `moment` as a timezone-aware datetime in warehouse-local time.
 
@@ -141,24 +128,6 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             for i in range(settings.num_routes)
         ]
 
-        # Force every vehicle to be used by giving each a mandatory pickup.
-        # Without this some drivers may be left idle. See forced_pickup_count.
-        # loadDemands is explicitly 0 so it doesn't consume capacity meant
-        # for actual deliveries (each delivery adds its box count to the load).
-        forced_pickups = [
-            {
-                "displayName": f"initial_load_driver_{i}",
-                "pickups": [
-                    {
-                        "arrivalLocation": warehouse,
-                        "loadDemands": {"load": {"amount": "0"}},
-                    }
-                ],
-                "allowedVehicleIndices": [i],
-            }
-            for i in range(forced_pickup_count(settings.num_routes))
-        ]
-
         service_duration = f"{settings.service_time_minutes * 60}s"
 
         deliveries = []
@@ -214,7 +183,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "globalStartTime": _to_rfc3339(global_start),
                 "globalEndTime": _to_rfc3339(global_end),
                 "vehicles": vehicles,
-                "shipments": forced_pickups + deliveries,
+                "shipments": deliveries,
             }
         }
 
@@ -273,9 +242,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         """Parse the optimizeTours response into grouped, ordered routes.
 
         The API response contains a list of routes (one per vehicle) with visits.
-        Each visit references a shipment index. We skip the forced-pickup shipments
-        that lead the array and map the remaining delivery shipments back to
-        locations by subtracting their count.
+        Each visit's shipment index is the index of its location.
         """
 
         # Every delivery is mandatory — if the API skipped any, something is
@@ -289,7 +256,6 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             )
 
         routes: list[list[Location]] = [[] for _ in range(num_routes)]
-        forced_pickups = forced_pickup_count(num_routes)
 
         for route_data in result.get("routes", []):
             vehicle_index = route_data.get("vehicleIndex", 0)
@@ -302,13 +268,13 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 continue
 
             for visit in route_data.get("visits", []):
-                if visit.get("isPickup", False):
-                    continue
+                # JSON omits proto3 zero values, so a missing index is shipment 0.
                 shipment_index = visit.get("shipmentIndex", 0)
-                location_index = shipment_index - forced_pickups
-                # Guard also protects against missing shipmentIndex
-                # (defaults to 0, yielding a negative location_index)
-                if 0 <= location_index < len(locations):
-                    routes[vehicle_index].append(locations[location_index])
+                if not 0 <= shipment_index < len(locations):
+                    raise RuntimeError(
+                        f"Fleet Routing API returned shipment {shipment_index}, "
+                        f"but only {len(locations)} were sent"
+                    )
+                routes[vehicle_index].append(locations[shipment_index])
 
         return routes

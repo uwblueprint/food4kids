@@ -20,7 +20,6 @@ from app.services.implementations.cascading_routing_algorithm import (
     FLEET_ROUTING_USD_PER_SHIPMENT,
     SINGLE_VEHICLE_USD_PER_SHIPMENT,
     CascadingRoutingAlgorithm,
-    Pricing,
     Tier,
     cluster_sweep_tier,
     fleet_routing_tier,
@@ -108,7 +107,7 @@ def _paid(name: str, algorithm: FakeAlgorithm) -> Tier:
     return Tier(
         name=name,
         algorithm=algorithm,
-        pricing=Pricing(0.01, lambda locations, routes: locations + routes),
+        usd_per_shipment=0.01,
     )
 
 
@@ -191,10 +190,10 @@ class TestQualityOrder:
 
         await Ladder(spend).run(locations, gen_settings)
 
-        # 9 locations + 4 routes, at the fake tier's $0.01.
+        # 9 locations at the fake tier's $0.01.
         ((tier, shipments, cost),) = spend.charged
-        assert (tier, shipments) == ("fleet_routing", 13)
-        assert cost == pytest.approx(0.13)
+        assert (tier, shipments) == ("fleet_routing", 9)
+        assert cost == pytest.approx(0.09)
 
     async def test_passes_the_timeout_to_the_tier(
         self, locations: list[Any], gen_settings: Any
@@ -278,24 +277,17 @@ class TestShippedTiers:
             SingleVehicleRoutingAlgorithm,
             SweepRoutingAlgorithm,
         ]
-        assert tiers[2].pricing is None
+        assert tiers[2].usd_per_shipment is None
 
     @pytest.mark.parametrize(
-        ("tier", "shipments", "per_shipment"),
+        ("tier", "per_shipment"),
         [
-            # Fleet adds one forced pickup per route.
-            (fleet_routing_tier, 75 + 12, FLEET_ROUTING_USD_PER_SHIPMENT),
-            # One vehicle per request, so no forced pickups at all.
-            (single_vehicle_tier, 75, SINGLE_VEHICLE_USD_PER_SHIPMENT),
+            (fleet_routing_tier, FLEET_ROUTING_USD_PER_SHIPMENT),
+            (single_vehicle_tier, SINGLE_VEHICLE_USD_PER_SHIPMENT),
         ],
     )
-    async def test_pricing(
-        self, tier: Any, shipments: int, per_shipment: float
-    ) -> None:
-        pricing = tier().pricing
-
-        assert pricing.shipments_for(75, 12) == shipments
-        assert pricing.usd_per_shipment == per_shipment
+    async def test_pricing(self, tier: Any, per_shipment: float) -> None:
+        assert tier().usd_per_shipment == per_shipment
 
 
 async def test_the_shipped_algorithm_is_the_full_ladder() -> None:
