@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import type { RoleEnum } from '@/api/generated/types.gen';
 import {
   Button,
   Field,
@@ -23,6 +24,8 @@ import {
   SUBJECT_MAX,
 } from './utils';
 
+const EMAIL_GROUP_LABEL_ID = 'announcement-email-audiences';
+
 interface AnnouncementFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,7 +35,7 @@ interface AnnouncementFormModalProps {
   onSubmit: (values: {
     subject: string;
     message: string;
-    sendEmailToAll: boolean;
+    emailAudiences: RoleEnum[];
   }) => Promise<void>;
   isSubmitting?: boolean;
 }
@@ -60,8 +63,22 @@ function AnnouncementForm({
   const [message, setMessage] = useState(() =>
     mode === 'edit' && announcement ? announcement.message : ''
   );
-  const [sendEmailToAll, setSendEmailToAll] = useState(false);
+  const [emailAdmins, setEmailAdmins] = useState(false);
+  const [emailDrivers, setEmailDrivers] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const emailAudienceOptions = [
+    {
+      label: 'Admins',
+      checked: emailAdmins,
+      onChange: setEmailAdmins,
+    },
+    {
+      label: 'Drivers',
+      checked: emailDrivers,
+      onChange: setEmailDrivers,
+    },
+  ];
 
   const trimmedSubject = subject.trim();
   const trimmedMessage = message.trim();
@@ -75,7 +92,10 @@ function AnnouncementForm({
       await onSubmit({
         subject: trimmedSubject,
         message: trimmedMessage,
-        sendEmailToAll,
+        emailAudiences: [
+          ...(emailAdmins ? (['admin'] as const) : []),
+          ...(emailDrivers ? (['driver'] as const) : []),
+        ],
       });
       onOpenChange(false);
     } catch (err) {
@@ -127,15 +147,37 @@ function AnnouncementForm({
       </Field>
 
       {mode === 'create' && role === 'admin' && (
-        <label className="text-p2 text-grey-500 flex shrink-0 cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            className="border-grey-300 size-4 rounded text-blue-300"
-            checked={sendEmailToAll}
-            onChange={(event) => setSendEmailToAll(event.target.checked)}
-          />
-          Send email to all
-        </label>
+        /* Labelled like the fields above so it reads as part of the form
+         * rather than a stray pair of boxes. role="group" + aria-labelledby
+         * rather than a fieldset/legend, which does not lay out as flex. */
+        <div
+          role="group"
+          aria-labelledby={EMAIL_GROUP_LABEL_ID}
+          className="flex shrink-0 flex-col gap-2"
+        >
+          <span
+            id={EMAIL_GROUP_LABEL_ID}
+            className="text-h3 text-grey-500 font-bold"
+          >
+            Send email to
+          </span>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+            {emailAudienceOptions.map(({ label, checked, onChange }) => (
+              <label
+                key={label}
+                className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3"
+              >
+                <input
+                  type="checkbox"
+                  className="border-grey-300 size-4 rounded text-blue-300"
+                  checked={checked}
+                  onChange={(event) => onChange(event.target.checked)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
       )}
 
       {error && (

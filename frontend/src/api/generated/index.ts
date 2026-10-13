@@ -74,6 +74,7 @@ export {
 export type {
   AlertCode,
   AnnouncementCreate,
+  AnnouncementEmailRequest,
   AnnouncementLastReadResponse,
   AnnouncementRead,
   AnnouncementUpdate,
@@ -408,6 +409,7 @@ export type {
   ResendOnboardingEmailRequest,
   ResendOnboardingEmailResponse,
   ResendOnboardingEmailResponses,
+  RoleEnum,
   RouteDetailRead,
   RouteGenerationGroupInput,
   RouteGenerationSettings,

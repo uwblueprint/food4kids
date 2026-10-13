@@ -9,6 +9,7 @@ import {
   useUpdateAnnouncement,
 } from '@/api/announcements';
 import { useAuthStore } from '@/api/authStore';
+import type { RoleEnum } from '@/api/generated/types.gen';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import { Button } from '@/common/components';
 import type { Announcement } from '@/types/announcement';
@@ -127,7 +128,7 @@ export function AnnouncementsBoard() {
   const handleFormSubmit = async (values: {
     subject: string;
     message: string;
-    sendEmailToAll: boolean;
+    emailAudiences: RoleEnum[];
   }) => {
     if (formMode === 'create') {
       const created = await createMutation.mutateAsync({
@@ -138,9 +139,12 @@ export function AnnouncementsBoard() {
         },
       });
 
-      if (values.sendEmailToAll && role === 'admin') {
+      // No audience ticked means no email, so the request is never made --
+      // which is also why the API rejects an empty list.
+      if (values.emailAudiences.length > 0 && role === 'admin') {
         const result = await sendEmailMutation.mutateAsync({
           path: { announcement_id: created.announcement_id },
+          body: { audiences: values.emailAudiences },
         });
         if (result.failed > 0) {
           throw new Error(
