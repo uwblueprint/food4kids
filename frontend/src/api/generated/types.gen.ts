@@ -41,6 +41,21 @@ export type AnnouncementCreate = {
 };
 
 /**
+ * AnnouncementEmailRequest
+ *
+ * Who the posting admin chose to email about an announcement.
+ *
+ * Both roles together is how "everyone" is expressed; an empty list has no
+ * meaning, so the caller simply does not ask for a send.
+ */
+export type AnnouncementEmailRequest = {
+  /**
+   * Audiences
+   */
+  audiences: Array<RoleEnum>;
+};
+
+/**
  * AnnouncementLastReadResponse
  *
  * Response model for announcement last read
@@ -1686,6 +1701,13 @@ export type ResendOnboardingEmailRequest = {
 };
 
 /**
+ * RoleEnum
+ *
+ * User role enum with string values
+ */
+export type RoleEnum = 'driver' | 'admin';
+
+/**
  * RouteDetailRead
  *
  * GET /routes/{route_id} response: the bare route plus its ordered stops.
@@ -2224,14 +2246,6 @@ export type SuggestedDriverResponse = {
  */
 export type SystemSettingsRead = {
   /**
-   * Announcement Emails To Admins
-   */
-  announcement_emails_to_admins?: boolean;
-  /**
-   * Announcement Emails To Drivers
-   */
-  announcement_emails_to_drivers?: boolean;
-  /**
    * Boxes Per Car
    */
   boxes_per_car?: number;
@@ -2276,10 +2290,6 @@ export type SystemSettingsRead = {
    */
   f4k_wr_instagram?: string | null;
   /**
-   * F4K Wr Twitter
-   */
-  f4k_wr_twitter?: string | null;
-  /**
    * F4K Wr Website
    */
   f4k_wr_website?: string | null;
@@ -2317,14 +2327,6 @@ export type SystemSettingsRead = {
  * Update request model - all optional
  */
 export type SystemSettingsUpdate = {
-  /**
-   * Announcement Emails To Admins
-   */
-  announcement_emails_to_admins?: boolean | null;
-  /**
-   * Announcement Emails To Drivers
-   */
-  announcement_emails_to_drivers?: boolean | null;
   /**
    * Boxes Per Car
    */
@@ -2369,10 +2371,6 @@ export type SystemSettingsUpdate = {
    * F4K Wr Instagram
    */
   f4k_wr_instagram?: string | null;
-  /**
-   * F4K Wr Twitter
-   */
-  f4k_wr_twitter?: string | null;
   /**
    * F4K Wr Website
    */
@@ -3021,7 +3019,7 @@ export type UpdateAnnouncementResponse =
   UpdateAnnouncementResponses[keyof UpdateAnnouncementResponses];
 
 export type SendAnnouncementEmailData = {
-  body?: never;
+  body: AnnouncementEmailRequest;
   path: {
     /**
      * Announcement Id
