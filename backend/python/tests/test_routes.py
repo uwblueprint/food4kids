@@ -6073,29 +6073,12 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         response = await authed_async_client.post(
-            f"/announcements/{announcement_id}/email"
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["driver"]},
         )
         assert response.status_code == 200
         assert response.json() == {"sent": 1, "failed": 0}
         assert test_driver.user_id is not None
-
-    @staticmethod
-    async def _set_announcement_audiences(
-        session: Any, *, to_admins: bool, to_drivers: bool
-    ) -> None:
-        """Point the singleton settings row at one audience combination."""
-        from sqlmodel import select
-
-        from app.models.system_settings import SystemSettings
-
-        result = await session.execute(select(SystemSettings).limit(1))
-        settings = result.scalars().first()
-        if settings is None:
-            settings = SystemSettings()
-        settings.announcement_emails_to_admins = to_admins
-        settings.announcement_emails_to_drivers = to_drivers
-        session.add(settings)
-        await session.commit()
 
     @staticmethod
     async def _add_admin(session: Any, email: str) -> Any:
@@ -6121,21 +6104,21 @@ class TestAnnouncementRoutes:
         return user
 
     @pytest.mark.asyncio
-    async def test_send_announcement_email_skips_disabled_driver_audience(
+    async def test_send_announcement_email_rejects_empty_audience(
         self,
         authed_async_client: AsyncClient,
-        test_session: Any,
-        test_driver: Any,
         sample_announcement_data: dict[str, Any],
         mocker: Any,
     ) -> None:
-        """Drivers are skipped when their audience flag is off."""
+        """An empty audience list is a malformed request, not a silent no-op.
+
+        Choosing nobody is expressed by not calling this endpoint at all, so
+        an empty list can only be a caller bug -- worth a 422 rather than a
+        200 that emails no one.
+        """
         dispatch = mocker.patch(
             "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
             new_callable=mocker.AsyncMock,
-        )
-        await self._set_announcement_audiences(
-            test_session, to_admins=False, to_drivers=False
         )
 
         create_response = await authed_async_client.post(
@@ -6144,13 +6127,47 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         response = await authed_async_client.post(
-            f"/announcements/{announcement_id}/email"
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": []},
+        )
+
+        assert response.status_code == 422
+        dispatch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_reaches_both_audiences(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """Picking both roles reaches drivers and admins in one send."""
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        admin_user = await self._add_admin(test_session, "both.admin@food4kids.org")
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["driver", "admin"]},
         )
 
         assert response.status_code == 200
-        assert response.json() == {"sent": 0, "failed": 0}
-        dispatch.assert_not_called()
-        assert test_driver.user_id is not None
+        assert response.json() == {"sent": 2, "failed": 0}
+
+        from app.models.user import User
+
+        driver_user = await test_session.get(User, test_driver.user_id)
+        recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
+        assert recipients == {driver_user.email, admin_user.email}
 
     @pytest.mark.asyncio
     async def test_send_announcement_email_reaches_admins_only(
@@ -6167,9 +6184,6 @@ class TestAnnouncementRoutes:
             new_callable=mocker.AsyncMock,
         )
         admin_user = await self._add_admin(test_session, "second.admin@food4kids.org")
-        await self._set_announcement_audiences(
-            test_session, to_admins=True, to_drivers=False
-        )
 
         create_response = await authed_async_client.post(
             "/announcements/", json=sample_announcement_data
@@ -6177,14 +6191,15 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         response = await authed_async_client.post(
-            f"/announcements/{announcement_id}/email"
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["admin"]},
         )
 
         assert response.status_code == 200
         assert response.json() == {"sent": 1, "failed": 0}
         recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
         assert recipients == {admin_user.email}
-        # The driver exists and is active -- the audience flag is the only
+        # The driver exists and is active -- the chosen audience is the only
         # reason they were left out.
         from app.models.user import User
 
@@ -6225,9 +6240,6 @@ class TestAnnouncementRoutes:
         dual_role.role = "admin"
         test_session.add(dual_role)
         await test_session.commit()
-        await self._set_announcement_audiences(
-            test_session, to_admins=True, to_drivers=True
-        )
 
         create_response = await authed_async_client.post(
             "/announcements/", json=sample_announcement_data
@@ -6235,7 +6247,8 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         response = await authed_async_client.post(
-            f"/announcements/{announcement_id}/email"
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["driver", "admin"]},
         )
 
         assert response.status_code == 200
@@ -6273,9 +6286,6 @@ class TestAnnouncementRoutes:
         )
         await test_session.commit()
         other_admin = await self._add_admin(test_session, "third.admin@food4kids.org")
-        await self._set_announcement_audiences(
-            test_session, to_admins=True, to_drivers=False
-        )
 
         create_response = await authed_async_client.post(
             "/announcements/", json=sample_announcement_data
@@ -6283,7 +6293,8 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         response = await authed_async_client.post(
-            f"/announcements/{announcement_id}/email"
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["admin"]},
         )
 
         assert response.status_code == 200
@@ -6569,32 +6580,6 @@ class TestSystemSettingsRoutes:
             {"days_before": 1, "time": "09:00:00"},
             {"days_before": 0, "time": "11:00:00"},
         ]
-
-    @pytest.mark.asyncio
-    async def test_announcement_audience_flags_default_on(
-        self, async_client: AsyncClient
-    ) -> None:
-        """Both audiences are enabled until an admin turns one off."""
-        response = await async_client.get("/system-settings/")
-        assert response.status_code == 200
-        body = response.json()
-        assert body["announcement_emails_to_admins"] is True
-        assert body["announcement_emails_to_drivers"] is True
-
-    @pytest.mark.asyncio
-    async def test_patch_announcement_audience_flags(
-        self, async_client: AsyncClient
-    ) -> None:
-        """PATCH /system-settings toggles each audience independently."""
-        response = await async_client.patch(
-            "/system-settings/",
-            json={"announcement_emails_to_drivers": False},
-        )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["announcement_emails_to_drivers"] is False
-        # Untouched by this patch, so it keeps its value.
-        assert body["announcement_emails_to_admins"] is True
 
     @pytest.mark.asyncio
     async def test_patch_system_settings_rejects_empty_delivery_types(

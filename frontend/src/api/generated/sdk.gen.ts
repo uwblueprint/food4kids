@@ -347,10 +347,10 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
 /**
  * Send Announcement Email
  *
- * Email an announcement to the audiences enabled in system settings.
+ * Email an announcement to the audiences the poster chose.
  *
- * Admin only. Which audiences actually receive it -- admins, drivers, both,
- * or neither -- is configured under Settings > Route Reminders.
+ * Admin only. The audiences come from the announcement form, not from
+ * stored settings -- both roles together reaches everyone.
  */
 export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
   options: Options<SendAnnouncementEmailData, ThrowOnError>
@@ -364,6 +364,10 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/announcements/{announcement_id}/email',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

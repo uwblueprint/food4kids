@@ -17,6 +17,7 @@ from app.dependencies.services import (
 from app.models import get_session
 from app.models.announcement import (
     AnnouncementCreate,
+    AnnouncementEmailRequest,
     AnnouncementRead,
     AnnouncementUpdate,
 )
@@ -155,21 +156,23 @@ async def delete_announcement(
 @router.post("/{announcement_id}/email")
 async def send_announcement_email(
     announcement_id: UUID,
+    email_request: AnnouncementEmailRequest,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
     dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends),
     _auth: bool = Depends(require_admin),
 ) -> dict[str, int]:
-    """Email an announcement to the audiences enabled in system settings.
+    """Email an announcement to the audiences the poster chose.
 
-    Admin only. Which audiences actually receive it -- admins, drivers, both,
-    or neither -- is configured under Settings > Route Reminders."""
+    Admin only. The audiences come from the announcement form, not from
+    stored settings -- both roles together reaches everyone."""
     try:
         return await announcement_service.send_announcement_emails(
             session,
             announcement_id,
             dispatcher,
             settings.frontend_base_url,
+            set(email_request.audiences),
         )
     except ValueError as error:
         raise HTTPException(

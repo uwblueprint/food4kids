@@ -15,7 +15,7 @@ from app.models.announcement import (
 )
 from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.driver import Driver
-from app.models.system_settings import SystemSettings
+from app.models.enum import RoleEnum
 from app.models.user import User
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.utilities.datetime_utils import now_utc
@@ -155,26 +155,8 @@ class AnnouncementService:
             await session.rollback()
             raise error
 
-    async def _announcement_email_audiences(
-        self, session: AsyncSession
-    ) -> tuple[bool, bool]:
-        """The configured (admins, drivers) audience filters.
-
-        A settings row is always present in a provisioned database, but the
-        announcement path must not fall over if it is missing -- fall back to
-        the model defaults, which are both enabled.
-        """
-        result = await session.execute(select(SystemSettings).limit(1))
-        settings = result.scalars().first()
-        if settings is None:
-            return True, True
-        return (
-            settings.announcement_emails_to_admins,
-            settings.announcement_emails_to_drivers,
-        )
-
     async def _announcement_recipients(
-        self, session: AsyncSession, to_admins: bool, to_drivers: bool
+        self, session: AsyncSession, audiences: set[RoleEnum]
     ) -> list[tuple[User, str]]:
         """Users to email, each paired with the board their role lands on.
 
@@ -182,7 +164,7 @@ class AnnouncementService:
         """
         recipients: dict[UUID, tuple[User, str]] = {}
 
-        if to_drivers:
+        if RoleEnum.DRIVER in audiences:
             statement = (
                 select(User)
                 .join(Driver, col(Driver.user_id) == col(User.user_id))
@@ -192,7 +174,7 @@ class AnnouncementService:
             for user in result.scalars().all():
                 recipients[user.user_id] = (user, "driver")
 
-        if to_admins:
+        if RoleEnum.ADMIN in audiences:
             # Admins are identified by their role, not by an ``admin_info`` row.
             # That is what the rest of the app keys off (``require_admin`` is
             # ``require_authorization_by_role({"admin"})``), and ``admin_info``
@@ -212,22 +194,20 @@ class AnnouncementService:
         announcement_id: UUID,
         dispatcher: EmailDispatcher,
         frontend_base_url: str,
+        audiences: set[RoleEnum],
     ) -> dict[str, int]:
-        """Email an announcement to the audiences enabled in system settings.
+        """Email an announcement to the audiences the poster chose.
 
-        The caller has already decided that this announcement should be
-        emailed; this method decides who receives it. With both audiences
-        disabled there is no one to email, so the send is a no-op rather than
-        an error, the poster's request is simply satisfied by sending nothing.
+        Audience is a per-announcement decision, not a stored setting: the
+        admin picks it on the announcements board and it is never read back.
+        Both roles together reaches everyone; a user holding both is still
+        emailed once.
         """
         announcement = await self.get_announcement(session, announcement_id)
         if announcement is None:
             raise ValueError(f"Announcement with id {announcement_id} not found")
 
-        to_admins, to_drivers = await self._announcement_email_audiences(session)
-        recipients = await self._announcement_recipients(
-            session, to_admins=to_admins, to_drivers=to_drivers
-        )
+        recipients = await self._announcement_recipients(session, audiences)
 
         base = frontend_base_url.rstrip("/")
         sent_count = 0

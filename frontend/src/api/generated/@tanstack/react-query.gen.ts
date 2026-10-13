@@ -495,10 +495,10 @@ export const updateAnnouncementMutation = (
 /**
  * Send Announcement Email
  *
- * Email an announcement to the audiences enabled in system settings.
+ * Email an announcement to the audiences the poster chose.
  *
- * Admin only. Which audiences actually receive it -- admins, drivers, both,
- * or neither -- is configured under Settings > Route Reminders.
+ * Admin only. The audiences come from the announcement form, not from
+ * stored settings -- both roles together reaches everyone.
  */
 export const sendAnnouncementEmailMutation = (
   options?: Partial<Options<SendAnnouncementEmailData>>
