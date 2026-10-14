@@ -1,3 +1,4 @@
+export { BlockedButton } from './BlockedButton';
 export { ContactInformationPanel } from './ContactInformationPanel';
-export { EditingBanner } from './EditingBanner';
 export { RouteRemindersPanel } from './RouteRemindersPanel';
+export { SettingsBanner } from './SettingsBanner';

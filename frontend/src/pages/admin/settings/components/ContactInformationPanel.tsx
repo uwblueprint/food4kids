@@ -74,7 +74,7 @@ const CONTACT_FIELDS: ContactField[] = [
 ];
 
 export const ContactInformationPanel = () => {
-  const { isEditing, getField, setField } = useSettingsForm();
+  const { isEditing, getField, setField, isEdited } = useSettingsForm();
 
   return (
     <div className="flex max-w-[600px] flex-col gap-6">
@@ -95,9 +95,11 @@ export const ContactInformationPanel = () => {
         const required = (REQUIRED_SETTING_KEYS as readonly string[]).includes(
           key
         );
-        // Only nag once they have actually emptied it, not on arrival.
+        /* Only flag a field the admin emptied in this session -- the same
+         * rule the save guard uses. A row provisioned with null contact
+         * columns must not open covered in errors. */
         const error =
-          isEditing && required && isBlank(stored)
+          isEditing && required && isEdited(key) && isBlank(stored)
             ? `${label} is required.`
             : undefined;
         return (
@@ -129,8 +131,9 @@ export const ContactInformationPanel = () => {
               error={error}
               value={format ? format(stored) : stored}
               onChange={(event) =>
-                // An emptied optional field clears the column rather than
-                // storing "", which the model's min_length=1 would reject.
+                /* Typed text goes through untouched: formatPhoneInput would
+                 * cap at 10 digits and silently drop an extension, and this
+                 * org's number has one. The backend normalises on save. */
                 setField(key, event.target.value || null)
               }
             />

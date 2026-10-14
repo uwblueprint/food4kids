@@ -71,7 +71,6 @@ export {
 export { Spinner } from './Spinner';
 export type { Character, StatisticsCardColor } from './StatisticsCard';
 export { StatisticsCard } from './StatisticsCard';
-export { Switch } from './Switch';
 export { TableToolbar } from './TableToolbar';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
