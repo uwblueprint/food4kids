@@ -2290,6 +2290,10 @@ export type SystemSettingsRead = {
    */
   f4k_wr_instagram?: string | null;
   /**
+   * F4K Wr Twitter
+   */
+  f4k_wr_twitter?: string | null;
+  /**
    * F4K Wr Website
    */
   f4k_wr_website?: string | null;
@@ -2371,6 +2375,10 @@ export type SystemSettingsUpdate = {
    * F4K Wr Instagram
    */
   f4k_wr_instagram?: string | null;
+  /**
+   * F4K Wr Twitter
+   */
+  f4k_wr_twitter?: string | null;
   /**
    * F4K Wr Website
    */
