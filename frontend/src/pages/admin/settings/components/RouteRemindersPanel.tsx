@@ -7,22 +7,21 @@ import {
   DropdownItem,
   DropdownTrigger,
   DropdownValue,
-  Switch,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+  FieldLabel,
+  TimePicker,
 } from '@/common/components';
+import { fromApiTime, toApiTime } from '@/common/utils';
 
 import {
   ADD_REMINDER_LIMIT_MESSAGE,
   createReminder,
   daysBeforeOptionsFor,
   formatDaysBefore,
-  formatTimeLabel,
   MAX_REMINDERS,
-  timeOptionsFor,
+  UNSET_DAYS_BEFORE,
 } from '../reminderOptions';
 import { useSettingsForm } from '../useSettingsForm';
+import { BlockedButton } from './BlockedButton';
 
 interface ReminderRowProps {
   reminder: EmailReminder;
@@ -40,7 +39,6 @@ const ReminderRow = ({
   onRemove,
 }: ReminderRowProps) => {
   const daysId = `reminder-${index}-days`;
-  const timeId = `reminder-${index}-time`;
 
   return (
     <div className="flex flex-col gap-2">
@@ -49,18 +47,26 @@ const ReminderRow = ({
       </h3>
       <div className="flex items-end gap-8">
         <div className="flex flex-col gap-1">
-          <label htmlFor={daysId} className="text-p2 text-grey-400">
+          <FieldLabel
+            htmlFor={daysId}
+            required
+            className="text-p2 text-grey-400 font-normal"
+          >
             How many days before?
-          </label>
+          </FieldLabel>
           <Dropdown
-            value={String(reminder.days_before)}
+            value={
+              reminder.days_before === UNSET_DAYS_BEFORE
+                ? ''
+                : String(reminder.days_before)
+            }
             onValueChange={(value) =>
               onChange(index, { ...reminder, days_before: Number(value) })
             }
             disabled={!isEditing}
           >
             <DropdownTrigger id={daysId} className="w-[148px]">
-              <DropdownValue />
+              <DropdownValue placeholder="Select" />
             </DropdownTrigger>
             <DropdownContent>
               {daysBeforeOptionsFor(reminder.days_before).map((days) => (
@@ -73,27 +79,19 @@ const ReminderRow = ({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor={timeId} className="text-p2 text-grey-400">
+          {/* No htmlFor: TimePicker takes no id, same as the other call sites. */}
+          <FieldLabel required className="text-p2 text-grey-400 font-normal">
             At what time?
-          </label>
-          <Dropdown
-            value={reminder.time}
-            onValueChange={(value) =>
-              onChange(index, { ...reminder, time: value })
+          </FieldLabel>
+          <TimePicker
+            value={fromApiTime(reminder.time)}
+            onChange={(value) =>
+              onChange(index, { ...reminder, time: toApiTime(value) })
             }
             disabled={!isEditing}
-          >
-            <DropdownTrigger id={timeId} className="w-[126px]">
-              <DropdownValue />
-            </DropdownTrigger>
-            <DropdownContent className="max-h-64 overflow-y-auto">
-              {timeOptionsFor(reminder.time).map((time) => (
-                <DropdownItem key={time} value={time}>
-                  {formatTimeLabel(time)}
-                </DropdownItem>
-              ))}
-            </DropdownContent>
-          </Dropdown>
+            padding={24}
+            className="w-[126px]"
+          />
         </div>
 
         {isEditing && (
@@ -106,63 +104,6 @@ const ReminderRow = ({
             <TrashIcon className="size-5" />
           </Button>
         )}
-      </div>
-    </div>
-  );
-};
-
-interface AnnouncementToggle {
-  key: 'announcement_emails_to_admins' | 'announcement_emails_to_drivers';
-  label: string;
-}
-
-const ANNOUNCEMENT_TOGGLES: AnnouncementToggle[] = [
-  {
-    key: 'announcement_emails_to_admins',
-    label: 'Enable email notifications for admin',
-  },
-  {
-    key: 'announcement_emails_to_drivers',
-    label: 'Enable email notifications for drivers',
-  },
-];
-
-/**
- * Audience filters for announcement emails.
- *
- * These do not send anything on their own -- they narrow who receives an
- * announcement that was already posted with email requested from the
- * announcements board. With both off, such a post emails no one.
- */
-const AnnouncementsSection = () => {
-  const { isEditing, getField, setField } = useSettingsForm();
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-h2 text-grey-500 font-bold">Announcements</h2>
-        <p className="text-p2 text-grey-400">
-          Admins and drivers can be notified by email when announcements are
-          posted.
-        </p>
-      </div>
-      <div className="flex max-w-[420px] flex-col gap-2">
-        {ANNOUNCEMENT_TOGGLES.map(({ key, label }) => {
-          const switchId = `settings-${key}`;
-          return (
-            <div key={key} className="flex items-center justify-between gap-8">
-              <label htmlFor={switchId} className="text-p1 text-grey-500">
-                {label}
-              </label>
-              <Switch
-                id={switchId}
-                checked={getField(key) ?? true}
-                onCheckedChange={(checked) => setField(key, checked)}
-                disabled={!isEditing}
-              />
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -203,28 +144,15 @@ export const RouteRemindersPanel = () => {
         </p>
       </div>
 
-      {isEditing &&
-        /* The button stays mounted at the limit so the tooltip has a trigger to
-         * hang off — a disabled button swallows pointer events, so the wrapper
-         * span is what Radix listens on. */
-        (isAtLimit ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="w-fit">
-                <Button disabled className="w-fit">
-                  Add notification
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="bg-grey-500 text-grey-100">
-              {ADD_REMINDER_LIMIT_MESSAGE}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button onClick={addReminder} className="w-fit">
-            Add notification
-          </Button>
-        ))}
+      {isEditing && (
+        <BlockedButton
+          onClick={addReminder}
+          blockedReason={isAtLimit ? ADD_REMINDER_LIMIT_MESSAGE : null}
+          className="w-fit"
+        >
+          Add notification
+        </BlockedButton>
+      )}
 
       {reminders.map((reminder, index) => (
         <ReminderRow
@@ -236,8 +164,6 @@ export const RouteRemindersPanel = () => {
           onRemove={removeAt}
         />
       ))}
-
-      <AnnouncementsSection />
     </div>
   );
 };

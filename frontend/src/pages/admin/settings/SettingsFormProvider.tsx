@@ -9,6 +9,7 @@ import {
   useUpdateSystemSettings,
 } from '@/api/system-settings';
 
+import { isReminderComplete } from './reminderOptions';
 import {
   describeSaveFailure,
   isBlank,
@@ -22,6 +23,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   // Only edited fields land here, which is exactly the PATCH body: an
   // untouched field is absent rather than sent back at its current value.
   const [draft, setDraft] = useState<SystemSettingsUpdate>({});
@@ -34,6 +36,12 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       ] as SystemSettingsUpdate[K];
     },
     [draft, settings]
+  );
+
+  /** Whether this field has been touched in the current edit session. */
+  const isEdited = useCallback(
+    (key: keyof SystemSettingsUpdate) => key in draft,
+    [draft]
   );
 
   const setField = useCallback(
@@ -52,10 +60,14 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
    * list would PATCH a one-item array over the org's real reminders. */
   const startEditing = useCallback(() => {
     if (isLoading) return;
+    setJustSaved(false);
     setIsEditing(true);
   }, [isLoading]);
 
+  const dismissSaved = useCallback(() => setJustSaved(false), []);
+
   const cancelEditing = useCallback(() => {
+    setJustSaved(false);
     setIsEditing(false);
     setDraft({});
     setSaveError(null);
@@ -66,25 +78,44 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
    * provisioned row has every contact column null (ensure_settings() builds it
    * from model defaults), and blocking on those would leave Save permanently
    * disabled for someone who only came to flip a toggle on another tab. */
-  const missingRequired = useMemo(
+  const hasMissingRequired = useMemo(
     () =>
-      REQUIRED_SETTING_KEYS.filter(
-        (key) => key in draft && isBlank(draft[key])
-      ),
+      REQUIRED_SETTING_KEYS.some((key) => key in draft && isBlank(draft[key])),
     [draft]
+  );
+
+  /* Only the draft can hold an unset reminder -- anything already saved has a
+   * real lead time, since the API rejects the sentinel. */
+  const hasIncompleteReminder = useMemo(
+    () => (draft.email_reminders ?? []).some((r) => !isReminderComplete(r)),
+    [draft.email_reminders]
+  );
+
+  /* Compared by value, not key presence: typing into a field and undoing it
+   * leaves the key in the draft but changes nothing to save. */
+  const isDirty = useMemo(
+    () =>
+      Object.entries(draft).some(
+        ([key, value]) =>
+          JSON.stringify(value) !==
+          JSON.stringify(settings?.[key as keyof SystemSettingsRead])
+      ),
+    [draft, settings]
   );
 
   const save = useCallback(() => {
     // The header disables the button, but guard here too so the rule holds for
     // any other caller rather than relying on the UI to enforce it.
-    if (missingRequired.length > 0) return;
+    if (hasMissingRequired || hasIncompleteReminder) return;
     setSaveError(null);
+    setJustSaved(false);
     updateSettings.mutate(
       { body: draft },
       {
         onSuccess: () => {
           setIsEditing(false);
           setDraft({});
+          setJustSaved(true);
         },
         onError: (error) => {
           /* Stay in edit mode with the draft intact so the admin can correct
@@ -94,33 +125,39 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         },
       }
     );
-  }, [draft, missingRequired, updateSettings]);
+  }, [draft, hasMissingRequired, hasIncompleteReminder, updateSettings]);
 
   const value = useMemo(
     () => ({
-      settings,
       isLoading,
       isEditing,
       isSaving: updateSettings.isPending,
-      isDirty: Object.keys(draft).length > 0,
-      missingRequired,
+      isDirty,
+      hasMissingRequired,
+      hasIncompleteReminder,
       saveError,
+      justSaved,
+      dismissSaved,
       getField,
       setField,
+      isEdited,
       startEditing,
       cancelEditing,
       save,
     }),
     [
-      settings,
       isLoading,
       isEditing,
       updateSettings.isPending,
-      draft,
-      missingRequired,
+      isDirty,
+      hasMissingRequired,
+      hasIncompleteReminder,
       saveError,
+      justSaved,
+      dismissSaved,
       getField,
       setField,
+      isEdited,
       startEditing,
       cancelEditing,
       save,

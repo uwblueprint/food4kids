@@ -1,80 +1,112 @@
+import { useState } from 'react';
+
 import SearchIcon from '@/assets/icons/search.svg?react';
 import {
   Account,
   Banner,
   Button,
+  ConfirmModal,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '@/common/components';
 import { AnnouncementsBoard } from '@/features/announcements';
 
 import {
+  BlockedButton,
   ContactInformationPanel,
-  EditingBanner,
   RouteRemindersPanel,
+  SettingsBanner,
 } from './components';
 import { SettingsFormProvider } from './SettingsFormProvider';
 import { useSettingsForm } from './useSettingsForm';
-
-/**
- * Save, with a tooltip that survives being disabled.
- *
- * A disabled button swallows pointer events, so `title` never fires on it --
- * the trigger has to be a wrapper element. Same pattern as the reminders
- * panel's "Add notification" at its limit.
- */
-const SaveButton = ({
-  onSave,
-  isSaving,
-  blockedByRequired,
-}: {
-  onSave: () => void;
-  isSaving: boolean;
-  blockedByRequired: boolean;
-}) => {
-  const button = (
-    <Button onClick={onSave} disabled={isSaving || blockedByRequired}>
-      {isSaving ? 'Saving…' : 'Save changes'}
-    </Button>
-  );
-
-  if (!blockedByRequired) return button;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span>{button}</span>
-      </TooltipTrigger>
-      <TooltipContent className="bg-grey-500 text-grey-100">
-        Fill in every required field before saving.
-      </TooltipContent>
-    </Tooltip>
-  );
-};
 
 const SettingsPageHeader = () => {
   const {
     isEditing,
     isLoading,
     isSaving,
-    missingRequired,
+    isDirty,
+    hasMissingRequired,
+    hasIncompleteReminder,
+    justSaved,
+    dismissSaved,
     startEditing,
     cancelEditing,
     save,
   } = useSettingsForm();
 
-  const blockedByRequired = missingRequired.length > 0;
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  const handleStopEditing = () => {
+    if (isDirty) {
+      setConfirmDiscard(true);
+      return;
+    }
+    cancelEditing();
+  };
+
+  /* Reminders first: an unset notification is the more specific problem, and
+   * the fix for it is different -- pick a day, or remove the row. */
+  const blockedReason = hasIncompleteReminder
+    ? 'Choose how many days before for every notification, or remove it.'
+    : hasMissingRequired
+      ? 'Fill in every required field before saving.'
+      : null;
 
   return (
     <div className="flex items-start justify-between gap-6">
       <div className="flex items-center gap-8">
         <h1>Settings</h1>
-        {isEditing && <EditingBanner onDismiss={cancelEditing} />}
+        {isEditing && (
+          <SettingsBanner
+            variant="editing"
+            onDismiss={handleStopEditing}
+            dismissLabel="Stop editing"
+          />
+        )}
+        {!isEditing && justSaved && (
+          <SettingsBanner
+            variant="saved"
+            onDismiss={dismissSaved}
+            dismissLabel="Dismiss"
+          />
+        )}
+        {/* Offering "Save changes" while the draft cannot be saved would be a
+         * dead button, so a blocked form gets a discard-only prompt. */}
+        {blockedReason ? (
+          <ConfirmModal
+            open={confirmDiscard}
+            onOpenChange={setConfirmDiscard}
+            title="Unsaved Changes"
+            description={`${blockedReason} Leaving now will discard your changes.`}
+            confirmLabel="Discard changes"
+            confirmVariant="destructive"
+            onConfirm={() => {
+              setConfirmDiscard(false);
+              cancelEditing();
+            }}
+            onCancel={() => setConfirmDiscard(false)}
+          />
+        ) : (
+          <ConfirmModal
+            open={confirmDiscard}
+            onOpenChange={setConfirmDiscard}
+            title="Unsaved Changes"
+            description="You have unsaved changes. Leaving this page will discard them. Do you want to save before exiting?"
+            confirmLabel="Save changes"
+            cancelLabel="Discard"
+            onConfirm={() => {
+              setConfirmDiscard(false);
+              save();
+            }}
+            onCancel={() => {
+              setConfirmDiscard(false);
+              cancelEditing();
+            }}
+          />
+        )}
       </div>
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
@@ -85,11 +117,13 @@ const SettingsPageHeader = () => {
         </div>
         <Account />
         {isEditing ? (
-          <SaveButton
-            onSave={save}
-            isSaving={isSaving}
-            blockedByRequired={blockedByRequired}
-          />
+          <BlockedButton
+            onClick={save}
+            disabled={isSaving}
+            blockedReason={blockedReason}
+          >
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </BlockedButton>
         ) : (
           <Button onClick={startEditing} disabled={isLoading}>
             Edit settings

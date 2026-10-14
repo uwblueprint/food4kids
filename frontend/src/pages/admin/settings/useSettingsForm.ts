@@ -1,19 +1,12 @@
 import { createContext, useContext } from 'react';
 
-import type {
-  SystemSettingsRead,
-  SystemSettingsUpdate,
-} from '@/api/generated/types.gen';
-
-import type { RequiredSettingKey } from './settingsFields';
+import type { SystemSettingsUpdate } from '@/api/generated/types.gen';
 
 export interface SettingsFormValue {
-  /** The saved row. `undefined` only while the first fetch is in flight. */
-  settings: SystemSettingsRead | undefined;
   isLoading: boolean;
   isEditing: boolean;
   isSaving: boolean;
-  /** True once any field has been edited away from its saved value. */
+  /** True once any field holds a value different from what is saved. */
   isDirty: boolean;
   /**
    * The edited value for a field, falling back to what is saved. Every panel
@@ -26,14 +19,20 @@ export interface SettingsFormValue {
     key: K,
     value: SystemSettingsUpdate[K]
   ) => void;
-  /**
-   * Required settings that are currently blank. Non-empty means the draft
-   * cannot be saved -- the header disables the save button off this, and the
-   * panels flag the individual fields.
-   */
-  missingRequired: RequiredSettingKey[];
+  /** Whether this field has been touched in the current edit session. */
+  isEdited: (key: keyof SystemSettingsUpdate) => boolean;
+  /** True while a required setting has been emptied, which blocks the save. */
+  hasMissingRequired: boolean;
   /** Why the last save failed, or null. Cleared when editing is cancelled. */
   saveError: string | null;
+  /**
+   * True while a reminder has been added but not given a lead time. Blocks the
+   * save until the admin picks one -- or removes the row.
+   */
+  hasIncompleteReminder: boolean;
+  /** True from a successful save until the next edit, for the saved banner. */
+  justSaved: boolean;
+  dismissSaved: () => void;
   startEditing: () => void;
   /** Leaves edit mode and throws the draft away. */
   cancelEditing: () => void;

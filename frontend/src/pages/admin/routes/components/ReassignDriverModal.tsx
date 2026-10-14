@@ -21,17 +21,10 @@ import {
   ModalTitle,
   TimePicker,
 } from '@/common/components';
+import { fromApiTime, toApiTime } from '@/common/utils';
 
 /** The design's default start time for a route that has none yet. */
 const DEFAULT_START_TIME = '09:00';
-
-/**
- * The API stores start_time as "HH:MM:SS"; TimePicker speaks "HH:MM". Convert
- * at this boundary rather than teaching either side about the other's format.
- */
-const toApiTime = (value: string): string => `${value}:00`;
-const fromApiTime = (value: string | null | undefined): string =>
-  value ? value.slice(0, 5) : DEFAULT_START_TIME;
 
 interface ReassignDriverModalProps {
   open: boolean;
@@ -77,7 +70,9 @@ export function ReassignDriverModal({
   onUpdated,
 }: ReassignDriverModalProps) {
   const [driverId, setDriverId] = useState('');
-  const [time, setTime] = useState(() => fromApiTime(startTime));
+  const [time, setTime] = useState(
+    () => fromApiTime(startTime) ?? DEFAULT_START_TIME
+  );
   // Reset on open, not on close: the route the modal stays mounted for may have
   // a new start time by then, e.g. the one it was just assigned.
   const [wasOpen, setWasOpen] = useState(open);
@@ -85,7 +80,7 @@ export function ReassignDriverModal({
     setWasOpen(open);
     if (open) {
       setDriverId('');
-      setTime(fromApiTime(startTime));
+      setTime(fromApiTime(startTime) ?? DEFAULT_START_TIME);
     }
   }
   const { data: drivers = [] } = useDrivers();
