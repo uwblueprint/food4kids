@@ -1435,6 +1435,63 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ImportField": {
+        "description": "One column an admin expects to find in an imported spreadsheet.\n\nBuilt-in fields map onto real ``Location`` columns; custom ones are keyed\ninto ``Location.custom_fields`` and carried through to the Validate step.",
+        "properties": {
+          "builtin": {
+            "default": false,
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/ImportFieldDataType",
+            "default": "Text"
+          },
+          "delivery_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delivery Types",
+            "type": "array"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ImportField",
+        "type": "object"
+      },
+      "ImportFieldDataType": {
+        "description": "How an import column is validated. Values are what the admin sees.",
+        "enum": [
+          "Text",
+          "Address",
+          "Number",
+          "Phone Number",
+          "Email",
+          "Yes/No"
+        ],
+        "title": "ImportFieldDataType",
+        "type": "string"
+      },
       "JobEnqueueResponse": {
         "description": "Job creation response",
         "properties": {
@@ -1546,6 +1603,13 @@
           "contact_name": {
             "title": "Contact Name",
             "type": "string"
+          },
+          "custom_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Custom Fields",
+            "type": "object"
           },
           "delivery_type": {
             "maxLength": 100,
@@ -1860,6 +1924,13 @@
             ],
             "title": "Contact Name"
           },
+          "custom_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Custom Fields",
+            "type": "object"
+          },
           "delivery_group": {
             "anyOf": [
               {
@@ -2071,6 +2142,13 @@
           "contact_name": {
             "title": "Contact Name",
             "type": "string"
+          },
+          "custom_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Custom Fields",
+            "type": "object"
           },
           "delivery_type": {
             "maxLength": 100,
@@ -3974,6 +4052,13 @@
             ],
             "title": "Import Column Map"
           },
+          "import_fields": {
+            "items": {
+              "$ref": "#/components/schemas/ImportField"
+            },
+            "title": "Import Fields",
+            "type": "array"
+          },
           "route_start_time": {
             "anyOf": [
               {
@@ -3985,6 +4070,19 @@
               }
             ],
             "title": "Route Start Time"
+          },
+          "support_phone": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Phone"
           },
           "system_settings_id": {
             "format": "uuid",
@@ -4216,6 +4314,20 @@
             ],
             "title": "Import Column Map"
           },
+          "import_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ImportField"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Fields"
+          },
           "route_start_time": {
             "anyOf": [
               {
@@ -4227,6 +4339,19 @@
               }
             ],
             "title": "Route Start Time"
+          },
+          "support_phone": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Phone"
           },
           "warehouse_latitude": {
             "anyOf": [

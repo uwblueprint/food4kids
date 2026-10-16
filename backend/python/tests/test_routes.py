@@ -6549,6 +6549,106 @@ class TestSystemSettingsRoutes:
         ]
 
     @pytest.mark.asyncio
+    async def test_import_fields_default_to_the_builtin_columns(
+        self, async_client: AsyncClient
+    ) -> None:
+        """A fresh row ships the columns the importer has always expected."""
+        response = await async_client.get("/system-settings/")
+        assert response.status_code == 200
+        fields = response.json()["import_fields"]
+        assert [f["key"] for f in fields] == [
+            "contact_name",
+            "guardian_name",
+            "address",
+            "delivery_group",
+            "phone_primary",
+            "phone_secondary",
+            "num_children",
+            "dietary_restrictions",
+            "halal",
+        ]
+        assert all(f["builtin"] for f in fields)
+
+    @pytest.mark.asyncio
+    async def test_patch_import_fields_adds_a_custom_column(
+        self, async_client: AsyncClient
+    ) -> None:
+        """An admin-defined column is stored alongside the built-ins."""
+        current = (await async_client.get("/system-settings/")).json()["import_fields"]
+        custom = {
+            "key": "allergies",
+            "label": "Allergies",
+            "data_type": "Text",
+            "required": False,
+            "delivery_types": ["Family"],
+            "builtin": False,
+        }
+        response = await async_client.patch(
+            "/system-settings/", json={"import_fields": [*current, custom]}
+        )
+        assert response.status_code == 200, response.text
+        stored = response.json()["import_fields"]
+        assert stored[-1]["key"] == "allergies"
+        assert stored[-1]["builtin"] is False
+        assert stored[-1]["delivery_types"] == ["Family"]
+
+    @pytest.mark.asyncio
+    async def test_patch_import_fields_rejects_dropping_a_builtin(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Built-in columns back Location fields, so they cannot be removed."""
+        current = (await async_client.get("/system-settings/")).json()["import_fields"]
+        without_address = [f for f in current if f["key"] != "address"]
+        response = await async_client.patch(
+            "/system-settings/", json={"import_fields": without_address}
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_patch_import_fields_rejects_duplicate_keys(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Keys address a column, so two columns cannot share one."""
+        current = (await async_client.get("/system-settings/")).json()["import_fields"]
+        response = await async_client.patch(
+            "/system-settings/", json={"import_fields": [*current, current[0]]}
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_locked_import_field_stays_required(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Address cannot be made optional: it is what gets geocoded."""
+        current = (await async_client.get("/system-settings/")).json()["import_fields"]
+        # Relax both: one is structurally required, the other is not.
+        relaxed = [
+            {**f, "required": False}
+            if f["key"] in {"address", "dietary_restrictions"}
+            else f
+            for f in current
+        ]
+        response = await async_client.patch(
+            "/system-settings/", json={"import_fields": relaxed}
+        )
+        assert response.status_code == 200, response.text
+        stored = {f["key"]: f for f in response.json()["import_fields"]}
+        assert stored["address"]["required"] is True
+        # A column with no structural role honours the admin's choice.
+        assert stored["dietary_restrictions"]["required"] is False
+
+    @pytest.mark.asyncio
+    async def test_patch_support_phone_is_normalised(
+        self, async_client: AsyncClient
+    ) -> None:
+        """support_phone is stored RFC 3966, like every other number."""
+        response = await async_client.patch(
+            "/system-settings/", json={"support_phone": "519-576-3443"}
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["support_phone"] == "tel:+1-519-576-3443"
+
+    @pytest.mark.asyncio
     async def test_patch_system_settings_rejects_empty_delivery_types(
         self, async_client: AsyncClient
     ) -> None:
