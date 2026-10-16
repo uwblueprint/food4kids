@@ -9,6 +9,7 @@ import {
   useUpdateSystemSettings,
 } from '@/api/system-settings';
 
+import { isFieldComplete } from './importFieldOptions';
 import { isReminderComplete } from './reminderOptions';
 import {
   describeSaveFailure,
@@ -118,10 +119,18 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     [draft, settings]
   );
 
+  /* A column with no name has no key for the API to address it by, so the
+   * save is blocked here rather than bouncing off a 422. */
+  const hasIncompleteImportField = useMemo(
+    () => (draft.import_fields ?? []).some((f) => !isFieldComplete(f)),
+    [draft.import_fields]
+  );
+
   const save = useCallback(() => {
     // The header disables the button, but guard here too so the rule holds for
     // any other caller rather than relying on the UI to enforce it.
-    if (hasMissingRequired || hasIncompleteReminder) return;
+    if (hasMissingRequired || hasIncompleteReminder || hasIncompleteImportField)
+      return;
     setSaveError(null);
     setFieldErrors({});
     setJustSaved(false);
@@ -143,7 +152,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         },
       }
     );
-  }, [draft, hasMissingRequired, hasIncompleteReminder, updateSettings]);
+  }, [
+    draft,
+    hasMissingRequired,
+    hasIncompleteReminder,
+    hasIncompleteImportField,
+    updateSettings,
+  ]);
 
   const value = useMemo(
     () => ({
@@ -153,6 +168,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       isDirty,
       hasMissingRequired,
       hasIncompleteReminder,
+      hasIncompleteImportField,
       saveError,
       fieldErrors,
       justSaved,
@@ -171,6 +187,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       isDirty,
       hasMissingRequired,
       hasIncompleteReminder,
+      hasIncompleteImportField,
       saveError,
       fieldErrors,
       justSaved,
