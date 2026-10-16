@@ -16,6 +16,7 @@ import { AnnouncementsBoard } from '@/features/announcements';
 import {
   BlockedButton,
   ContactInformationPanel,
+  DeliveryDefaultsPanel,
   RouteRemindersPanel,
   SettingsBanner,
 } from './components';
@@ -30,6 +31,7 @@ const SettingsPageHeader = () => {
     isDirty,
     hasMissingRequired,
     hasIncompleteReminder,
+    hasIncompleteImportField,
     justSaved,
     dismissSaved,
     startEditing,
@@ -51,9 +53,11 @@ const SettingsPageHeader = () => {
    * the fix for it is different -- pick a day, or remove the row. */
   const blockedReason = hasIncompleteReminder
     ? 'Choose how many days before for every notification, or remove it.'
-    : hasMissingRequired
-      ? 'Fill in every required field before saving.'
-      : null;
+    : hasIncompleteImportField
+      ? 'Please complete all fields before saving.'
+      : hasMissingRequired
+        ? 'Fill in every required field before saving.'
+        : null;
 
   return (
     <div className="flex items-start justify-between gap-6">
@@ -154,7 +158,7 @@ const AdminSettingsPageContent = () => {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="delivery-defaults">
-          {/* Filled in by the Delivery Defaults PR. */}
+          <DeliveryDefaultsPanel />
         </TabsContent>
         <TabsContent value="route-reminders">
           <RouteRemindersPanel />

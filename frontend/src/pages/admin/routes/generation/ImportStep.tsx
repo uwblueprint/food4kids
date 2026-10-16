@@ -3,6 +3,7 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import { usePreviewLocationImport, useSystemSettings } from '@/api';
+import type { ImportField } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -33,20 +34,26 @@ interface SystemField {
   required?: boolean;
 }
 
-const SYSTEM_FIELDS: SystemField[] = [
-  { key: 'contact_name', label: 'School Name / Last Name', required: true },
-  { key: 'guardian_name', label: 'Guardian Name', required: true },
-  { key: 'address', label: 'Address', required: true },
-  { key: 'delivery_group', label: 'Delivery Group', required: true },
-  { key: 'phone_primary', label: 'Phone Number', required: true },
-  // Optional to match the backend: `phone_secondary` is a ChangedFieldOptStr
-  // and is absent from `_has_required_fields`, so a roster without a second
-  // phone column still imports. It is only validated when non-empty.
-  { key: 'phone_secondary', label: 'Secondary Phone Number' },
-  { key: 'num_children', label: 'Number of Children', required: true },
-  { key: 'dietary_restrictions', label: 'Food Restrictions', required: true },
-  { key: 'halal', label: 'Halal?', required: true },
-];
+/* The columns this file is expected to have come from Settings > Delivery
+ * Defaults, not from a list in here: an admin can add their own, and mark the
+ * non-structural built-ins required. Filtered to the delivery type being
+ * imported, matching what the backend parses. */
+function systemFieldsFor(
+  importFields: ImportField[],
+  deliveryType: string
+): SystemField[] {
+  return importFields
+    .filter(
+      (field) =>
+        !field.delivery_types?.length ||
+        (deliveryType !== '' && field.delivery_types.includes(deliveryType))
+    )
+    .map((field) => ({
+      key: field.key ?? '',
+      label: field.label ?? '',
+      required: field.required,
+    }));
+}
 
 // Parses headers from uploaded Excel file
 function parseHeaders(file: File): Promise<string[]> {
@@ -91,6 +98,10 @@ export function ImportStep() {
   // Undefined until settings load. The layout pre-selects the type when there
   // is exactly one, so the picker then renders with its radio already checked.
   const deliveryTypes = systemSettings?.delivery_types;
+  const systemFields = systemFieldsFor(
+    systemSettings?.import_fields ?? [],
+    selectedDeliveryType
+  );
 
   const [formatError, setFormatError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -187,7 +198,10 @@ export function ImportStep() {
   const canContinue =
     selectedDeliveryType !== '' &&
     file !== null &&
-    SYSTEM_FIELDS.filter((f) => f.required).every((f) => !!columnMap[f.key]);
+    // The expected columns are configuration now, not a constant in here:
+    // continuing before they load would send an unmapped import.
+    systemFields.length > 0 &&
+    systemFields.filter((f) => f.required).every((f) => !!columnMap[f.key]);
 
   const handleContinue = async () => {
     if (!file || !selectedDeliveryType) return;
@@ -308,7 +322,7 @@ export function ImportStep() {
           </div>
           <DataTable
             columns={columns}
-            rows={SYSTEM_FIELDS}
+            rows={systemFields}
             getRowKey={(row) => row.key}
           />
           {/* 8px under the card, not the section's 16. */}
