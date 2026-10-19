@@ -47,6 +47,7 @@ export {
   ModalTitle,
   ModalTrigger,
 } from './Modal';
+export { MultiSelect } from './MultiSelect';
 export { Pagination } from './Pagination';
 export {
   Popover,

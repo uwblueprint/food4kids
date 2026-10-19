@@ -30,6 +30,8 @@ export interface SettingsFormValue {
    * save until the admin picks one -- or removes the row.
    */
   hasIncompleteReminder: boolean;
+  /** True while an added import column has no name yet. */
+  hasIncompleteImportField: boolean;
   /** True from a successful save until the next edit, for the saved banner. */
   justSaved: boolean;
   dismissSaved: () => void;
