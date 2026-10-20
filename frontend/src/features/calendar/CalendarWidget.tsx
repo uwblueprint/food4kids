@@ -134,7 +134,7 @@ export function CalendarWidget() {
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-col gap-4">
-        <div className="flex justify-between gap-3">
+        <div className="border-grey-200 flex justify-between gap-3 rounded-full border p-1">
           {weekDays.map(({ dayName, dayNumber, dateKey }) => {
             const isSelected = selectedDateKey === dateKey;
             return (
@@ -143,7 +143,7 @@ export function CalendarWidget() {
                 variant="secondary"
                 onClick={() => setSelectedDateKey(dateKey)}
                 className={cn(
-                  `flex-1 ${
+                  `flex-1 border-none bg-white ${
                     isSelected &&
                     'border-blue-200 bg-blue-50 text-blue-300 hover:bg-blue-100'
                   }`
