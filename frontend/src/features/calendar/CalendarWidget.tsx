@@ -27,20 +27,39 @@ function formatStartTime(value: string | null | undefined): string | null {
   return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
+const HEADER_CLASS = 'font-normal h-auto pt-0 pb-2';
+
 const COLUMNS: Column<RouteWithDateRead>[] = [
-  { key: 'name', header: 'Name', render: (row) => row.name },
-  { key: 'group_name', header: 'Route Group', render: (row) => row.group_name },
+  {
+    key: 'name',
+    header: 'Name',
+    render: (row) => row.name,
+    headerClassName: HEADER_CLASS,
+  },
+  {
+    key: 'group_name',
+    header: 'Route Group',
+    render: (row) => row.group_name,
+    headerClassName: HEADER_CLASS,
+  },
   {
     key: 'driver_name',
     header: 'Driver',
     render: (row) => row.driver_name ?? '—',
+    headerClassName: HEADER_CLASS,
   },
   {
     key: 'start_time',
     header: 'Start Time',
     render: (row) => formatStartTime(row.start_time) ?? '—',
+    headerClassName: HEADER_CLASS,
   },
-  { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
+  {
+    key: 'num_stops',
+    header: 'Stops',
+    render: (row) => row.num_stops,
+    headerClassName: HEADER_CLASS,
+  },
 ];
 
 export function CalendarWidget() {
@@ -164,7 +183,7 @@ export function CalendarWidget() {
                 No routes scheduled for this day.
               </div>
             }
-            className="flex-1 overflow-y-auto"
+            className="flex-1 overflow-y-auto px-5 pt-4"
           />
         </div>
       </CardContent>
