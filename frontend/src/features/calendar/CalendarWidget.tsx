@@ -27,40 +27,8 @@ function formatStartTime(value: string | null | undefined): string | null {
   return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
-const HEADER_CLASS = 'font-normal h-auto pt-0 pb-2';
-
-const COLUMNS: Column<RouteWithDateRead>[] = [
-  {
-    key: 'name',
-    header: 'Name',
-    render: (row) => row.name,
-    headerClassName: HEADER_CLASS,
-  },
-  {
-    key: 'group_name',
-    header: 'Route Group',
-    render: (row) => row.group_name,
-    headerClassName: HEADER_CLASS,
-  },
-  {
-    key: 'driver_name',
-    header: 'Driver',
-    render: (row) => row.driver_name ?? '—',
-    headerClassName: HEADER_CLASS,
-  },
-  {
-    key: 'start_time',
-    header: 'Start Time',
-    render: (row) => formatStartTime(row.start_time) ?? '—',
-    headerClassName: HEADER_CLASS,
-  },
-  {
-    key: 'num_stops',
-    header: 'Stops',
-    render: (row) => row.num_stops,
-    headerClassName: HEADER_CLASS,
-  },
-];
+const HEADER_CLASS = 'font-medium h-auto pt-0 pb-2';
+const CELL_CLASS = 'text-p1 font-normal';
 
 export function CalendarWidget() {
   const today = new Date();
@@ -125,6 +93,59 @@ export function CalendarWidget() {
 
   const selectedRoutes = routesByDay.get(selectedDateKey) ?? [];
 
+  const getRouteCellClassName = (row: RouteWithDateRead) => {
+    const isFirst = selectedRoutes[0]?.route_id === row.route_id;
+    const isLast =
+      selectedRoutes[selectedRoutes.length - 1]?.route_id === row.route_id;
+    const isSingle = isFirst && isLast;
+
+    if (isSingle) return 'text-p1 font-normal py-3';
+    if (isFirst) return 'text-p1 font-normal pt-4.5 pb-4';
+    if (isLast) return 'text-p1 font-normal pt-4 pb-3';
+    return 'text-p1 font-normal py-4';
+  };
+
+  const columns: Column<RouteWithDateRead>[] = useMemo(
+    () => [
+      {
+        key: 'name',
+        header: 'Name',
+        render: (row) => row.name,
+        headerClassName: HEADER_CLASS,
+        getCellClassName: getRouteCellClassName,
+      },
+      {
+        key: 'group_name',
+        header: 'Route Group',
+        render: (row) => row.group_name,
+        headerClassName: HEADER_CLASS,
+        getCellClassName: getRouteCellClassName,
+      },
+      {
+        key: 'driver_name',
+        header: 'Driver',
+        render: (row) => row.driver_name ?? '—',
+        headerClassName: HEADER_CLASS,
+        getCellClassName: getRouteCellClassName,
+      },
+      {
+        key: 'start_time',
+        header: 'Start Time',
+        render: (row) => formatStartTime(row.start_time) ?? '—',
+        headerClassName: HEADER_CLASS,
+        getCellClassName: getRouteCellClassName,
+      },
+      {
+        key: 'num_stops',
+        header: 'Stops',
+        render: (row) => row.num_stops,
+        headerClassName: HEADER_CLASS,
+        getCellClassName: getRouteCellClassName,
+      },
+    ],
+    [selectedRoutes]
+  );
+
   return (
     <Card className="shadow-admin-bento gap-4 rounded-4xl">
       <CardHeader className="flex-row items-center justify-between">
@@ -175,9 +196,10 @@ export function CalendarWidget() {
         </div>
         <div className="flex min-h-0">
           <DataTable
-            columns={COLUMNS}
+            columns={columns}
             rows={selectedRoutes}
             getRowKey={(row) => row.route_id}
+            bodyClassName="divide-none"
             emptyState={
               <div className="text-grey-400 pt-8 pb-5 text-center">
                 No routes scheduled for this day.
