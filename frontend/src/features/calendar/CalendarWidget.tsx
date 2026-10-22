@@ -14,6 +14,7 @@ import {
   DataTable,
 } from '@/common/components';
 import { toNaiveDateString } from '@/common/utils';
+import { AssignDriverCell } from '@/pages/admin/routes/components/AssignDriverCell';
 import { cn } from '@/lib/utils';
 
 function formatStartTime(value: string | null | undefined): string | null {
@@ -124,7 +125,7 @@ export function CalendarWidget() {
       {
         key: 'driver_name',
         header: 'Driver',
-        render: (row) => row.driver_name ?? '—',
+        render: (row) => row.driver_name ?? <AssignDriverCell row={row} />,
         headerClassName: HEADER_CLASS,
         getCellClassName: getRouteCellClassName,
       },
