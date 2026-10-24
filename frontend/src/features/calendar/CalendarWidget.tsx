@@ -28,8 +28,16 @@ function formatStartTime(value: string | null | undefined): string | null {
   return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
+function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
+  const isSingle = isFirst && isLast;
+
+  if (isSingle) return 'text-p1 font-normal py-3';
+  if (isFirst) return 'text-p1 font-normal pt-4.5 pb-4';
+  if (isLast) return 'text-p1 font-normal pt-4 pb-3';
+  return 'text-p1 font-normal py-4';
+}
+
 const HEADER_CLASS = 'font-medium h-auto pt-0 pb-2';
-const CELL_CLASS = 'text-p1 font-normal';
 
 export function CalendarWidget() {
   const today = new Date();
@@ -37,15 +45,17 @@ export function CalendarWidget() {
     startOfWeek(today, { weekStartsOn: 1 })
   );
 
-  const weekDays = Array.from({ length: 5 }, (_, index) => {
-    const dayDate = addDays(currentWeekStart, index);
-    return {
-      dayName: format(dayDate, 'eee'),
-      dayNumber: format(dayDate, 'd'),
-      dateKey: toNaiveDateString(dayDate),
-      dayDate,
-    };
-  });
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 5 }, (_, index) => {
+      const dayDate = addDays(currentWeekStart, index);
+      return {
+        dayName: format(dayDate, 'eee'),
+        dayNumber: format(dayDate, 'd'),
+        dateKey: toNaiveDateString(dayDate),
+        dayDate,
+      };
+    });
+  }, [currentWeekStart]);
 
   const initialSelectedKey =
     weekDays.find(
@@ -87,58 +97,52 @@ export function CalendarWidget() {
 
   const selectedRoutes = routesByDay.get(selectedDateKey) ?? [];
 
-  const getRouteCellClassName = (row: RouteWithDateRead) => {
-    const isFirst = selectedRoutes[0]?.route_id === row.route_id;
-    const isLast =
-      selectedRoutes[selectedRoutes.length - 1]?.route_id === row.route_id;
-    const isSingle = isFirst && isLast;
+  const columns: Column<RouteWithDateRead>[] = useMemo(() => {
+    const getCellClassName = (row: RouteWithDateRead) => {
+      const isFirst = selectedRoutes[0]?.route_id === row.route_id;
+      const isLast =
+        selectedRoutes[selectedRoutes.length - 1]?.route_id === row.route_id;
+      return getRouteCellClassName(isFirst, isLast);
+    };
 
-    if (isSingle) return 'text-p1 font-normal py-3';
-    if (isFirst) return 'text-p1 font-normal pt-4.5 pb-4';
-    if (isLast) return 'text-p1 font-normal pt-4 pb-3';
-    return 'text-p1 font-normal py-4';
-  };
-
-  const columns: Column<RouteWithDateRead>[] = useMemo(
-    () => [
+    return [
       {
         key: 'name',
         header: 'Name',
         render: (row) => row.name,
         headerClassName: HEADER_CLASS,
-        getCellClassName: getRouteCellClassName,
+        getCellClassName,
       },
       {
         key: 'group_name',
         header: 'Route Group',
         render: (row) => row.group_name,
         headerClassName: HEADER_CLASS,
-        getCellClassName: getRouteCellClassName,
+        getCellClassName,
       },
       {
         key: 'driver_name',
         header: 'Driver',
         render: (row) => row.driver_name ?? <AssignDriverCell row={row} />,
         headerClassName: HEADER_CLASS,
-        getCellClassName: getRouteCellClassName,
+        getCellClassName,
       },
       {
         key: 'start_time',
         header: 'Start Time',
         render: (row) => formatStartTime(row.start_time) ?? '—',
         headerClassName: HEADER_CLASS,
-        getCellClassName: getRouteCellClassName,
+        getCellClassName,
       },
       {
         key: 'num_stops',
         header: 'Stops',
         render: (row) => row.num_stops,
         headerClassName: HEADER_CLASS,
-        getCellClassName: getRouteCellClassName,
+        getCellClassName,
       },
-    ],
-    [selectedRoutes]
-  );
+    ];
+  }, [selectedRoutes]);
 
   return (
     <Card className="shadow-admin-bento gap-4 rounded-4xl">
