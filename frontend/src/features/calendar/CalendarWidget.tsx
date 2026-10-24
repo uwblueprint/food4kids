@@ -55,21 +55,14 @@ export function CalendarWidget() {
   const [selectedDateKey, setSelectedDateKey] =
     useState<string>(initialSelectedKey);
 
-  const handlePrevWeek = () => {
-    setCurrentWeekStart((prev) => {
-      const newWeek = addDays(prev, -7);
-      setSelectedDateKey(toNaiveDateString(newWeek));
-      return newWeek;
-    });
+  const goToWeek = (offset: number) => {
+    const next = addDays(currentWeekStart, offset);
+    setCurrentWeekStart(next);
+    setSelectedDateKey(toNaiveDateString(next));
   };
 
-  const handleNextWeek = () => {
-    setCurrentWeekStart((prev) => {
-      const newWeek = addDays(prev, 7);
-      setSelectedDateKey(toNaiveDateString(newWeek));
-      return newWeek;
-    });
-  };
+  const handlePrevWeek = () => goToWeek(-7);
+  const handleNextWeek = () => goToWeek(7);
 
   const { data } = useRoutes({
     start_date: toNaiveDateString(weekDays[0].dayDate),
