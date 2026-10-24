@@ -32,12 +32,12 @@ import {
   GetLoginLink,
   LoginPage,
   ResetPassword,
+  UpdatePasswordPage,
 } from './pages/auth';
 import {
   DriverHomePage,
   DriverProfile,
   IndividualRoutePage,
-  UpdatePasswordPage,
 } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { RootLayout, RootRedirect } from './RouterComponents';
@@ -70,6 +70,7 @@ export const routes = createRoutesFromElements(
             the admin layout so it mounts at /admin/routes/:routeId. */}
         <Route path="routes/:routeId" element={<AdminIndividualRoutePage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="update-password" element={<UpdatePasswordPage />} />
       </Route>
     </Route>
 
