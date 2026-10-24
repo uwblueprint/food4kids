@@ -15,7 +15,7 @@ import { useRowHighlight, useTableSort } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
 import type { RoutesTabState } from '../hooks';
-import { AssignDriverCell } from './AssignDriverCell';
+import { AssignDriverCell } from '@/common/components';
 import { routeDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
