@@ -13,9 +13,9 @@ import {
   type Column,
   DataTable,
 } from '@/common/components';
+import { AssignDriverCell } from '@/common/components';
 import { formatStartTime, toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
-import { AssignDriverCell } from '@/common/components';
 
 function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
   const isSingle = isFirst && isLast;
