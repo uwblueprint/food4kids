@@ -52,7 +52,6 @@ vi.mock('./pages/driver', () => ({
   DriverHomePage: stub('driver-home'),
   DriverProfile: stub('driver-profile'),
   IndividualRoutePage: stub('driver-route'),
-  UpdatePasswordPage: stub('update-password'),
 }));
 
 vi.mock('./pages/auth', () => ({
@@ -61,6 +60,7 @@ vi.mock('./pages/auth', () => ({
   GetLoginLink: stub('get-login-link'),
   LoginPage: stub('login'),
   ResetPassword: stub('reset-password'),
+  UpdatePasswordPage: stub('update-password'),
 }));
 
 vi.mock('./pages/StyleGuide', () => ({ StyleGuidePage: stub('style-guide') }));
@@ -113,6 +113,7 @@ const ADMIN_PATHS = [
   '/admin/routes/generation/configure',
   '/admin/routes/generation/generate',
   '/admin/settings',
+  '/admin/update-password',
 ];
 
 const DRIVER_PATHS = [
