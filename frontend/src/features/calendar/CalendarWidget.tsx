@@ -1,10 +1,10 @@
 import { addDays, format, startOfWeek } from 'date-fns';
 import { useMemo, useState } from 'react';
 
-import ChevronLeftIcon from '@/assets/icons/chevron-left.svg?react';
-import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
+import ChevronLeftIcon from '@/assets/icons/chevron-left.svg?react';
+import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 import {
   Button,
   Card,
@@ -14,8 +14,8 @@ import {
   DataTable,
 } from '@/common/components';
 import { formatStartTime, toNaiveDateString } from '@/common/utils';
-import { AssignDriverCell } from '@/pages/admin/routes/components/AssignDriverCell';
 import { cn } from '@/lib/utils';
+import { AssignDriverCell } from '@/pages/admin/routes/components/AssignDriverCell';
 
 function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
   const isSingle = isFirst && isLast;
@@ -83,7 +83,9 @@ export function CalendarWidget() {
     return map;
   }, [data?.items, weekDays]);
 
-  const selectedRoutes = routesByDay.get(selectedDateKey) ?? [];
+  const selectedRoutes = useMemo(() => {
+    return routesByDay.get(selectedDateKey) ?? [];
+  }, [routesByDay, selectedDateKey]);
 
   const columns: Column<RouteWithDateRead>[] = useMemo(() => {
     const getCellClassName = (row: RouteWithDateRead) => {
