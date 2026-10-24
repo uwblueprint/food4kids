@@ -3,8 +3,7 @@ import { useState } from 'react';
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { Button } from '@/common/components';
 import { parseDateOnly } from '@/common/utils';
-
-import { ReassignDriverModal } from './ReassignDriverModal';
+import { ReassignDriverModal } from '@/pages/admin/routes/components/ReassignDriverModal';
 
 /** "Oct 18" — short date for the dialog's context line. */
 const formatContextDate = (isoDate: string): string =>

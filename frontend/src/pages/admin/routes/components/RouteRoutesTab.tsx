@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
+  AssignDriverCell,
   Banner,
   Button,
   DataTable,
@@ -15,7 +16,6 @@ import { useRowHighlight, useTableSort } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
 import type { RoutesTabState } from '../hooks';
-import { AssignDriverCell } from './AssignDriverCell';
 import { routeDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
