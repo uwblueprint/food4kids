@@ -48,24 +48,27 @@ jobs:
           workload_identity_provider: 'projects/40946118823/locations/global/workloadIdentityPools/github-workload-identity-pool/providers/github-provider'
           service_account: 'github-manual-deployer@food4kids-473501.iam.gserviceaccount.com'
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: './frontend/pnpm-lock.yaml'
 
       - name: Install Frontend Dependencies
-        run: |
-          cd frontend
-          npm ci
+        run: pnpm install --frozen-lockfile
+        working-directory: ./frontend
 
       - name: Build Frontend Production Bundle
         env:
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-        run: |
-          cd frontend
-          npm run build
+        run: pnpm build
+        working-directory: ./frontend
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
