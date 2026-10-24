@@ -137,11 +137,9 @@ export function CalendarWidget() {
   return (
     <Card className="shadow-admin-bento gap-4 rounded-4xl">
       <CardHeader className="flex-row items-center justify-between">
-        <div>
-          <h2 className="font-nunito text-h2 text-grey-500 font-bold">
-            Calendar
-          </h2>
-        </div>
+        <h2 className="font-nunito text-h2 text-grey-500 font-bold">
+          Calendar
+        </h2>
         <div className="flex items-center">
           <button
             type="button"
