@@ -13,20 +13,9 @@ import {
   type Column,
   DataTable,
 } from '@/common/components';
-import { toNaiveDateString } from '@/common/utils';
+import { formatStartTime, toNaiveDateString } from '@/common/utils';
 import { AssignDriverCell } from '@/pages/admin/routes/components/AssignDriverCell';
 import { cn } from '@/lib/utils';
-
-function formatStartTime(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const [h, m] = value.split(':');
-  const hour = Number(h);
-  const minute = Number(m);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
-  const period = hour < 12 ? 'AM' : 'PM';
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
-}
 
 function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
   const isSingle = isFirst && isLast;
@@ -58,9 +47,8 @@ export function CalendarWidget() {
   }, [currentWeekStart]);
 
   const initialSelectedKey =
-    weekDays.find(
-      (d) => format(d.dayDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
-    )?.dateKey || weekDays[0].dateKey;
+    weekDays.find((d) => d.dateKey === toNaiveDateString(today))?.dateKey ||
+    weekDays[0].dateKey;
 
   const [selectedDateKey, setSelectedDateKey] =
     useState<string>(initialSelectedKey);
