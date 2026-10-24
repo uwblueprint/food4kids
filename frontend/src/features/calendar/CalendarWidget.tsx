@@ -34,6 +34,7 @@ export function CalendarWidget() {
     startOfWeek(today, { weekStartsOn: 1 })
   );
 
+  // Weekends are explicitly not part of the design
   const weekDays = useMemo(() => {
     return Array.from({ length: 5 }, (_, index) => {
       const dayDate = addDays(currentWeekStart, index);
