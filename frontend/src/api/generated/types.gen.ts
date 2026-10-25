@@ -2125,6 +2125,10 @@ export type RouteWithDateRead = {
    */
   drive_date: string;
   /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Driver Name
    */
   driver_name?: string | null;
@@ -4668,6 +4672,12 @@ export type GetRoutesData = {
      * Filter by one or more driver assignment statuses
      */
     driver_assignment_status?: Array<DriverAssignmentStatusEnum> | null;
+    /**
+     * Route Group Id
+     *
+     * Only routes in this route group
+     */
+    route_group_id?: string | null;
     /**
      * Page
      *

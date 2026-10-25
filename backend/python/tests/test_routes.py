@@ -3473,11 +3473,44 @@ class TestRouteRoutes:
             "/routes", params={"driver_assignment_status": "Assigned"}
         )
         assert {r["route_id"] for r in a.json()["items"]} == {str(assigned.route_id)}
+        assert a.json()["items"][0]["driver_id"] == str(test_driver.driver_id)
 
         u = await async_client.get(
             "/routes", params={"driver_assignment_status": "Unassigned"}
         )
         assert {r["route_id"] for r in u.json()["items"]} == {str(unassigned.route_id)}
+        assert u.json()["items"][0]["driver_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_routes_filters_by_route_group(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """route_group_id narrows to that group's routes; omitted, returns all."""
+        other_group = RouteGroup(name="Other", drive_date=test_route_group.drive_date)
+        test_session.add(other_group)
+        await test_session.flush()
+        mine = Route(
+            name="Mine", length=1.0, route_group_id=test_route_group.route_group_id
+        )
+        theirs = Route(
+            name="Theirs", length=1.0, route_group_id=other_group.route_group_id
+        )
+        test_session.add_all([mine, theirs])
+        await test_session.commit()
+        await test_session.refresh(mine)
+        await test_session.refresh(theirs)
+
+        scoped = await async_client.get(
+            "/routes", params={"route_group_id": str(test_route_group.route_group_id)}
+        )
+        assert {r["route_id"] for r in scoped.json()["items"]} == {str(mine.route_id)}
+
+        unscoped = await async_client.get("/routes")
+        unscoped_ids = {r["route_id"] for r in unscoped.json()["items"]}
+        assert {str(mine.route_id), str(theirs.route_id)} <= unscoped_ids
 
     @pytest.mark.asyncio
     async def test_get_routes_filters_by_status(

@@ -76,6 +76,7 @@ class RouteService:
         delivery_type: list[str] | None = None,
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
+        route_group_id: UUID | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes, filtered and paginated. Powers both the admin Routes tab
@@ -84,6 +85,7 @@ class RouteService:
         Args:
             unassigned_only: Only routes with no driver_id.
             driver_id: Only routes assigned to this driver.
+            route_group_id: Only routes in this group (the group side panel).
             start_date / end_date: Range over the group's drive_date.
             search: Case-insensitive substring of the assigned driver's full
                 name, the route's name, or its group's name, applied before
@@ -189,6 +191,9 @@ class RouteService:
         if driver_id is not None:
             statement = statement.where(Route.driver_id == driver_id)
 
+        if route_group_id is not None:
+            statement = statement.where(Route.route_group_id == route_group_id)
+
         if search and search.strip():
             # Driver full name, the route's own name, and its group's name.
             # User is outer-joined, so concat() is NULL for an unassigned route
@@ -281,6 +286,7 @@ class RouteService:
                 num_stops=row.num_stops,
                 box_total=row.box_total,
                 delivery_type=row.delivery_type,
+                driver_id=row.Route.driver_id,
                 driver_name=row.driver_name,
                 status=row.status,
             )
