@@ -41,6 +41,21 @@ export type AnnouncementCreate = {
 };
 
 /**
+ * AnnouncementEmailRequest
+ *
+ * Who the posting admin chose to email about an announcement.
+ *
+ * Both roles together is how "everyone" is expressed; an empty list has no
+ * meaning, so the caller simply does not ask for a send.
+ */
+export type AnnouncementEmailRequest = {
+  /**
+   * Audiences
+   */
+  audiences: Array<RoleEnum>;
+};
+
+/**
  * AnnouncementLastReadResponse
  *
  * Response model for announcement last read
@@ -1686,6 +1701,13 @@ export type ResendOnboardingEmailRequest = {
 };
 
 /**
+ * RoleEnum
+ *
+ * User role enum with string values
+ */
+export type RoleEnum = 'driver' | 'admin';
+
+/**
  * RouteDetailRead
  *
  * GET /routes/{route_id} response: the bare route plus its ordered stops.
@@ -3001,7 +3023,7 @@ export type UpdateAnnouncementResponse =
   UpdateAnnouncementResponses[keyof UpdateAnnouncementResponses];
 
 export type SendAnnouncementEmailData = {
-  body?: never;
+  body: AnnouncementEmailRequest;
   path: {
     /**
      * Announcement Id
