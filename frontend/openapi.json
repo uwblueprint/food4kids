@@ -3645,6 +3645,18 @@
             "title": "Drive Date",
             "type": "string"
           },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "driver_name": {
             "anyOf": [
               {
@@ -7559,6 +7571,25 @@
               ],
               "description": "Filter by one or more driver assignment statuses",
               "title": "Driver Assignment Status"
+            }
+          },
+          {
+            "description": "Only routes in this route group",
+            "in": "query",
+            "name": "route_group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only routes in this route group",
+              "title": "Route Group Id"
             }
           },
           {

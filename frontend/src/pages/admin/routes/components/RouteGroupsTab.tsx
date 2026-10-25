@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { RouteGroupRead } from '@/api/generated/types.gen';
@@ -18,6 +18,8 @@ import { routeGroupDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteFilterModal } from './RouteFilterModal';
 import { RouteGroupActionsCell } from './RouteGroupActionsCell';
+import { RouteGroupPanel } from './RouteGroupPanel';
+import { RowActionCell } from './RowActionCell';
 import { StatusHeader } from './StatusHeader';
 
 const COLUMNS: Column<RouteGroupRead>[] = [
@@ -92,6 +94,10 @@ export function RouteGroupsTab({
   const { sort, toggleSort } = useTableSort();
   // Highlight + scroll for a row that was just added, duplicated, or re-dated.
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
+  // Held by id and looked up in `rows` so the panel picks up refetched
+  // aggregates, and closes if the group is deleted.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = rows.find((r) => r.route_group_id === selectedId);
 
   // The kebab lives inside the Status cell (the last column) rather than in
   // its own column: an extra column would compete for the table's leftover
@@ -104,20 +110,19 @@ export function RouteGroupsTab({
         if (col.key === 'name') {
           return {
             ...col,
-            // Placeholder link to the (not-yet-built) individual group page;
-            // underlines on hover.
             render: (row: RouteGroupRead) => (
-              <Link
-                to={`/admin/routes/groups/${row.route_group_id}`}
-                className="decoration-blue-300 hover:underline"
-              >
-                <HighlightText text={row.name} query={searchTerm} />
-              </Link>
+              <HighlightText text={row.name} query={searchTerm} />
             ),
           };
         }
         if (col.key === 'drive_date') {
-          return routeGroupDriveDateColumn(highlightRow);
+          const dateCol = routeGroupDriveDateColumn(highlightRow);
+          return {
+            ...dateCol,
+            render: (row: RouteGroupRead) => (
+              <RowActionCell>{dateCol.render?.(row)}</RowActionCell>
+            ),
+          };
         }
         if (col.key === 'status') {
           return {
@@ -125,7 +130,12 @@ export function RouteGroupsTab({
             render: (row: RouteGroupRead) => (
               <div className="flex items-center justify-between gap-10">
                 <span>{row.status}</span>
-                <RouteGroupActionsCell row={row} onDuplicated={highlightRow} />
+                <RowActionCell>
+                  <RouteGroupActionsCell
+                    row={row}
+                    onDuplicated={highlightRow}
+                  />
+                </RowActionCell>
               </div>
             ),
           };
@@ -156,7 +166,12 @@ export function RouteGroupsTab({
           getRowKey={(r) => r.route_group_id}
           sort={sort}
           onSortChange={toggleSort}
-          getRowClassName={(r) => getRowClassName(r.route_group_id)}
+          onRowClick={(r) => setSelectedId(r.route_group_id)}
+          getRowClassName={(r) =>
+            `${getRowClassName(r.route_group_id) ?? ''} ${
+              r.route_group_id === selectedId ? 'bg-blue-50' : ''
+            }`
+          }
           emptyState={
             <EmptyState
               title="No route groups found"
@@ -179,6 +194,14 @@ export function RouteGroupsTab({
         clearDraft={clearDraft}
         handleApply={handleApply}
       />
+
+      {selected && (
+        <RouteGroupPanel
+          key={selected.route_group_id}
+          group={selected}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
     </>
   );
 }

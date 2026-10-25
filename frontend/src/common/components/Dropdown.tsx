@@ -50,7 +50,9 @@ function DropdownContent({
         position="popper"
         sideOffset={4}
         className={cn(
-          'z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-sm',
+          // Popper mode doesn't cap height on its own, so a long list near the
+          // bottom of the screen would run off it with nothing to scroll.
+          'z-50 max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-sm',
           'border-grey-300 bg-grey-100 shadow-card border',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',

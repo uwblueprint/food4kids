@@ -23,7 +23,7 @@ import {
 } from '@/common/components';
 
 /** The design's default start time for a route that has none yet. */
-const DEFAULT_START_TIME = '09:00';
+export const DEFAULT_START_TIME = '09:00';
 
 /**
  * The API stores start_time as "HH:MM:SS"; TimePicker speaks "HH:MM". Convert
