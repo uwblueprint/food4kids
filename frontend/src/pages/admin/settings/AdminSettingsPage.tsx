@@ -119,7 +119,9 @@ const SettingsPageHeader = () => {
         {isEditing ? (
           <BlockedButton
             onClick={save}
-            disabled={isSaving}
+            // Nothing edited yet means nothing to save, so the button stays
+            // dead until the draft actually differs from the saved row.
+            disabled={isSaving || !isDirty}
             blockedReason={blockedReason}
           >
             {isSaving ? 'Saving…' : 'Save changes'}

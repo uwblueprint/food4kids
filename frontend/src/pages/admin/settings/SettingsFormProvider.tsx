@@ -12,8 +12,10 @@ import {
 import { isReminderComplete } from './reminderOptions';
 import {
   describeSaveFailure,
+  fieldErrorsFrom,
   isBlank,
   REQUIRED_SETTING_KEYS,
+  type SettingFieldErrors,
 } from './settingsFields';
 import { SettingsFormContext } from './useSettingsForm';
 
@@ -23,6 +25,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<SettingFieldErrors>({});
   const [justSaved, setJustSaved] = useState(false);
   // Only edited fields land here, which is exactly the PATCH body: an
   // untouched field is absent rather than sent back at its current value.
@@ -50,8 +53,19 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       value: SystemSettingsUpdate[K]
     ) => {
       setDraft((current) => ({ ...current, [key]: value }));
+
+      /* The server rejected the value it was sent, so once that value changes
+       * the message no longer describes what is on screen. */
+      if (!(key in fieldErrors)) return;
+      const remaining = { ...fieldErrors };
+      delete remaining[key];
+      setFieldErrors(remaining);
+      /* The banner points at the highlighted fields, so with none left it
+       * describes nothing -- which is the same empty promise as highlighting
+       * no fields in the first place. */
+      if (Object.keys(remaining).length === 0) setSaveError(null);
     },
-    []
+    [fieldErrors]
   );
 
   /* Refuse to open the form until the saved row is in hand. getField prefers
@@ -71,6 +85,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     setIsEditing(false);
     setDraft({});
     setSaveError(null);
+    setFieldErrors({});
   }, []);
 
   /* Only fields the admin emptied *in this session* block the save. A field
@@ -108,6 +123,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     // any other caller rather than relying on the UI to enforce it.
     if (hasMissingRequired || hasIncompleteReminder) return;
     setSaveError(null);
+    setFieldErrors({});
     setJustSaved(false);
     updateSettings.mutate(
       { body: draft },
@@ -121,7 +137,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
           /* Stay in edit mode with the draft intact so the admin can correct
            * the value. Without this the mutation just settles and the page
            * looks unchanged -- indistinguishable from a save that worked. */
-          setSaveError(describeSaveFailure(error));
+          const rejected = fieldErrorsFrom(error);
+          setFieldErrors(rejected);
+          setSaveError(describeSaveFailure(error, rejected));
         },
       }
     );
@@ -136,6 +154,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       hasMissingRequired,
       hasIncompleteReminder,
       saveError,
+      fieldErrors,
       justSaved,
       dismissSaved,
       getField,
@@ -153,6 +172,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       hasMissingRequired,
       hasIncompleteReminder,
       saveError,
+      fieldErrors,
       justSaved,
       dismissSaved,
       getField,

@@ -74,7 +74,8 @@ const CONTACT_FIELDS: ContactField[] = [
 ];
 
 export const ContactInformationPanel = () => {
-  const { isEditing, getField, setField, isEdited } = useSettingsForm();
+  const { isEditing, getField, setField, isEdited, fieldErrors } =
+    useSettingsForm();
 
   return (
     <div className="flex max-w-[600px] flex-col gap-6">
@@ -97,11 +98,13 @@ export const ContactInformationPanel = () => {
         );
         /* Only flag a field the admin emptied in this session -- the same
          * rule the save guard uses. A row provisioned with null contact
-         * columns must not open covered in errors. */
+         * columns must not open covered in errors. The local rule wins: it
+         * describes what is on screen now, while the server's message
+         * describes the value that was sent. */
         const error =
           isEditing && required && isEdited(key) && isBlank(stored)
             ? `${label} is required.`
-            : undefined;
+            : fieldErrors[key];
         return (
           <Field key={key}>
             <FieldLabel htmlFor={inputId} required={required}>
