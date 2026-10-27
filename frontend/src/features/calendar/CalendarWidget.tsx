@@ -137,10 +137,16 @@ export function CalendarWidget() {
 
   return (
     <Card className="shadow-admin-bento gap-4 rounded-4xl">
-      <CardHeader className="flex-row items-center justify-between">
-        <h2 className="font-nunito text-h2 text-grey-500 font-bold">
-          Calendar
-        </h2>
+      <CardHeader className="flex-row items-start justify-between">
+        <div>
+          <h2 className="font-nunito text-h2 text-grey-500 font-bold">
+            Calendar
+          </h2>
+          <p className="text-p1 text-grey-400">
+            {format(weekDays[0].dayDate, 'MMM d, yyyy')} -{' '}
+            {format(weekDays[4].dayDate, 'MMM d, yyyy')}
+          </p>
+        </div>
         <div className="flex items-center">
           <button
             type="button"
