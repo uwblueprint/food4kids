@@ -5,6 +5,7 @@ from sqlalchemy import JSON, Text
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from .base import BaseModel
+from .enum import RoleEnum
 from .user import User
 
 
@@ -66,6 +67,16 @@ class AnnouncementRead(AnnouncementBase):
             author_name=author_name,
             author_role=author_role,
         )
+
+
+class AnnouncementEmailRequest(SQLModel):
+    """Who the posting admin chose to email about an announcement.
+
+    Both roles together is how "everyone" is expressed; an empty list has no
+    meaning, so the caller simply does not ask for a send.
+    """
+
+    audiences: list[RoleEnum] = Field(min_length=1)
 
 
 class AnnouncementUpdate(SQLModel):
