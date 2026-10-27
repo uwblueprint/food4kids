@@ -260,7 +260,9 @@ async def _resolve_locations(
         (
             await session.execute(
                 select(Location).where(
-                    Location.location_group_id == group.location_group_id
+                    Location.location_group_id == group.location_group_id,
+                    # Off-roster rows stay in the group for history.
+                    col(Location.in_roster),
                 )
             )
         )
