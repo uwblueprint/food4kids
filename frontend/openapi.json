@@ -399,6 +399,10 @@
           "project_id": {
             "title": "Project Id",
             "type": "string"
+          },
+          "year_to_date_cost": {
+            "title": "Year To Date Cost",
+            "type": "number"
           }
         },
         "required": [
@@ -406,6 +410,7 @@
           "invoice_month",
           "currency",
           "month_to_date_cost",
+          "year_to_date_cost",
           "gross_cost",
           "credits",
           "budget_amount",
@@ -5047,7 +5052,7 @@
     },
     "/api/billing/costs": {
       "get": {
-        "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
+        "description": "Return monthly invoice and year-to-date usage spend for the project.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
         "operationId": "get_billing_costs",
         "responses": {
           "200": {

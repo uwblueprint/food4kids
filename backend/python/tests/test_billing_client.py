@@ -48,6 +48,7 @@ class FakeRow:
     currency: str | None
     usd_conversion_rate: float | None
     last_export_time: datetime | None
+    year_to_date_cost: float | None = 250.0
 
 
 def _budget(
@@ -189,6 +190,7 @@ class TestParseCostRow:
         assert cost.net_cost == 75.0
         assert cost.currency == "CAD"
         assert cost.usd_conversion_rate == 1.37
+        assert cost.year_to_date_cost == 250.0
 
     def test_no_rows_reads_as_zero(self) -> None:
         cost = BillingClient._parse_cost_row(None)
@@ -209,6 +211,7 @@ class TestParseCostRow:
             currency=None,
             usd_conversion_rate=None,
             last_export_time=None,
+            year_to_date_cost=None,
         )
 
         cost = BillingClient._parse_cost_row(row)
@@ -374,9 +377,11 @@ class _FakeBQClient:
 
     def __init__(self) -> None:
         self.job_configs: list[Any] = []
+        self.queries: list[str] = []
 
     def query(self, _query: str, job_config: Any = None) -> _FakeQueryJob:
         self.job_configs.append(job_config)
+        self.queries.append(_query)
         return _FakeQueryJob([FakeRow(1.0, -0.25, "CAD", 1.37, datetime(2026, 7, 29))])
 
 
@@ -427,11 +432,36 @@ class TestPartitionLookback:
         floor = _partition_floor(fake.job_configs[0])
         assert floor.tzinfo is not None, "BigQuery reads a naive TIMESTAMP as UTC"
         assert floor < month_start
-        assert month_start - floor == timedelta(days=PARTITION_LOOKBACK_DAYS)
+        assert month_start.replace(month=1) - floor == timedelta(
+            days=PARTITION_LOOKBACK_DAYS
+        )
 
 
 class TestQueryCost:
     """Guards against a polling caller running up a surprise BigQuery bill."""
+
+    @pytest.mark.parametrize("month", [1, 7, 12])
+    def test_year_to_date_uses_calendar_year_and_current_time(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        month: int,
+    ) -> None:
+        now = datetime(2026, month, 15, 12, tzinfo=ZoneInfo("America/Toronto"))
+        fake, _ = fake_bq
+
+        cost = configured.fetch_month_to_date_cost(now)
+
+        params = {p.name: p.value for p in fake.job_configs[0].query_parameters}
+        assert params["year_start"] == datetime(2026, 1, 1, tzinfo=now.tzinfo)
+        assert params["now"] == now
+        assert params["invoice_month"] == now.strftime("%Y%m")
+        assert (
+            "usage_start_time >= @year_start AND usage_start_time < @now"
+            in fake.queries[0]
+        )
+        assert cost.year_to_date_cost == 250.0
+        assert cost.net_cost == 0.75
 
     def test_query_caps_bytes_billed(
         self,

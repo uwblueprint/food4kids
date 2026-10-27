@@ -21,7 +21,7 @@ BILLING_TIMEOUT_SECONDS = 30
 
 @dataclass
 class BillingSummary:
-    """Month-to-date spend for the target project, against its budget."""
+    """Monthly and yearly spend for the target project, plus its budget."""
 
     project_id: str
     invoice_month: str
@@ -35,6 +35,7 @@ class BillingSummary:
     budget_scope: str | None
     usd_conversion_rate: float | None
     data_as_of: datetime | None
+    year_to_date_cost: float = 0.0
 
 
 class BillingService:
@@ -74,6 +75,7 @@ class BillingService:
             budget_scope=budget.scope if budget else None,
             usd_conversion_rate=cost.usd_conversion_rate,
             data_as_of=cost.last_export_time,
+            year_to_date_cost=cost.year_to_date_cost,
         )
 
     async def _fetch_budget_or_none(self) -> BudgetInfo | None:
