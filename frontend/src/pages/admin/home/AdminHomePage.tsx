@@ -4,7 +4,7 @@ import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
 import { StatisticsWidget } from '@/features/statistics';
 
-import { UnassignedRoutesCard } from './components';
+import { RouteGenerationCostCard, UnassignedRoutesCard } from './components';
 
 const today = formatDisplayDate(new Date());
 
@@ -37,9 +37,7 @@ export const AdminHomePage = () => {
           <CardContent>TODO: Calendar</CardContent>
         </Card>
         <div className="grid grid-rows-[121px_1fr] gap-5">
-          <Card className={TILE}>
-            <CardContent>TODO: Route Generation Cost</CardContent>
-          </Card>
+          <RouteGenerationCostCard />
           <StatisticsWidget />
         </div>
         <UnassignedRoutesCard />

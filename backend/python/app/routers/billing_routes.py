@@ -20,6 +20,7 @@ class BillingCostsResponse(BaseModel):
     invoice_month: str
     currency: str
     month_to_date_cost: float
+    year_to_date_cost: float
     gross_cost: float
     credits: float
     budget_amount: float | None
@@ -38,7 +39,7 @@ async def get_billing_costs(
     billing_service: BillingService = Depends(get_billing_service),
     _auth: bool = Depends(require_admin),
 ) -> BillingCostsResponse:
-    """Return month-to-date spend for the configured project, against its budget.
+    """Return monthly invoice and year-to-date usage spend for the project.
 
     Figures come from the Cloud Billing export and typically lag by several
     hours — see ``data_as_of``. Responses are cached for
@@ -67,6 +68,7 @@ async def get_billing_costs(
         invoice_month=summary.invoice_month,
         currency=summary.currency,
         month_to_date_cost=summary.month_to_date_cost,
+        year_to_date_cost=summary.year_to_date_cost,
         gross_cost=summary.gross_cost,
         credits=summary.credits,
         budget_amount=summary.budget_amount,
