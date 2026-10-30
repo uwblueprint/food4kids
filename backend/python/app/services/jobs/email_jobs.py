@@ -91,6 +91,8 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
                 )
                 return
 
+            # One lookup for the run, not one per driver.
+            org_contact = await dispatcher.org_contact_context()
             sent_count = 0
             failed_count = 0
 
@@ -111,6 +113,7 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
                     await dispatcher.dispatch(
                         email_type="view-upcoming-route",
                         to=user.email,
+                        org_contact=org_contact,
                         context={
                             "Name_To_Replace": user.full_name,
                             "Date_To_Replace": route_group.drive_date.strftime(
