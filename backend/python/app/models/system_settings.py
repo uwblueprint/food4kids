@@ -1,4 +1,5 @@
 import datetime
+from collections import Counter
 from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
@@ -153,8 +154,11 @@ def default_import_fields() -> list[ImportField]:
 def _validate_import_fields(v: list[ImportField]) -> list[ImportField]:
     """Keys must be unique, and every built-in must still be present."""
     keys = [f.key for f in v]
-    if len(set(keys)) != len(keys):
-        raise ValueError("import_fields cannot contain duplicate keys")
+    duplicates = {key for key, count in Counter(keys).items() if count > 1}
+    if duplicates:
+        raise ValueError(
+            f"import_fields cannot contain duplicate keys: {sorted(duplicates)}"
+        )
     missing = {f.key for f in default_import_fields()} - set(keys)
     if missing:
         raise ValueError(

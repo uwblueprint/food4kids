@@ -6647,6 +6647,8 @@ class TestSystemSettingsRoutes:
             "/system-settings/", json={"import_fields": [*current, current[0]]}
         )
         assert response.status_code == 422
+        # The message names the offender so the admin can find it.
+        assert current[0]["key"] in str(response.json())
 
     @pytest.mark.asyncio
     async def test_locked_import_field_stays_required(
