@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -25,6 +26,162 @@ def _validate_delivery_types(v: list[str]) -> list[str]:
     if len(set(normalized)) != len(normalized):
         raise ValueError("delivery_types cannot contain duplicates")
     return normalized
+
+
+class ImportFieldDataType(str, Enum):
+    """How an import column is validated. Values are what the admin sees."""
+
+    TEXT = "Text"
+    ADDRESS = "Address"
+    NUMBER = "Number"
+    PHONE = "Phone Number"
+    EMAIL = "Email"
+    YES_NO = "Yes/No"
+
+
+# Fields the importer cannot work without, and the exact set it has always
+# rejected rows for: ``contact_name`` and ``phone_primary`` are non-nullable on
+# Location and carry the duplicate rule, ``address`` is what gets geocoded, and
+# ``delivery_group`` groups the roster. These stay required no matter what the
+# stored config says.
+#
+# ``num_children`` is deliberately absent. The box count derives from it, but
+# Location defaults it to 0 and a roster with a blank children cell imports
+# today -- making it required here would reject files that currently work.
+LOCKED_IMPORT_FIELD_KEYS = frozenset(
+    {
+        "contact_name",
+        "address",
+        "phone_primary",
+        "delivery_group",
+    }
+)
+
+
+class ImportField(SQLModel):
+    """One column an admin expects to find in an imported spreadsheet.
+
+    Built-in fields map onto real ``Location`` columns; custom ones are keyed
+    into ``Location.custom_fields`` and carried through to the Validate step.
+    """
+
+    key: str = Field(min_length=1, max_length=100)
+    label: str = Field(min_length=1, max_length=100)
+    data_type: ImportFieldDataType = ImportFieldDataType.TEXT
+    required: bool = False
+    # Which delivery types this column applies to. Empty means all of them,
+    # so a config written before a new type existed keeps working.
+    delivery_types: list[str] = Field(default_factory=list)
+    # Built-ins back a Location column and cannot be deleted or un-required.
+    builtin: bool = False
+
+    @field_validator("required")
+    @classmethod
+    def lock_required(cls, v: bool, info: Any) -> bool:
+        return True if info.data.get("key") in LOCKED_IMPORT_FIELD_KEYS else v
+
+
+def default_import_fields() -> list[ImportField]:
+    """The columns the importer has always expected, as editable config."""
+    return [
+        ImportField(
+            key="contact_name",
+            label="School Name / Last Name",
+            data_type=ImportFieldDataType.TEXT,
+            required=True,
+            builtin=True,
+        ),
+        ImportField(
+            key="guardian_name",
+            label="Guardian Name",
+            data_type=ImportFieldDataType.TEXT,
+            required=False,
+            builtin=True,
+        ),
+        ImportField(
+            key="address",
+            label="Address",
+            data_type=ImportFieldDataType.ADDRESS,
+            required=True,
+            builtin=True,
+        ),
+        ImportField(
+            key="delivery_group",
+            label="Delivery Group",
+            data_type=ImportFieldDataType.TEXT,
+            required=True,
+            builtin=True,
+        ),
+        ImportField(
+            key="phone_primary",
+            label="Phone Number",
+            data_type=ImportFieldDataType.PHONE,
+            required=True,
+            builtin=True,
+        ),
+        ImportField(
+            key="phone_secondary",
+            label="Secondary Phone Number",
+            data_type=ImportFieldDataType.PHONE,
+            required=False,
+            builtin=True,
+        ),
+        ImportField(
+            key="num_children",
+            label="Number of Children",
+            data_type=ImportFieldDataType.NUMBER,
+            required=False,
+            builtin=True,
+        ),
+        ImportField(
+            key="dietary_restrictions",
+            label="Food Restrictions",
+            data_type=ImportFieldDataType.TEXT,
+            required=False,
+            builtin=True,
+        ),
+        ImportField(
+            key="halal",
+            label="Halal?",
+            data_type=ImportFieldDataType.YES_NO,
+            required=False,
+            builtin=True,
+        ),
+    ]
+
+
+def _validate_import_fields(v: list[ImportField]) -> list[ImportField]:
+    """Keys must be unique, and every built-in must still be present."""
+    keys = [f.key for f in v]
+    if len(set(keys)) != len(keys):
+        raise ValueError("import_fields cannot contain duplicate keys")
+    missing = {f.key for f in default_import_fields()} - set(keys)
+    if missing:
+        raise ValueError(
+            f"import_fields cannot drop built-in columns: {sorted(missing)}"
+        )
+    return v
+
+
+class ImportFieldListType(TypeDecorator[list[ImportField]]):
+    """Persist ``list[ImportField]`` in a JSON column."""
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: list[ImportField] | None, _dialect: Any
+    ) -> list[dict[str, Any]] | None:
+        if value is None:
+            return None
+        return [ImportField.model_validate(f).model_dump(mode="json") for f in value]
+
+    def process_result_value(
+        self, value: Any, _dialect: Any
+    ) -> list[ImportField] | None:
+        if value is None:
+            return None
+        return [ImportField.model_validate(f) for f in value]
 
 
 class EmailReminder(SQLModel):
@@ -84,6 +241,9 @@ class SystemSettingsBase(SQLModel):
     children_per_box: int = Field(default=DEFAULT_CHILDREN_PER_BOX, ge=1)
     contact_name: str | None = Field(default=None, min_length=1, max_length=255)
     contact_phone: str | None = Field(default=None, min_length=1, max_length=100)
+    # The number drivers call for help mid-delivery. Distinct from
+    # contact_phone, which is the org's public number in the email footer.
+    support_phone: str | None = Field(default=None, min_length=1, max_length=100)
     f4k_wr_instagram: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_facebook: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_twitter: str | None = Field(default=None, min_length=1, max_length=255)
@@ -106,11 +266,15 @@ class SystemSettingsBase(SQLModel):
         default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
+    import_fields: list[ImportField] = Field(
+        default_factory=default_import_fields,
+        sa_column=Column(ImportFieldListType, nullable=False),
+    )
 
-    @field_validator("contact_phone")
+    @field_validator("contact_phone", "support_phone")
     @classmethod
     def validate_contact_phone(cls, v: str | None) -> str | None:
-        """Validate the contact phone number when configured."""
+        """Validate a configured phone number."""
         if v is None:
             return None
         return validate_phone(v)
@@ -120,6 +284,11 @@ class SystemSettingsBase(SQLModel):
     def validate_delivery_types(cls, v: list[str]) -> list[str]:
         """Delivery types must be non-empty, unique, and not blank."""
         return _validate_delivery_types(v)
+
+    @field_validator("import_fields")
+    @classmethod
+    def validate_import_fields(cls, v: list[ImportField]) -> list[ImportField]:
+        return _validate_import_fields(v)
 
 
 class SystemSettings(SystemSettingsBase, BaseModel, table=True):
@@ -177,6 +346,7 @@ class SystemSettingsUpdate(SQLModel):
     children_per_box: int | None = Field(default=None, ge=1)
     contact_name: str | None = Field(default=None, min_length=1, max_length=255)
     contact_phone: str | None = Field(default=None, min_length=1, max_length=100)
+    support_phone: str | None = Field(default=None, min_length=1, max_length=100)
     f4k_wr_instagram: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_facebook: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_twitter: str | None = Field(default=None, min_length=1, max_length=255)
@@ -185,11 +355,12 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
     delivery_types: list[str] | None = Field(default=None)
+    import_fields: list[ImportField] | None = Field(default=None)
 
-    @field_validator("contact_phone")
+    @field_validator("contact_phone", "support_phone")
     @classmethod
     def validate_contact_phone(cls, v: str | None) -> str | None:
-        """Validate the contact phone number when configured."""
+        """Validate a configured phone number."""
         if v is None:
             return None
         return validate_phone(v)
@@ -201,3 +372,12 @@ class SystemSettingsUpdate(SQLModel):
         if v is None:
             return None
         return _validate_delivery_types(v)
+
+    @field_validator("import_fields")
+    @classmethod
+    def validate_import_fields(
+        cls, v: list[ImportField] | None
+    ) -> list[ImportField] | None:
+        if v is None:
+            return None
+        return _validate_import_fields(v)

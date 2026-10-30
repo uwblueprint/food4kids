@@ -824,6 +824,51 @@ export type HttpValidationError = {
 };
 
 /**
+ * ImportField
+ *
+ * One column an admin expects to find in an imported spreadsheet.
+ *
+ * Built-in fields map onto real ``Location`` columns; custom ones are keyed
+ * into ``Location.custom_fields`` and carried through to the Validate step.
+ */
+export type ImportField = {
+  /**
+   * Builtin
+   */
+  builtin?: boolean;
+  data_type?: ImportFieldDataType;
+  /**
+   * Delivery Types
+   */
+  delivery_types?: Array<string>;
+  /**
+   * Key
+   */
+  key: string;
+  /**
+   * Label
+   */
+  label: string;
+  /**
+   * Required
+   */
+  required?: boolean;
+};
+
+/**
+ * ImportFieldDataType
+ *
+ * How an import column is validated. Values are what the admin sees.
+ */
+export type ImportFieldDataType =
+  | 'Text'
+  | 'Address'
+  | 'Number'
+  | 'Phone Number'
+  | 'Email'
+  | 'Yes/No';
+
+/**
  * JobEnqueueResponse
  *
  * Job creation response
@@ -886,6 +931,12 @@ export type LocationCreate = {
    * Contact Name
    */
   contact_name: string;
+  /**
+   * Custom Fields
+   */
+  custom_fields?: {
+    [key: string]: string;
+  };
   /**
    * Delivery Type
    */
@@ -1063,6 +1114,12 @@ export type LocationImportEntry = {
    */
   contact_name?: string | null;
   /**
+   * Custom Fields
+   */
+  custom_fields?: {
+    [key: string]: string;
+  };
+  /**
    * Delivery Group
    */
   delivery_group?: string | null;
@@ -1188,6 +1245,12 @@ export type LocationRead = {
    * Contact Name
    */
   contact_name: string;
+  /**
+   * Custom Fields
+   */
+  custom_fields?: {
+    [key: string]: string;
+  };
   /**
    * Delivery Type
    */
@@ -2308,9 +2371,17 @@ export type SystemSettingsRead = {
     [key: string]: string;
   } | null;
   /**
+   * Import Fields
+   */
+  import_fields?: Array<ImportField>;
+  /**
    * Route Start Time
    */
   route_start_time?: string | null;
+  /**
+   * Support Phone
+   */
+  support_phone?: string | null;
   /**
    * System Settings Id
    */
@@ -2394,9 +2465,17 @@ export type SystemSettingsUpdate = {
     [key: string]: string;
   } | null;
   /**
+   * Import Fields
+   */
+  import_fields?: Array<ImportField> | null;
+  /**
    * Route Start Time
    */
   route_start_time?: string | null;
+  /**
+   * Support Phone
+   */
+  support_phone?: string | null;
   /**
    * Warehouse Latitude
    */
@@ -2737,6 +2816,12 @@ export type LocationReadWritable = {
    * Contact Name
    */
   contact_name: string;
+  /**
+   * Custom Fields
+   */
+  custom_fields?: {
+    [key: string]: string;
+  };
   /**
    * Delivery Type
    */

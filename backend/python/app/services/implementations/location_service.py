@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -46,6 +46,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.system_settings import ImportField
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
@@ -668,12 +669,26 @@ class LocationService:
                 session, column_map
             )
             await session.commit()
+
+            # Admin-defined columns configured for this delivery type. An empty
+            # delivery_types list means the column applies to every type.
+            settings = await self.system_settings_service.require_settings(session)
+            applicable_fields = [
+                field
+                for field in settings.import_fields
+                if not field.delivery_types or delivery_type in field.delivery_types
+            ]
+            custom_import_fields = [f for f in applicable_fields if not f.builtin]
+            required_keys = [f.key for f in applicable_fields if f.required]
+
             df = await self._read_upload_file(file)
             parsed_rows: list[tuple[int, LocationImportEntry]] = []
 
             for index, row in df.iterrows():
                 row_num = int(index) + 1  # type: ignore[call-overload]
-                parsed_rows.append((row_num, self._parse_row(row, column_map)))
+                parsed_rows.append(
+                    (row_num, self._parse_row(row, column_map, custom_import_fields))
+                )
 
             unique_addresses = {
                 entry.address.strip()
@@ -796,7 +811,8 @@ class LocationService:
             valid_rows = [
                 (row.row, ValidatedLocationImportEntry.model_validate(row.location))
                 for row in rows
-                if not row.alerts and self._has_required_fields(row.location)
+                if not row.alerts
+                and self._has_required_fields(row.location, required_keys)
             ]
             net_new: list[tuple[int, ValidatedLocationImportEntry]] = []
             stale: list[Location] = []
@@ -1113,9 +1129,16 @@ class LocationService:
         )
 
     def _parse_row(
-        self, row: pd.Series, column_map: dict[str, str]
+        self,
+        row: pd.Series,
+        column_map: dict[str, str],
+        custom_import_fields: Sequence[ImportField] = (),
     ) -> LocationImportEntry:
-        """Parse a CSV row into a LocationImportEntry using the column mapping."""
+        """Parse a CSV row into a LocationImportEntry using the column mapping.
+
+        Built-in columns land on their own fields; admin-defined ones are
+        collected into ``custom_fields`` under their configured key.
+        """
 
         def get_value(field: str) -> str | None:
             csv_col = column_map.get(field, "")
@@ -1142,6 +1165,12 @@ class LocationService:
             except (ValueError, TypeError):
                 return None
 
+        custom_fields = {
+            field.key: value
+            for field in custom_import_fields
+            if (value := get_value(field.key)) is not None
+        }
+
         return LocationImportEntry(
             contact_name=get_value("contact_name"),
             guardian_name=get_value("guardian_name"),
@@ -1152,17 +1181,47 @@ class LocationService:
             num_children=parse_int("num_children"),
             halal=parse_bool("halal"),
             dietary_restrictions=get_value("dietary_restrictions"),
+            custom_fields=custom_fields,
         )
 
     @staticmethod
+    def _entry_value(entry: LocationImportEntry, key: str) -> object | None:
+        """A row's value for an import column, built-in or admin-defined."""
+        if key in entry.custom_fields:
+            return entry.custom_fields[key]
+        return getattr(entry, key, None)
+
+    @staticmethod
+    def _is_present(value: object | None) -> bool:
+        """Blank text is absent; ``False`` and ``0`` are values."""
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        return True
+
+    @classmethod
     def _has_required_fields(
+        cls,
         entry: LocationImportEntry,
+        required_keys: Sequence[str] = (),
     ) -> TypeGuard[ValidatedLocationImportEntry]:
+        """Whether a row carries everything the importer needs.
+
+        The four checked outright are structural: ``Location.contact_name`` and
+        ``phone_primary`` are non-nullable, ``address`` is what gets geocoded,
+        and ``delivery_group`` groups the roster. Everything else comes from
+        the configured import columns -- built-in or admin-defined -- already
+        filtered to the delivery type being imported.
+        """
         return (
             entry.contact_name is not None
             and entry.address is not None
             and entry.phone_primary is not None
             and entry.delivery_group is not None
+            and all(
+                cls._is_present(cls._entry_value(entry, key)) for key in required_keys
+            )
         )
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
@@ -1202,6 +1261,7 @@ class LocationService:
             halal=location_data.halal,
             dietary_restrictions=location_data.dietary_restrictions,
             num_children=location_data.num_children,
+            custom_fields=location_data.custom_fields,
             delivery_type=location_data.delivery_type,
             in_roster=location_data.in_roster,
         )
@@ -1264,6 +1324,7 @@ class LocationService:
                         halal=entry.halal or False,
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_children=entry.num_children or 0,
+                        custom_fields=entry.custom_fields,
                         delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain.note_chain_id,
@@ -1322,6 +1383,10 @@ class LocationService:
                         num_children=resolve_optional(
                             entry.num_children, location.num_children
                         ),
+                        custom_fields={
+                            **location.custom_fields,
+                            **entry.custom_fields,
+                        },
                         delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain_id,
