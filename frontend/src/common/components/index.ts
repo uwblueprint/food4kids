@@ -2,6 +2,7 @@
 // Example: export { Button } from './Button';
 // Example: export { Modal } from './Modal';
 export { Account } from './Account';
+export { AssignDriverCell } from './AssignDriverCell';
 export { Banner } from './Banner';
 export { Button } from './Button';
 export { Calendar } from './Calendar';
