@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { describeApiFailure } from '@/api';
 import type { RouteGroupRead } from '@/api/generated/types.gen';
 import { useDuplicateRouteGroup } from '@/api/route-groups';
 import CalendarIcon from '@/assets/icons/calendar.svg?react';
@@ -30,8 +31,10 @@ interface DuplicateRouteGroupModalProps {
   onDuplicated: (routeGroupId: string) => void;
 }
 
-const DUPLICATE_ERROR =
-  'Something went wrong duplicating the group. Please try again.';
+// The server refuses a copy that would put a family on two routes the same
+// day, which is what an earlier copy or another group on that date causes.
+const DOUBLE_BOOKED_ERROR =
+  'Some families in this group are already on a route that day. Pick another date.';
 
 /** What the copy inherits from the original, shown in the summary block. */
 function CopiedField({ label, value }: { label: string; value: string }) {
@@ -58,6 +61,7 @@ export function DuplicateRouteGroupModal({
     mutate: duplicateRouteGroup,
     isPending,
     isError,
+    error,
     reset,
   } = useDuplicateRouteGroup();
 
@@ -203,7 +207,9 @@ export function DuplicateRouteGroupModal({
 
         <div className="flex items-center justify-end gap-4">
           {isError && (
-            <FieldDescription error>{DUPLICATE_ERROR}</FieldDescription>
+            <FieldDescription error>
+              {describeApiFailure(error) ?? DOUBLE_BOOKED_ERROR}
+            </FieldDescription>
           )}
           <Button
             variant="primary"

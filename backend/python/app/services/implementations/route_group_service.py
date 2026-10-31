@@ -49,6 +49,43 @@ class RouteGroupService:
         await session.commit()
         return await self._read_back(session, route_group.route_group_id)
 
+    async def _check_no_double_booking(
+        self,
+        session: AsyncSession,
+        source_group_id: UUID,
+        drive_date: date,
+        exclude_group_id: UUID | None,
+    ) -> None:
+        """Raise if putting this group's families on drive_date would put any
+        of them on a second route that day (a family gets one delivery a day).
+
+        exclude_group_id is the group being moved, whose own stops don't count
+        against it; None when the families are being copied into a new group.
+        """
+        families = (
+            select(RouteStop.location_id)
+            .join(Route)
+            .where(Route.route_group_id == source_group_id)
+        )
+        clash = (
+            select(func.count(distinct(col(RouteStop.location_id))))
+            .join(Route)
+            .join(RouteGroup)
+            .where(
+                RouteGroup.drive_date == drive_date,
+                col(RouteStop.location_id).in_(families),
+            )
+        )
+        if exclude_group_id is not None:
+            clash = clash.where(RouteGroup.route_group_id != exclude_group_id)
+        count = (await session.execute(clash)).scalar_one()
+        if count:
+            raise ValueError(
+                f"{count} {'family is' if count == 1 else 'families are'} "
+                f"already on a route on {drive_date.isoformat()}. Pick another "
+                "date, or remove them from the other routes first."
+            )
+
     async def update_route_group(
         self,
         session: AsyncSession,
@@ -67,6 +104,11 @@ class RouteGroupService:
             return None
 
         update_data = route_group_data.model_dump(exclude_unset=True)
+        new_date = update_data.get("drive_date")
+        if new_date is not None and new_date != route_group.drive_date:
+            await self._check_no_double_booking(
+                session, route_group_id, new_date, exclude_group_id=route_group_id
+            )
         for field, value in update_data.items():
             setattr(route_group, field, value)
 
@@ -101,6 +143,15 @@ class RouteGroupService:
             self.logger.error(f"RouteGroup with id {route_group_id} not found")
             return None
 
+        target_date = (
+            overrides.drive_date
+            if overrides and overrides.drive_date
+            else route_group.drive_date
+        )
+        await self._check_no_double_booking(
+            session, route_group_id, target_date, exclude_group_id=None
+        )
+
         copy_drivers = overrides.copy_drivers if overrides else True
         default_name = f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
             :ROUTE_GROUP_NAME_MAX_LENGTH
@@ -108,11 +159,7 @@ class RouteGroupService:
         duplicated_group = RouteGroup(
             name=(overrides.name if overrides and overrides.name else default_name),
             notes=route_group.notes,
-            drive_date=(
-                overrides.drive_date
-                if overrides and overrides.drive_date
-                else route_group.drive_date
-            ),
+            drive_date=target_date,
         )
         session.add(duplicated_group)
 

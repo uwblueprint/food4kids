@@ -4687,8 +4687,11 @@ class TestRouteGroupRoutes:
         )
         await test_session.commit()
 
+        # Copied to the next week: the same day would put every family on two
+        # routes that day, which is refused.
         response = await async_client.post(
-            f"/route-groups/{route_group.route_group_id}/duplicate"
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"drive_date": "2026-07-16"},
         )
 
         assert response.status_code == 201
