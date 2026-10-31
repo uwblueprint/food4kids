@@ -62,10 +62,12 @@ export const DriverHomePage = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Routes arrive newest first, which is the order Past wants; Upcoming wants
+  // the soonest route on top, so it's flipped.
   const routes = routesData?.items || [];
-  const upcomingRoutes = routes.filter(
-    (route) => parseDateOnly(route.drive_date) >= today
-  );
+  const upcomingRoutes = routes
+    .filter((route) => parseDateOnly(route.drive_date) >= today)
+    .reverse();
   const pastRoutes = routes.filter(
     (route) => parseDateOnly(route.drive_date) < today
   );

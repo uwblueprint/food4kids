@@ -29,10 +29,12 @@ export function useRoutes(query?: GetRoutesData['query']) {
 /**
  * GET /routes for driver's assigned routes (filtered by driver_id).
  * Drivers are automatically scoped to their own routes when driver_id is omitted.
+ * Newest first, so a driver with more routes than one page loses their oldest
+ * history rather than their upcoming routes.
  */
 export function useDriverRoutes() {
   return useQuery({
-    ...getRoutesOptions({ query: { page: 1, page_size: 100 } }),
+    ...getRoutesOptions({ query: { page: 1, page_size: 100, order: 'desc' } }),
   });
 }
 
