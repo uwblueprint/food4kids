@@ -1384,7 +1384,9 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
- * Optional body overrides the copy's name and drive date.
+ * Optional body overrides the copy's name and drive date. The date must be
+ * one none of the group's families are already routed on, so in practice
+ * it's needed.
  */
 export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<DuplicateRouteGroupData, ThrowOnError>

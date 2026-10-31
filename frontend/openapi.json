@@ -7399,7 +7399,7 @@
     },
     "/api/route-groups/{route_group_id}/duplicate": {
       "post": {
-        "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date.",
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date. The date must be\none none of the group's families are already routed on, so in practice\nit's needed.",
         "operationId": "duplicate_route_group",
         "parameters": [
           {
