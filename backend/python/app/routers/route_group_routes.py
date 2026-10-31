@@ -107,9 +107,14 @@ async def update_route_group(
     """
     Update an existing route group
     """
-    updated_route_group = await route_group_service.update_route_group(
-        session, route_group_id, route_group
-    )
+    try:
+        updated_route_group = await route_group_service.update_route_group(
+            session, route_group_id, route_group
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     if not updated_route_group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -132,11 +137,18 @@ async def duplicate_route_group(
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
-    Optional body overrides the copy's name and drive date.
+    Optional body overrides the copy's name and drive date. The date must be
+    one none of the group's families are already routed on, so in practice
+    it's needed.
     """
-    duplicated_route_group = await route_group_service.duplicate_route_group(
-        session, route_group_id, overrides
-    )
+    try:
+        duplicated_route_group = await route_group_service.duplicate_route_group(
+            session, route_group_id, overrides
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     if not duplicated_route_group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
