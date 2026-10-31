@@ -5,16 +5,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from app.models.location import Location
+from app.models.route_group import RouteGroup
 from app.models.system_settings import (
+    ImportField,
     SystemSettings,
     SystemSettingsUpdate,
     _validate_delivery_types,
 )
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GoogleMapsClient
 
 
 class DeliveryTypeInUseError(ValueError):
     """Raised when removing a delivery type that active locations still use."""
+
+
+class ImportFieldLockedError(ValueError):
+    """Raised when import columns are edited while routes are still upcoming."""
 
 
 class DeliveryTypeRenameError(ValueError):
@@ -113,6 +120,44 @@ class SystemSettingsService:
                 "Reassign or deactivate those locations first, or rename the type."
             )
 
+    async def _has_upcoming_routes(self, session: AsyncSession) -> bool:
+        """Whether any route group is scheduled for today or later."""
+        stmt = (
+            select(func.count())
+            .select_from(RouteGroup)
+            .where(col(RouteGroup.drive_date) >= today_local())
+        )
+        result = await session.execute(stmt)
+        return bool(result.scalar_one())
+
+    async def _guard_import_field_changes(
+        self, session: AsyncSession, old: list[ImportField], new: list[ImportField]
+    ) -> None:
+        """Block edits to the import columns while routes are still upcoming.
+
+        An upcoming route was planned against the roster as it is now;
+        re-shaping what an import means underneath it would leave those routes
+        describing locations the next import can no longer reproduce. Adding a
+        column is safe -- existing rows simply have no value for it.
+        """
+        by_key = {field.key: field for field in old}
+        edited = [
+            field.key
+            for field in new
+            if field.key in by_key and field != by_key[field.key]
+        ]
+        removed = [key for key in by_key if key not in {f.key for f in new}]
+        if not edited and not removed:
+            return
+        if not await self._has_upcoming_routes(session):
+            return
+        touched = ", ".join(f"'{key}'" for key in sorted({*edited, *removed}))
+        raise ImportFieldLockedError(
+            f"Cannot change import column(s) {touched} while routes are "
+            "upcoming. A column can only be edited or deleted once no routes "
+            "are scheduled."
+        )
+
     async def update_settings(
         self, session: AsyncSession, settings_data: SystemSettingsUpdate
     ) -> SystemSettings:
@@ -152,6 +197,16 @@ class SystemSettingsService:
         if "delivery_types" in updates:
             await self._guard_delivery_type_removal(
                 session, old=settings.delivery_types, new=updates["delivery_types"]
+            )
+
+        if "import_fields" in updates:
+            # model_dump flattens nested models to dicts; the guard and the
+            # column both want ImportField instances back.
+            updates["import_fields"] = [
+                ImportField.model_validate(field) for field in updates["import_fields"]
+            ]
+            await self._guard_import_field_changes(
+                session, old=settings.import_fields, new=updates["import_fields"]
             )
 
         for field_name, value in updates.items():
