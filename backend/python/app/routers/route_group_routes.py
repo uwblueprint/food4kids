@@ -137,7 +137,9 @@ async def duplicate_route_group(
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
-    Optional body overrides the copy's name and drive date.
+    Optional body overrides the copy's name and drive date. The date must be
+    one none of the group's families are already routed on, so in practice
+    it's needed.
     """
     try:
         duplicated_route_group = await route_group_service.duplicate_route_group(

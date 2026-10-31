@@ -135,6 +135,43 @@ async def test_edit_allows_family_on_a_route_another_day(
 
 
 @pytest.mark.asyncio
+async def test_existing_double_booking_does_not_block_other_edits(
+    test_session: AsyncSession, world: dict[str, Any]
+) -> None:
+    locs = world["locations"]
+    route_a = world["route_a"]
+    # Route B's family also on Route A, as left over from before this check.
+    test_session.add(
+        RouteStop(
+            route_id=route_a.route_id, location_id=locs[1].location_id, stop_number=2
+        )
+    )
+    await test_session.commit()
+
+    # Adding an unrelated family still works...
+    route = await route_service.update_route(
+        test_session,
+        route_a.route_id,
+        RoutePatchRequest(
+            location_ids=[
+                locs[0].location_id,
+                locs[1].location_id,
+                locs[3].location_id,
+            ]
+        ),
+    )
+    assert route is not None
+
+    # ...but adding a family that's routed elsewhere that day is still refused.
+    with pytest.raises(ValueError, match="already on another route that day"):
+        await route_service.update_route(
+            test_session,
+            world["route_b"].route_id,
+            RoutePatchRequest(location_ids=[locs[1].location_id, locs[0].location_id]),
+        )
+
+
+@pytest.mark.asyncio
 async def test_edit_rejects_the_same_family_twice(
     test_session: AsyncSession, world: dict[str, Any]
 ) -> None:

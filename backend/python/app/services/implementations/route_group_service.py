@@ -56,12 +56,8 @@ class RouteGroupService:
         drive_date: date,
         exclude_group_id: UUID | None,
     ) -> None:
-        """Raise if putting this group's families on drive_date would put any
-        of them on a second route that day (a family gets one delivery a day).
-
-        exclude_group_id is the group being moved, whose own stops don't count
-        against it; None when the families are being copied into a new group.
-        """
+        """Raise if any of this group's families already has a route on
+        drive_date, other than in exclude_group_id (the group being moved)."""
         families = (
             select(RouteStop.location_id)
             .join(Route)

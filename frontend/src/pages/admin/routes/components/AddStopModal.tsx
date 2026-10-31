@@ -225,8 +225,6 @@ export function AddStopModal({
 
         {isError && (
           <FieldDescription error>
-            {/* A refusal here is almost always the family already being on
-                another route that day (a family gets one delivery a day). */}
             {describeApiFailure(error) ??
               'This family is already on another route that day.'}
           </FieldDescription>

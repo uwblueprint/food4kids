@@ -487,8 +487,18 @@ class RouteService:
                 if len(set(patch.location_ids)) != len(patch.location_ids):
                     raise ValueError("A location can only appear once on a route")
 
-                # A family gets one delivery a day, so it can't sit on another
-                # route driving the same date (in this group or any other).
+                # A family gets one delivery a day. Only newly added families are
+                # checked, so an existing double-booking can't lock the route.
+                current = set(
+                    (
+                        await session.execute(
+                            select(RouteStop.location_id).where(
+                                RouteStop.route_id == route_id
+                            )
+                        )
+                    ).scalars()
+                )
+                added = [loc for loc in patch.location_ids if loc not in current]
                 drive_date = (
                     await session.execute(
                         select(col(RouteGroup.drive_date)).where(
@@ -504,7 +514,7 @@ class RouteService:
                         .where(
                             RouteGroup.drive_date == drive_date,
                             Route.route_id != route_id,
-                            col(RouteStop.location_id).in_(patch.location_ids),
+                            col(RouteStop.location_id).in_(added),
                         )
                         .distinct()
                     )

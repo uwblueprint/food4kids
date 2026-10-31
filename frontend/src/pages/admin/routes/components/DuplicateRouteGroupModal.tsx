@@ -31,8 +31,6 @@ interface DuplicateRouteGroupModalProps {
   onDuplicated: (routeGroupId: string) => void;
 }
 
-// The server refuses a copy that would put a family on two routes the same
-// day, which is what an earlier copy or another group on that date causes.
 const DOUBLE_BOOKED_ERROR =
   'Some families in this group are already on a route that day. Pick another date.';
 
