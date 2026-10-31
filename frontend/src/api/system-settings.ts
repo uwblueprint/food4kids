@@ -1,8 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getOrgContactOptions,
+  getOrgContactQueryKey,
   getSystemSettingsOptions,
+  getSystemSettingsQueryKey,
+  patchSystemSettingsMutation,
 } from './generated/@tanstack/react-query.gen';
 
 export function useSystemSettings() {
@@ -18,4 +21,15 @@ export function useSystemSettings() {
  */
 export function useOrgContact() {
   return useQuery(getOrgContactOptions());
+}
+
+export function useUpdateSystemSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...patchSystemSettingsMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getSystemSettingsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getOrgContactQueryKey() });
+    },
+  });
 }

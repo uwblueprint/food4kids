@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 
-import { type AuthResponse } from './generated';
+// `import type`, not `import { type }`: under verbatimModuleSyntax the latter
+// still loads ./generated at runtime, and that closes a cycle back through
+// axiosClient (generated -> runtime.ts -> axiosClient -> authStore).
+import type { AuthResponse } from './generated';
 
 export interface User {
   id: string;

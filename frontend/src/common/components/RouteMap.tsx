@@ -143,21 +143,10 @@ export function RouteMap({
             : undefined
         }
       >
-        {/* Choose a basemap: default OSM color or a greyscale tileset for muted previews */}
+        {/* OSM tiles for both basemaps; 'grey' is the CSS filter above */}
         <TileLayer
-          attribution={
-            basemap === 'grey'
-              ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
-              : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }
-          url={
-            basemap === 'grey'
-              ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
-              : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-          }
-          subdomains={
-            basemap === 'grey' ? ['a', 'b', 'c', 'd'] : ['a', 'b', 'c']
-          }
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {coords.length > 0 && (
           <>

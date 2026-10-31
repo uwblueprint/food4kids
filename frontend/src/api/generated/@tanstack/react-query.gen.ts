@@ -495,7 +495,10 @@ export const updateAnnouncementMutation = (
 /**
  * Send Announcement Email
  *
- * Send announcement notification emails to all active drivers (admin only).
+ * Email an announcement to the audiences the poster chose.
+ *
+ * Admin only. The audiences come from the announcement form, not from
+ * stored settings -- both roles together reaches everyone.
  */
 export const sendAnnouncementEmailMutation = (
   options?: Partial<Options<SendAnnouncementEmailData>>

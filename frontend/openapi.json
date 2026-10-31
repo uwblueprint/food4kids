@@ -45,6 +45,24 @@
         "title": "AnnouncementCreate",
         "type": "object"
       },
+      "AnnouncementEmailRequest": {
+        "description": "Who the posting admin chose to email about an announcement.\n\nBoth roles together is how \"everyone\" is expressed; an empty list has no\nmeaning, so the caller simply does not ask for a send.",
+        "properties": {
+          "audiences": {
+            "items": {
+              "$ref": "#/components/schemas/RoleEnum"
+            },
+            "minItems": 1,
+            "title": "Audiences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "audiences"
+        ],
+        "title": "AnnouncementEmailRequest",
+        "type": "object"
+      },
       "AnnouncementLastReadResponse": {
         "description": "Response model for announcement last read",
         "properties": {
@@ -2909,6 +2927,15 @@
         "title": "ResendOnboardingEmailRequest",
         "type": "object"
       },
+      "RoleEnum": {
+        "description": "User role enum with string values",
+        "enum": [
+          "driver",
+          "admin"
+        ],
+        "title": "RoleEnum",
+        "type": "string"
+      },
       "RouteDetailRead": {
         "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
@@ -3645,6 +3672,18 @@
             "title": "Drive Date",
             "type": "string"
           },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "driver_name": {
             "anyOf": [
               {
@@ -3907,6 +3946,19 @@
             ],
             "title": "F4K Wr Instagram"
           },
+          "f4k_wr_twitter": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Twitter"
+          },
           "f4k_wr_website": {
             "anyOf": [
               {
@@ -4135,6 +4187,19 @@
               }
             ],
             "title": "F4K Wr Instagram"
+          },
+          "f4k_wr_twitter": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Twitter"
           },
           "f4k_wr_website": {
             "anyOf": [
@@ -4611,7 +4676,7 @@
     },
     "/api/announcements/{announcement_id}/email": {
       "post": {
-        "description": "Send announcement notification emails to all active drivers (admin only).",
+        "description": "Email an announcement to the audiences the poster chose.\n\nAdmin only. The audiences come from the announcement form, not from\nstored settings -- both roles together reaches everyone.",
         "operationId": "send_announcement_email",
         "parameters": [
           {
@@ -4625,6 +4690,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -7559,6 +7634,25 @@
               ],
               "description": "Filter by one or more driver assignment statuses",
               "title": "Driver Assignment Status"
+            }
+          },
+          {
+            "description": "Only routes in this route group",
+            "in": "query",
+            "name": "route_group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only routes in this route group",
+              "title": "Route Group Id"
             }
           },
           {
