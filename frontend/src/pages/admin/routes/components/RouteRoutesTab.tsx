@@ -12,7 +12,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import { useRowHighlight, useTableSort } from '@/common/hooks';
-import { orDash } from '@/common/utils';
+import { orDash, toNaiveDateString } from '@/common/utils';
 
 import type { RoutesTabState } from '../hooks';
 import { AssignDriverCell } from './AssignDriverCell';
@@ -107,6 +107,10 @@ export function RouteRoutesTab({
             render: (row: RouteWithDateRead) =>
               row.driver_name ? (
                 <HighlightText text={row.driver_name} query={searchTerm} />
+              ) : row.drive_date < toNaiveDateString(new Date()) ? (
+                // Past deliveries can't be given a driver; offering one would
+                // invite an assignment that means nothing.
+                orDash(null)
               ) : (
                 <RowActionCell>
                   <AssignDriverCell
