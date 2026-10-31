@@ -22,10 +22,7 @@ export interface RoutesTabState
   search: UseSearchReturn;
   /** Debounced search term the rows were filtered by, for highlighting. */
   searchTerm: string;
-  /**
-   * Upcoming routes with no driver, across the filters but ignoring the search
-   * box.
-   */
+  /** Upcoming routes with no driver, across the filters but not the search. */
   unassignedCount: number;
   bannerDismissed: boolean;
   dismissBanner: () => void;
@@ -59,9 +56,7 @@ export function useRoutesTabState(): RoutesTabState {
   // banner answers "how many routes still need a driver", and a search that
   // matches a driver's name can never match an unassigned route, so carrying
   // it through would zero the banner out for reasons unrelated to the answer.
-  // Past routes are dropped too: a delivery that already happened can't be
-  // given a driver, and counting them put this banner out of step with the
-  // homepage's Unassigned card, which starts from today the same way.
+  // Past routes are left out, matching the homepage's Unassigned card.
   const { data: unassigned } = useRoutes({
     ...filterQuery,
     driver_assignment_status: ['Unassigned'],

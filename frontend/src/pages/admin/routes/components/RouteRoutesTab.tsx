@@ -108,8 +108,6 @@ export function RouteRoutesTab({
               row.driver_name ? (
                 <HighlightText text={row.driver_name} query={searchTerm} />
               ) : row.drive_date < toNaiveDateString(new Date()) ? (
-                // Past deliveries can't be given a driver; offering one would
-                // invite an assignment that means nothing.
                 orDash(null)
               ) : (
                 <RowActionCell>
