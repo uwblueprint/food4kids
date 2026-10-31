@@ -6,6 +6,7 @@ import { useRoutes } from '@/api/routes';
 import ChevronLeftIcon from '@/assets/icons/chevron-left.svg?react';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 import {
+  AssignDriverCell,
   Button,
   Card,
   CardContent,
@@ -13,7 +14,6 @@ import {
   type Column,
   DataTable,
 } from '@/common/components';
-import { AssignDriverCell } from '@/common/components';
 import { formatStartTime, toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
@@ -178,7 +178,7 @@ export function CalendarWidget() {
                 className={cn(
                   `flex-1 border-none bg-white ${
                     isSelected &&
-                    'border-blue-200 bg-blue-50 text-blue-300 hover:bg-blue-100'
+                    'border-blue-200 bg-blue-50 font-bold text-blue-300 hover:bg-blue-100'
                   }`
                 )}
               >
