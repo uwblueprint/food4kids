@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import random
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -429,3 +430,316 @@ async def test_routing_enforces_the_configured_box_cap(
     else:
         with pytest.raises(ValueError, match="per-driver maximum of 2"):
             await engine.generate_routes(stops, WAREHOUSE_LAT, WAREHOUSE_LON, settings)
+
+
+# --- Packing at (or near) the capacity minimum -------------------------------
+
+ELMIRA = "10 Main St, Elmira, ON"
+
+
+def _sized_ring(sizes: list[int], seed: int = 0) -> list[Location]:
+    """Near stops at shuffled angles and radii, one per box size in ``sizes``."""
+    rng = random.Random(seed)
+    stops = []
+    for i, boxes in enumerate(sizes):
+        angle = rng.uniform(0, math.tau)
+        radius = rng.uniform(0.02, 0.1)
+        stops.append(
+            _location(
+                lat=WAREHOUSE_LAT + radius * math.sin(angle),
+                lon=WAREHOUSE_LON + radius * math.cos(angle),
+                # The most children that still round to ``boxes`` boxes.
+                num_children=boxes * CHILDREN_PER_BOX,
+                name=f"Stop {i}",
+            )
+        )
+    return stops
+
+
+def _one_and_two_box_sizes(total: int, seed: int) -> list[int]:
+    """Random 1- and 2-box stops summing to exactly ``total`` boxes."""
+    rng = random.Random(seed)
+    sizes: list[int] = []
+    while sum(sizes) < total:
+        sizes.append(min(rng.choice((1, 2)), total - sum(sizes)))
+    return sizes
+
+
+def _assert_valid_routes(
+    routes: list[list[Location]],
+    stops: list[Location],
+    num_routes: int,
+    max_boxes: int,
+    algo: SweepClusteringAlgorithm,
+) -> None:
+    assert len(routes) == num_routes
+    assert sorted(s.location_id for r in routes for s in r) == sorted(
+        s.location_id for s in stops
+    )
+    sweep_rank = {
+        s.location_id: rank
+        for rank, s in enumerate(algo._sorted_locations(stops, lambda: None))
+    }
+    for route in routes:
+        assert sum(effective_boxes(s, CHILDREN_PER_BOX) for s in route) <= max_boxes
+        ranks = [sweep_rank[s.location_id] for s in route]
+        assert ranks == sorted(ranks), "route lost its sweep (visit) order"
+        metrics = [algo._location_metrics(s) for s in route]
+        if any(m.is_far for m in metrics):
+            assert len(route) <= FAR_MAX_STOPS_PER_CLUSTER
+            assert sum(m.stop_minutes for m in metrics) <= (
+                algo._far_route_minutes_cap()
+            )
+
+
+async def test_exact_fit_with_mixed_box_sizes_regression() -> None:
+    """The failing case from the offline experiment, in miniature: boxes fill
+    every car exactly. Balancing by stop count used to strand the last 2-box
+    stop with every car one box short."""
+    algo = _algo()
+    num_routes, max_boxes = 23, 10
+    stops = _sized_ring(_one_and_two_box_sizes(num_routes * max_boxes, seed=1))
+
+    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+
+    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+    assert all(
+        sum(effective_boxes(s, CHILDREN_PER_BOX) for s in r) == max_boxes
+        for r in routes
+    )
+
+
+@pytest.mark.parametrize(
+    ("max_boxes", "num_routes", "slack"),
+    [
+        (max_boxes, num_routes, slack)
+        for max_boxes in (2, 3, 4, 9, 10, 14)
+        for num_routes in (1, 2, 5, 12)
+        for slack in (0, 1, 3)
+        # Every route needs at least one stop.
+        if num_routes * max_boxes - slack >= num_routes
+    ],
+)
+@pytest.mark.parametrize("seed", range(4))
+async def test_one_and_two_box_stops_always_pack_when_boxes_fit(
+    max_boxes: int, num_routes: int, slack: int, seed: int
+) -> None:
+    """With 1- and 2-box stops and no far routes, a packing exists exactly
+    when the boxes fit and (for an odd cap) each car's 2-box stops fit in
+    its even part. Every such instance must pack."""
+    total = num_routes * max_boxes - slack
+    sizes = _one_and_two_box_sizes(total, seed)
+    if sizes.count(2) > num_routes * (max_boxes // 2):
+        # Swap 2-box stops for pairs of 1-box stops until a packing exists.
+        excess = sizes.count(2) - num_routes * (max_boxes // 2)
+        sizes = [1] * (2 * excess) + sorted(sizes)[: len(sizes) - excess]
+    while len(sizes) < num_routes:
+        sizes.remove(2)
+        sizes += [1, 1]
+    assert sum(sizes) == total
+    stops = _sized_ring(sizes, seed)
+    algo = _algo()
+
+    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+
+    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+
+
+async def test_two_box_stops_that_cannot_share_an_odd_cap_are_rejected() -> None:
+    """9-box cars hold at most four 2-box stops each, so nine 2-box stops
+    can't fill two cars even though 18 boxes is exactly their capacity."""
+    stops = _sized_ring([2] * 9)
+    with pytest.raises(ValueError, match="Cannot assign"):
+        await _algo().cluster_locations(stops, 2, 9)
+
+
+async def test_one_box_over_capacity_says_how_many_drivers_are_needed() -> None:
+    stops = _sized_ring(_one_and_two_box_sizes(4 * 10 + 1, seed=0))
+    with pytest.raises(
+        ValueError,
+        match=r"41 boxes need at least 5 drivers at 10 boxes each, but only 4",
+    ):
+        await _algo().cluster_locations(stops, 4, 10)
+
+
+async def test_oversized_stop_is_rejected_even_when_the_total_fits() -> None:
+    """An 11-box stop can't ride in any 10-box car, however empty the rest."""
+    stops = _sized_ring([11, 1, 1])
+    with pytest.raises(ValueError, match="exceeds the per-driver maximum of 10"):
+        await _algo().cluster_locations(stops, 3, 10)
+
+
+@pytest.mark.parametrize(
+    ("sizes", "num_routes", "max_boxes", "packs"),
+    [
+        ([10, 10, 10], 3, 10, True),  # a full car per stop
+        ([6, 4, 6, 4], 2, 10, True),  # needs 6+4 pairs
+        ([7, 3, 5, 5, 2, 8], 3, 10, True),
+        ([5, 3, 2, 4, 3, 3, 2, 3, 5], 3, 10, True),  # exact fit, mixed
+        ([6, 6, 6], 2, 10, False),  # 18 of 20 boxes, but no two share a car
+        ([7, 7, 3, 3], 2, 10, True),
+        ([4, 4, 4, 4, 4], 2, 10, False),  # 20 of 20, but 4+4+4 > 10
+    ],
+)
+async def test_mixed_larger_box_sizes(
+    sizes: list[int], num_routes: int, max_boxes: int, packs: bool
+) -> None:
+    """Larger stops: the repair finds these packings, and a total that fits
+    is not mistaken for a packing that exists."""
+    stops = _sized_ring(sizes)
+    algo = _algo()
+    if packs:
+        routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+        _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+    else:
+        with pytest.raises(ValueError, match="Cannot assign"):
+            await algo.cluster_locations(stops, num_routes, max_boxes)
+
+
+def _far_stop(boxes: int, name: str = "Far") -> Location:
+    return _location(
+        lat=43.60,
+        lon=-80.70,
+        num_children=boxes * CHILDREN_PER_BOX,
+        address=ELMIRA,
+        name=name,
+    )
+
+
+async def test_far_route_trades_small_stops_for_big_ones_to_fit_everything() -> None:
+    """A far route holds at most five stops, so at an exact fit it needs a
+    2-box far stop and four 2-box near stops. The sweep hands it whatever
+    comes round; the repair has to swap its 1-box stops out."""
+    algo = _algo()
+    num_routes, max_boxes = 4, 10
+    far = _far_stop(2)
+    near_sizes = _one_and_two_box_sizes(num_routes * max_boxes - 2, seed=3)
+    assert near_sizes.count(2) >= 4
+    stops = [far, *_sized_ring(near_sizes, seed=3)]
+
+    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+
+    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+    (far_route,) = [r for r in routes if far in r]
+    assert [effective_boxes(s, CHILDREN_PER_BOX) for s in far_route] == [2] * 5
+
+
+async def test_far_route_with_a_one_box_far_stop_cannot_fill_its_car() -> None:
+    """Five stops at most, one of them a single box: a far route tops out at
+    9 boxes, so an exact fit with a 1-box far stop has no packing. The same
+    boxes all near the warehouse do pack."""
+    algo = _algo()
+    near = _sized_ring([2] * 14 + [1], seed=0)
+    assert sum(effective_boxes(s, CHILDREN_PER_BOX) for s in near) == 29
+
+    with pytest.raises(ValueError, match="far-route caps"):
+        await algo.cluster_locations([_far_stop(1), *near], 3, 10)
+    near_only = [*near, *_sized_ring([1], seed=1)]
+    routes = await algo.cluster_locations(near_only, 3, 10)
+    _assert_valid_routes(routes, near_only, 3, 10, algo)
+
+
+async def test_far_stops_on_separate_routes_each_get_their_own_cap() -> None:
+    """Two far stops at an exact fit: each needs its own route of big stops."""
+    algo = _algo()
+    num_routes, max_boxes = 5, 10
+    far = [_far_stop(2, "Far A"), _far_stop(2, "Far B")]
+    near = _sized_ring(
+        _one_and_two_box_sizes(num_routes * max_boxes - 4, seed=7), seed=7
+    )
+    stops = far + near
+
+    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+
+    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+
+
+async def test_far_routes_pack_with_slack_across_many_seeds() -> None:
+    """Near-fit instances with a few far stops all pack and keep far caps."""
+    algo = _algo()
+    for seed in range(25):
+        rng = random.Random(seed)
+        num_routes, max_boxes = rng.randint(3, 8), 10
+        far = [_far_stop(2, f"Far {i}") for i in range(rng.randint(1, 2))]
+        near_total = num_routes * max_boxes - 2 * len(far) - rng.randint(1, 3)
+        stops = far + _sized_ring(_one_and_two_box_sizes(near_total, seed), seed)
+
+        routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+
+        _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+
+
+def test_failed_placement_leaves_routes_untouched() -> None:
+    """A repair that can't finish must roll back every move it tried."""
+    algo = _algo()
+    stops = _sized_ring([4, 4, 4, 4, 4])
+    metrics = algo._metrics_for_locations(stops)
+    clusters = [sweep_clustering._ClusterState() for _ in range(2)]
+    journal: list[tuple[int, sweep_clustering._ClusterState]] = []
+    for stop, index in zip(stops[:4], [0, 0, 1, 1], strict=True):
+        algo._add_to_cluster(clusters[index], stop, metrics[stop.location_id])
+    before = [list(c.locations) for c in clusters]
+
+    placed = algo._place(
+        location=stops[4],
+        clusters=clusters,
+        journal=journal,
+        max_boxes=10,
+        metrics_by_id=metrics,
+        depth=sweep_clustering.REPAIR_DEPTH,
+        locked=frozenset(),
+        check_timeout=lambda: None,
+    )
+
+    assert not placed
+    assert [list(c.locations) for c in clusters] == before
+    assert [c.box_count for c in clusters] == [8, 8]
+    assert journal == []
+
+
+def test_repair_checks_the_timeout() -> None:
+    """The repair search polls the deadline, so a slow one can't overrun it."""
+    algo = _algo()
+    stops = _sized_ring([1, 1, 2])
+    metrics = algo._metrics_for_locations(stops)
+    clusters = [sweep_clustering._ClusterState() for _ in range(2)]
+    for stop, cluster in zip(stops[:2], clusters, strict=True):
+        algo._add_to_cluster(cluster, stop, metrics[stop.location_id])
+
+    def expired() -> None:
+        raise sweep_clustering.TimeoutError("deadline")
+
+    # Each 2-box car has one box free: placing the 2-box stop needs a repair.
+    with pytest.raises(sweep_clustering.TimeoutError):
+        algo._place(
+            location=stops[2],
+            clusters=clusters,
+            journal=[],
+            max_boxes=2,
+            metrics_by_id=metrics,
+            depth=sweep_clustering.REPAIR_DEPTH,
+            locked=frozenset(),
+            check_timeout=expired,
+        )
+
+
+async def test_far_stop_last_in_the_sweep_still_gets_a_short_route() -> None:
+    """A far stop just short of a full turn is swept last, when every route
+    already has more stops than a far route may. It must still be placed,
+    and as a 1-box stop it has no smaller stops to swap in for."""
+    algo = _algo()
+    # ~40 km east, slightly south: an angle just under 2*pi.
+    far = _location(
+        lat=WAREHOUSE_LAT - 0.01,
+        lon=WAREHOUSE_LON + 0.5,
+        num_children=CHILDREN_PER_BOX,
+        name="Far east",
+    )
+    near = _sized_ring([1] * 24, seed=4)
+    stops = [far, *near]
+    assert algo._sorted_locations(stops, lambda: None)[-1] is far
+    assert algo._location_metrics(far).is_far
+
+    routes = await algo.cluster_locations(stops, 4, 10)
+
+    _assert_valid_routes(routes, stops, 4, 10, algo)
