@@ -1,9 +1,10 @@
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
+  AssignDriverCell,
   Banner,
   Button,
   DataTable,
@@ -15,31 +16,12 @@ import { useRowHighlight, useTableSort } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
 import type { RoutesTabState } from '../hooks';
-import { AssignDriverCell } from './AssignDriverCell';
 import { routeDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
 import { RouteFilterModal } from './RouteFilterModal';
+import { RowActionCell } from './RowActionCell';
 import { StatusHeader } from './StatusHeader';
-
-/**
- * Wraps an interactive cell (the assign pill, the kebab) so its clicks and
- * keyboard activation (Enter/Space) don't bubble to the row and trigger
- * navigation to the route detail page — the row is a keyboard-operable button,
- * so a nested control's keydown would otherwise fire row navigation instead.
- */
-function RowActionCell({ children }: { children: ReactNode }) {
-  return (
-    <span
-      className="inline-block"
-      role="presentation"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      {children}
-    </span>
-  );
-}
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
   routeDriveDateColumn,

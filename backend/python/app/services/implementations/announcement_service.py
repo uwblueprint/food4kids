@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,6 +15,7 @@ from app.models.announcement import (
 )
 from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.driver import Driver
+from app.models.enum import RoleEnum
 from app.models.user import User
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.utilities.datetime_utils import now_utc
@@ -153,42 +155,83 @@ class AnnouncementService:
             await session.rollback()
             raise error
 
-    async def send_announcement_emails_to_drivers(
+    async def _announcement_recipients(
+        self, session: AsyncSession, audiences: set[RoleEnum]
+    ) -> list[tuple[User, str]]:
+        """Users to email, each paired with the board their role lands on.
+
+        Only active drivers are included. Every admin is a recipient.
+        """
+        recipients: dict[UUID, tuple[User, str]] = {}
+
+        if RoleEnum.DRIVER in audiences:
+            statement = (
+                select(User)
+                .join(Driver, col(Driver.user_id) == col(User.user_id))
+                .where(col(Driver.active).is_(True))
+            )
+            result = await session.execute(statement)
+            for user in result.scalars().all():
+                recipients[user.user_id] = (user, "driver")
+
+        if RoleEnum.ADMIN in audiences:
+            # Admins are identified by their role, not by an ``admin_info`` row.
+            # That is what the rest of the app keys off (``require_admin`` is
+            # ``require_authorization_by_role({"admin"})``), and ``admin_info``
+            # rows are only ever written by the seed script -- so joining that
+            # table would silently skip any admin provisioned another way.
+            # Lowered to match the service's own role comparisons elsewhere.
+            statement = select(User).where(func.lower(col(User.role)) == "admin")
+            result = await session.execute(statement)
+            for user in result.scalars().all():
+                recipients[user.user_id] = (user, "admin")
+
+        return list(recipients.values())
+
+    async def send_announcement_emails(
         self,
         session: AsyncSession,
         announcement_id: UUID,
         dispatcher: EmailDispatcher,
         frontend_base_url: str,
+        audiences: set[RoleEnum],
     ) -> dict[str, int]:
-        """Email all active drivers about an announcement."""
+        """Email an announcement to the audiences the poster chose.
+
+        Audience is a per-announcement decision, not a stored setting: the
+        admin picks it on the announcements board and it is never read back.
+        Both roles together reaches everyone; a user holding both is still
+        emailed once.
+        """
         announcement = await self.get_announcement(session, announcement_id)
         if announcement is None:
             raise ValueError(f"Announcement with id {announcement_id} not found")
 
-        statement = (
-            select(User)
-            .join(Driver, col(Driver.user_id) == col(User.user_id))
-            .where(col(Driver.active).is_(True))
-        )
-        result = await session.execute(statement)
-        drivers = list(result.scalars().all())
+        recipients = await self._announcement_recipients(session, audiences)
 
-        announcement_url = f"{frontend_base_url.rstrip('/')}/driver/home"
+        base = frontend_base_url.rstrip("/")
+        # Fetched once for the whole batch, like the audience flags above --
+        # otherwise every recipient costs an extra settings query.
+        org_contact = await dispatcher.org_contact_context()
         sent_count = 0
         failed_count = 0
 
-        for user in drivers:
+        for user, role in recipients:
+            if user.user_id == announcement.user_id:
+                continue
+
             context = {
                 "Name_To_Replace": user.full_name,
                 "Announcement_Name": announcement.subject,
                 "Announcement_Body": announcement.message,
-                "Announcement_URL": announcement_url,
+                "Announcement_URL": f"{base}/{role}/home",
             }
             try:
                 await dispatcher.dispatch(
                     email_type="check-latest-announcement",
                     to=user.email,
                     context=context,
+                    org_contact=org_contact,
                 )
                 sent_count += 1
             except Exception as error:

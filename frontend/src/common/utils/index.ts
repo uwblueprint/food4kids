@@ -2,6 +2,7 @@ export {
   formatDisplayDate,
   formatDriveDate,
   formatShortDate,
+  formatStartTime,
   isPastDate,
   parseDateOnly,
   toNaiveDateString,
@@ -16,3 +17,4 @@ export {
   ROLES,
 } from './roleAccess';
 export { orDash } from './tableUtils';
+export { fromApiTime, toApiTime } from './timeUtils';

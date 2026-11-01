@@ -73,6 +73,9 @@ async def get_routes(
     driver_assignment_status: list[DriverAssignmentStatusEnum] | None = Query(
         None, description="Filter by one or more driver assignment statuses"
     ),
+    route_group_id: UUID | None = Query(
+        None, description="Only routes in this route group"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Depends(resolve_route_list_driver_filter),
@@ -108,6 +111,7 @@ async def get_routes(
         delivery_type,
         route_status,
         driver_assignment_status,
+        route_group_id,
     )
 
 

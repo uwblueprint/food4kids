@@ -3473,11 +3473,44 @@ class TestRouteRoutes:
             "/routes", params={"driver_assignment_status": "Assigned"}
         )
         assert {r["route_id"] for r in a.json()["items"]} == {str(assigned.route_id)}
+        assert a.json()["items"][0]["driver_id"] == str(test_driver.driver_id)
 
         u = await async_client.get(
             "/routes", params={"driver_assignment_status": "Unassigned"}
         )
         assert {r["route_id"] for r in u.json()["items"]} == {str(unassigned.route_id)}
+        assert u.json()["items"][0]["driver_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_routes_filters_by_route_group(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """route_group_id narrows to that group's routes; omitted, returns all."""
+        other_group = RouteGroup(name="Other", drive_date=test_route_group.drive_date)
+        test_session.add(other_group)
+        await test_session.flush()
+        mine = Route(
+            name="Mine", length=1.0, route_group_id=test_route_group.route_group_id
+        )
+        theirs = Route(
+            name="Theirs", length=1.0, route_group_id=other_group.route_group_id
+        )
+        test_session.add_all([mine, theirs])
+        await test_session.commit()
+        await test_session.refresh(mine)
+        await test_session.refresh(theirs)
+
+        scoped = await async_client.get(
+            "/routes", params={"route_group_id": str(test_route_group.route_group_id)}
+        )
+        assert {r["route_id"] for r in scoped.json()["items"]} == {str(mine.route_id)}
+
+        unscoped = await async_client.get("/routes")
+        unscoped_ids = {r["route_id"] for r in unscoped.json()["items"]}
+        assert {str(mine.route_id), str(theirs.route_id)} <= unscoped_ids
 
     @pytest.mark.asyncio
     async def test_get_routes_filters_by_status(
@@ -6040,11 +6073,234 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         response = await authed_async_client.post(
-            f"/announcements/{announcement_id}/email"
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["driver"]},
         )
         assert response.status_code == 200
         assert response.json() == {"sent": 1, "failed": 0}
         assert test_driver.user_id is not None
+
+    @staticmethod
+    async def _add_admin(session: Any, email: str) -> Any:
+        """An admin the recipient query can actually find.
+
+        Deliberately creates only a ``users`` row with ``role="admin"`` and no
+        ``admin_info``: nothing outside the seed script writes that table, so
+        this is the shape a real admin has. The audience query must match on
+        role for this user to be reachable.
+        """
+        from app.models.user import User
+
+        user = User(
+            first_name="Second",
+            last_name="Admin",
+            email=email,
+            auth_id=f"auth-{email}",
+            role="admin",
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_rejects_empty_audience(
+        self,
+        authed_async_client: AsyncClient,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """An empty audience list is a malformed request, not a silent no-op.
+
+        Choosing nobody is expressed by not calling this endpoint at all, so
+        an empty list can only be a caller bug -- worth a 422 rather than a
+        200 that emails no one.
+        """
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": []},
+        )
+
+        assert response.status_code == 422
+        dispatch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_reaches_both_audiences(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """Picking both roles reaches drivers and admins in one send."""
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        admin_user = await self._add_admin(test_session, "both.admin@food4kids.org")
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["driver", "admin"]},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"sent": 2, "failed": 0}
+
+        from app.models.user import User
+
+        driver_user = await test_session.get(User, test_driver.user_id)
+        recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
+        assert recipients == {driver_user.email, admin_user.email}
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_reaches_admins_only(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """With only the admin audience on, drivers get nothing and admins do."""
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        admin_user = await self._add_admin(test_session, "second.admin@food4kids.org")
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["admin"]},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"sent": 1, "failed": 0}
+        recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
+        assert recipients == {admin_user.email}
+        # The driver exists and is active -- the chosen audience is the only
+        # reason they were left out.
+        from app.models.user import User
+
+        driver_user = await test_session.get(User, test_driver.user_id)
+        assert driver_user.email not in recipients
+        # The admin board, not the driver one.
+        urls = {
+            call.kwargs["context"]["Announcement_URL"]
+            for call in dispatch.call_args_list
+        }
+        assert all(url.endswith("/admin/home") for url in urls)
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_deduplicates_dual_role_user(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """A user who is both a driver and an admin is emailed once.
+
+        Nothing stops a user with role="admin" from also owning a `drivers`
+        row, and the two audience queries run independently -- so without
+        deduplication this user would get one email per audience.
+        """
+        from app.models.user import User
+
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        # Promote the active driver to also be an admin. Admins are matched on
+        # role, so this user now satisfies both queries: the driver join and
+        # the role filter.
+        dual_role = await test_session.get(User, test_driver.user_id)
+        dual_role.role = "admin"
+        test_session.add(dual_role)
+        await test_session.commit()
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["driver", "admin"]},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"sent": 1, "failed": 0}
+
+        dual_role_user = await test_session.get(User, test_driver.user_id)
+        sends = [
+            call
+            for call in dispatch.call_args_list
+            if call.kwargs["to"] == dual_role_user.email
+        ]
+        assert len(sends) == 1
+        assert sends[0].kwargs["context"]["Announcement_URL"].endswith("/admin/home")
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_skips_the_author(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_admin_user: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """The admin who posted it is not mailed their own announcement."""
+        from app.models.admin import Admin
+
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        # Make the author discoverable by the admin audience query, so the only
+        # thing keeping them out of the recipient list is the author check.
+        test_session.add(
+            Admin(user_id=test_admin_user.user_id, admin_phone="+15195763443")
+        )
+        await test_session.commit()
+        other_admin = await self._add_admin(test_session, "third.admin@food4kids.org")
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email",
+            json={"audiences": ["admin"]},
+        )
+
+        assert response.status_code == 200
+        recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
+        assert recipients == {other_admin.email}
+        assert test_admin_user.email not in recipients
 
 
 class TestJobRoutes:

@@ -9,8 +9,8 @@ if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
   exit 1
 fi
 
-if gcloud secrets versions access latest \
 # replace with food4kids-config-dev if pulling dev deployment secrets
+if gcloud secrets versions access latest \
   --secret="f4k-development-backend-env" \
   --project="food4kids-473501" > .env.tmp; then
 

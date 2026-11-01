@@ -185,6 +185,9 @@ class RouteWithDateRead(SQLModel):
     num_stops: int
     box_total: int
     delivery_type: str | None = None
+    # The id lets a driver picker select the current driver without matching
+    # on name, which two drivers can share
+    driver_id: UUID | None = None
     driver_name: str | None = None
     # Same Upcoming/Completed vocabulary as RouteGroupRead.status, so clients
     # get one union rather than a bare string on one endpoint and an enum on

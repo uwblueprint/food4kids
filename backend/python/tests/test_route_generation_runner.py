@@ -102,6 +102,7 @@ async def _add_location(
     *,
     latitude: float | None = 43.7,
     longitude: float | None = -79.4,
+    in_roster: bool = True,
 ) -> Location:
     location = Location(
         location_group_id=group.location_group_id,
@@ -112,6 +113,7 @@ async def _add_location(
         delivery_type="Family",
         latitude=latitude,
         longitude=longitude,
+        in_roster=in_roster,
     )
     session.add(location)
     await session.commit()
@@ -164,17 +166,30 @@ class TestSuccessfulGeneration:
         self, test_session: AsyncSession
     ) -> None:
         """The happy path: engine output becomes a RouteGroup with ordered
-        stops, and the job completes carrying the summary numbers."""
+        stops, and the job completes carrying the summary numbers. Locations
+        dropped from the roster are never handed to the engine."""
         group = await _add_group(test_session)
         first = await _add_location(test_session, group, "Family A")
         second = await _add_location(test_session, group, "Family B")
         third = await _add_location(test_session, group, "Family C")
+        await _add_location(test_session, group, "Family Gone", in_roster=False)
         await _add_warehouse(test_session)
         job = await _queue_running_job(test_session, group)
 
-        algorithm = FakeRoutingAlgorithm(lambda _locations: [[first, second], [third]])
+        received: list[Location] = []
+
+        def plan(locations: list[Location]) -> list[list[Location]]:
+            received.extend(locations)
+            return [[first, second], [third]]
+
+        algorithm = FakeRoutingAlgorithm(plan)
         await run_generation_job(job.job_id, test_session, algorithm)
 
+        assert {location.name for location in received} == {
+            "Family A",
+            "Family B",
+            "Family C",
+        }
         await test_session.refresh(job)
         assert job.progress == ProgressEnum.COMPLETED
         assert job.error_message is None
