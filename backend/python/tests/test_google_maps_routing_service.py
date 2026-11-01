@@ -284,7 +284,7 @@ class TestBuildPayload:
 
         assert len(shipments) == len(locs)
         assert all(
-            list(s) == ["displayName", "penaltyCost", "deliveries"] for s in shipments
+            set(s) == {"displayName", "penaltyCost", "deliveries"} for s in shipments
         )
 
     def test_return_to_warehouse_sets_end_location(
