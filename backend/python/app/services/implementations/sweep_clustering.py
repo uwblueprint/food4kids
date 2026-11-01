@@ -192,10 +192,11 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             )
             if isinstance(assigned, list):
                 break
+            unplaced = assigned
         else:
-            boxes = effective_boxes(assigned, self._children_per_box)
+            boxes = effective_boxes(unplaced, self._children_per_box)
             raise ValueError(
-                f"Cannot assign '{assigned.name}' ({boxes} boxes) across {num_clusters} "
+                f"Cannot assign '{unplaced.name}' ({boxes} boxes) across {num_clusters} "
                 f"drivers: no arrangement found fits every stop within max "
                 f"{max_boxes_per_cluster} boxes per driver and the far-route caps "
                 f"({FAR_MAX_STOPS_PER_CLUSTER} stops, "
