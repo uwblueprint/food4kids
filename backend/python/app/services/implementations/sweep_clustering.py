@@ -172,53 +172,36 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         )
         metrics_by_id = self._metrics_for_locations(sorted_locations)
 
-        cluster_states = [_ClusterState() for _ in range(num_clusters)]
-        journal: list[tuple[int, _ClusterState]] = []
-
         # Far stops first: a far route caps at FAR_MAX_STOPS_PER_CLUSTER stops,
         # so one arriving late in the sweep would find no route short enough.
         placement_order = sorted(
             sorted_locations,
             key=lambda location: not metrics_by_id[location.location_id].is_far,
         )
-        for location in placement_order:
-            check_timeout()
-
-            def place(location: Location = location) -> bool:
-                return self._place(
-                    location=location,
-                    clusters=cluster_states,
-                    journal=journal,
-                    max_boxes=max_boxes_per_cluster,
-                    metrics_by_id=metrics_by_id,
-                    depth=REPAIR_DEPTH,
-                    locked=frozenset(),
-                    check_timeout=check_timeout,
-                )
-
-            if not (
-                place()
-                or (
-                    self._compact_far_routes(
-                        cluster_states,
-                        max_boxes_per_cluster,
-                        metrics_by_id,
-                        check_timeout,
-                    )
-                    and place()
-                )
-            ):
-                boxes = effective_boxes(location, self._children_per_box)
-                raise ValueError(
-                    f"Cannot assign '{location.name}' ({boxes} boxes) across {num_clusters} "
-                    f"drivers: no arrangement found fits every stop within max "
-                    f"{max_boxes_per_cluster} boxes per driver and the far-route caps "
-                    f"({FAR_MAX_STOPS_PER_CLUSTER} stops, "
-                    f"{self._far_route_minutes_cap():.0f} minutes). Add drivers or "
-                    f"adjust loads."
-                )
-            # A placed stop stays placed, so earlier moves need no undo.
-            journal.clear()
+        # One far stop per route keeps each far route's box room; sharing
+        # routes frees stop slots. Neither suits every load, so try both.
+        has_far = any(metrics.is_far for metrics in metrics_by_id.values())
+        for consolidate_far in (False, True) if has_far else (False,):
+            assigned = self._assign(
+                placement_order=placement_order,
+                num_clusters=num_clusters,
+                max_boxes=max_boxes_per_cluster,
+                metrics_by_id=metrics_by_id,
+                consolidate_far=consolidate_far,
+                check_timeout=check_timeout,
+            )
+            if isinstance(assigned, list):
+                break
+        else:
+            boxes = effective_boxes(assigned, self._children_per_box)
+            raise ValueError(
+                f"Cannot assign '{assigned.name}' ({boxes} boxes) across {num_clusters} "
+                f"drivers: no arrangement found fits every stop within max "
+                f"{max_boxes_per_cluster} boxes per driver and the far-route caps "
+                f"({FAR_MAX_STOPS_PER_CLUSTER} stops, "
+                f"{self._far_route_minutes_cap():.0f} minutes). Add drivers or "
+                f"adjust loads."
+            )
 
         # Repairs move stops between routes; restore the sweep (visit) order.
         sweep_rank = {
@@ -228,7 +211,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             sorted(
                 state.locations, key=lambda location: sweep_rank[location.location_id]
             )
-            for state in cluster_states
+            for state in assigned
         ]
 
         # Defensive: should be unreachable if _can_add_to_cluster stays in sync.
@@ -313,24 +296,57 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         return [state.locations for state in cluster_states]
 
+    def _assign(
+        self,
+        placement_order: list[Location],
+        num_clusters: int,
+        max_boxes: int,
+        metrics_by_id: dict[UUID, _LocationMetrics],
+        consolidate_far: bool,
+        check_timeout: Callable[[], None],
+    ) -> list[_ClusterState] | Location:
+        """Routes holding every stop, or the first stop that wouldn't fit."""
+        clusters = [_ClusterState() for _ in range(num_clusters)]
+
+        def place(location: Location) -> bool:
+            return self._place(
+                location=location,
+                clusters=clusters,
+                max_boxes=max_boxes,
+                metrics_by_id=metrics_by_id,
+                depth=REPAIR_DEPTH,
+                consolidate_far=consolidate_far,
+                check_timeout=check_timeout,
+            )
+
+        for location in placement_order:
+            check_timeout()
+            placed = place(location) or (
+                self._compact_far_routes(
+                    clusters, max_boxes, metrics_by_id, check_timeout
+                )
+                and place(location)
+            )
+            if not placed:
+                return location
+        return clusters
+
     def _place(
         self,
         location: Location,
         clusters: list[_ClusterState],
-        journal: list[tuple[int, _ClusterState]],
         max_boxes: int,
         metrics_by_id: dict[UUID, _LocationMetrics],
         depth: int,
-        locked: frozenset[int],
+        consolidate_far: bool,
         check_timeout: Callable[[], None],
     ) -> bool:
-        """Add ``location`` to the least-loaded route it fits on.
+        """Add ``location`` to the least-loaded route it fits on (for a far
+        stop with ``consolidate_far``, preferring routes that already have one).
 
         If none has room, make room on one by moving one or two of its smaller
-        stops elsewhere, each placed the same way with ``depth - 1``. A route that
-        made room is ``locked`` against giving up more stops in the chain, but
-        may still take them back in. Returns False, leaving ``clusters``
-        unchanged, if nothing works.
+        stops elsewhere, each placed the same way with ``depth - 1``. Returns
+        False, leaving ``clusters`` unchanged, if nothing works.
         """
         metrics = metrics_by_id[location.location_id]
         feasible_indices = [
@@ -341,10 +357,16 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         if feasible_indices:
             best_index = min(
                 feasible_indices,
-                key=lambda index: self._cluster_load_key(clusters[index]),
+                key=lambda index: (
+                    consolidate_far
+                    and metrics.is_far
+                    and not clusters[index].has_far_stop,
+                    self._cluster_load_key(clusters[index]),
+                ),
             )
-            self._record(clusters, journal, best_index)
-            self._add_to_cluster(clusters[best_index], location, metrics)
+            clusters[best_index] = self._cluster_with(
+                clusters[best_index], location, metrics
+            )
             return True
 
         if depth == 0:
@@ -352,7 +374,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         # Least-loaded routes first: they need the fewest stops moved off.
         targets = sorted(
-            (index for index in range(len(clusters)) if index not in locked),
+            range(len(clusters)),
             key=lambda index: self._cluster_load_key(clusters[index]),
         )
         for index in targets:
@@ -360,27 +382,26 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 clusters[index], location, max_boxes, metrics_by_id
             ):
                 check_timeout()
-                mark = len(journal)
-                self._record(clusters, journal, index)
-                clusters[index] = self._cluster_without(
-                    clusters[index], ejected, metrics_by_id
+                snapshot = list(clusters)
+                clusters[index] = self._cluster_with(
+                    self._cluster_without(clusters[index], ejected, metrics_by_id),
+                    location,
+                    metrics,
                 )
-                self._add_to_cluster(clusters[index], location, metrics)
                 if all(
                     self._place(
                         location=stop,
                         clusters=clusters,
-                        journal=journal,
                         max_boxes=max_boxes,
                         metrics_by_id=metrics_by_id,
                         depth=depth - 1,
-                        locked=locked | {index},
+                        consolidate_far=consolidate_far,
                         check_timeout=check_timeout,
                     )
                     for stop in ejected
                 ):
                     return True
-                self._rollback(clusters, journal, mark)
+                clusters[:] = snapshot
         return False
 
     def _compact_far_routes(
@@ -414,18 +435,16 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     if swap is None:
                         continue
                     outgoing, incoming = swap
-                    far_route = self._cluster_without(
-                        far_route, (outgoing,), metrics_by_id
-                    )
-                    self._add_to_cluster(
-                        far_route, incoming, metrics_by_id[incoming.location_id]
+                    far_route = self._cluster_with(
+                        self._cluster_without(far_route, (outgoing,), metrics_by_id),
+                        incoming,
+                        metrics_by_id[incoming.location_id],
                     )
                     clusters[far_index] = far_route
-                    clusters[index] = self._cluster_without(
-                        route, (incoming,), metrics_by_id
-                    )
-                    self._add_to_cluster(
-                        clusters[index], outgoing, metrics_by_id[outgoing.location_id]
+                    clusters[index] = self._cluster_with(
+                        self._cluster_without(route, (incoming,), metrics_by_id),
+                        outgoing,
+                        metrics_by_id[outgoing.location_id],
                     )
                     moved = improved = True
         return moved
@@ -523,25 +542,17 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 self._add_to_cluster(rebuilt, stop, metrics_by_id[stop.location_id])
         return rebuilt
 
-    @staticmethod
-    def _record(
-        clusters: list[_ClusterState],
-        journal: list[tuple[int, _ClusterState]],
-        index: int,
-    ) -> None:
-        """Save a route's state before changing it, for ``_rollback``."""
-        cluster = clusters[index]
-        journal.append((index, replace(cluster, locations=list(cluster.locations))))
-
-    @staticmethod
-    def _rollback(
-        clusters: list[_ClusterState],
-        journal: list[tuple[int, _ClusterState]],
-        mark: int,
-    ) -> None:
-        while len(journal) > mark:
-            index, saved = journal.pop()
-            clusters[index] = saved
+    def _cluster_with(
+        self,
+        cluster: _ClusterState,
+        location: Location,
+        metrics: _LocationMetrics,
+    ) -> _ClusterState:
+        """A copy plus ``location``; repairs never mutate a route in place, so
+        undoing one is restoring the list of routes."""
+        extended = replace(cluster, locations=list(cluster.locations))
+        self._add_to_cluster(extended, location, metrics)
+        return extended
 
     def _metrics_for_locations(
         self, locations: list[Location]

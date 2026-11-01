@@ -437,13 +437,18 @@ async def test_routing_enforces_the_configured_box_cap(
 ELMIRA = "10 Main St, Elmira, ON"
 
 
-def _sized_ring(sizes: list[int], seed: int = 0) -> list[Location]:
-    """Near stops at shuffled angles and radii, one per box size in ``sizes``."""
+def _sized_ring(
+    sizes: list[int],
+    seed: int = 0,
+    radius_range: tuple[float, float] = (0.02, 0.1),
+) -> list[Location]:
+    """Near stops at shuffled angles and radii (degrees from the warehouse),
+    one per box size in ``sizes``."""
     rng = random.Random(seed)
     stops = []
     for i, boxes in enumerate(sizes):
         angle = rng.uniform(0, math.tau)
-        radius = rng.uniform(0.02, 0.1)
+        radius = rng.uniform(*radius_range)
         stops.append(
             _location(
                 lat=WAREHOUSE_LAT + radius * math.sin(angle),
@@ -639,19 +644,101 @@ async def test_far_route_with_a_one_box_far_stop_cannot_fill_its_car() -> None:
     _assert_valid_routes(routes, near_only, 3, 10, algo)
 
 
-async def test_far_stops_on_separate_routes_each_get_their_own_cap() -> None:
-    """Two far stops at an exact fit: each needs its own route of big stops."""
+async def test_box_tight_far_stops_must_each_get_their_own_route() -> None:
+    """Two 2-box far stops at an exact fit. Sharing a route leaves time for
+    only two more stops (2 + 2 + 2 + 2 = 8 boxes), so each needs its own."""
     algo = _algo()
     num_routes, max_boxes = 5, 10
     far = [_far_stop(2, "Far A"), _far_stop(2, "Far B")]
-    near = _sized_ring(
-        _one_and_two_box_sizes(num_routes * max_boxes - 4, seed=7), seed=7
-    )
+    # 23-28 minutes each: four fit beside one far stop, three don't beside two.
+    near = _sized_ring([2] * 23, seed=7, radius_range=(0.065, 0.08))
     stops = far + near
+    far_minutes = algo._location_metrics(far[0]).stop_minutes
+    near_minutes = sorted(algo._location_metrics(s).stop_minutes for s in near)
+    cap = algo._far_route_minutes_cap()
+    assert far_minutes + sum(near_minutes[-4:]) <= cap
+    assert 2 * far_minutes + sum(near_minutes[:3]) > cap
 
     routes = await algo.cluster_locations(stops, num_routes, max_boxes)
 
     _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+    assert [sum(s in r for s in far) for r in routes].count(1) == 2
+
+
+async def test_stop_tight_far_stops_must_share_a_route() -> None:
+    """Four 1-box far stops and 18 near ones on four routes: one far stop per
+    route caps every route at five stops, 20 in all, so they must double up."""
+    algo = _algo()
+    far = [_far_stop(1, f"Far {i}") for i in range(4)]
+    stops = far + _sized_ring([1] * 18)
+
+    routes = await algo.cluster_locations(stops, 4, 10)
+
+    _assert_valid_routes(routes, stops, 4, 10, algo)
+    assert max(sum(s in r for s in far) for r in routes) >= 2
+
+
+@pytest.mark.parametrize(
+    ("near_sizes", "packs"),
+    [
+        ([2, 2, 2, 2], True),  # 2 + 4 x 2 = 10 boxes in five stops
+        ([1, 1, 1, 1, 1], False),  # six stops on a far route
+        ([2, 2, 2, 2, 2], False),  # 12 boxes
+    ],
+)
+async def test_single_route_with_a_far_stop(near_sizes: list[int], packs: bool) -> None:
+    algo = _algo()
+    stops = [_far_stop(2), *_sized_ring(near_sizes, radius_range=(0.02, 0.03))]
+    if packs:
+        routes = await algo.cluster_locations(stops, 1, 10)
+        _assert_valid_routes(routes, stops, 1, 10, algo)
+    else:
+        with pytest.raises(ValueError):
+            await algo.cluster_locations(stops, 1, 10)
+
+
+def _near_at(km_east: float, boxes: int, name: str) -> Location:
+    return _location(
+        lat=WAREHOUSE_LAT,
+        lon=WAREHOUSE_LON + km_east / (111.32 * math.cos(math.radians(WAREHOUSE_LAT))),
+        num_children=boxes * CHILDREN_PER_BOX,
+        name=name,
+    )
+
+
+@pytest.mark.parametrize(
+    ("candidates", "expected"),
+    [
+        # Same boxes: the quicker stop wins on minutes alone.
+        ([("quick", 2.0, 1)], "quick"),
+        # More boxes beat fewer minutes.
+        ([("quick", 2.0, 1), ("big", 15.0, 2)], "big"),
+        # Neither bigger nor quicker: no swap.
+        ([("slow", 18.0, 1)], None),
+    ],
+)
+def test_far_swap_prefers_boxes_then_minutes(
+    candidates: list[tuple[str, float, int]], expected: str | None
+) -> None:
+    algo = _algo()
+    far = _far_stop(2)
+    outgoing = _near_at(10.0, 1, "outgoing")
+    others = [_near_at(km, boxes, name) for name, km, boxes in candidates]
+    metrics = algo._metrics_for_locations([far, outgoing, *others])
+    far_route = sweep_clustering._ClusterState()
+    for stop in (far, outgoing):
+        algo._add_to_cluster(far_route, stop, metrics[stop.location_id])
+    route = sweep_clustering._ClusterState()
+    for stop in others:
+        algo._add_to_cluster(route, stop, metrics[stop.location_id])
+
+    swap = algo._best_far_swap(far_route, route, 10, metrics)
+
+    if expected is None:
+        assert swap is None
+    else:
+        assert swap is not None
+        assert (swap[0].name, swap[1].name) == ("outgoing", expected)
 
 
 async def test_far_routes_pack_with_slack_across_many_seeds() -> None:
@@ -675,7 +762,6 @@ def test_failed_placement_leaves_routes_untouched() -> None:
     stops = _sized_ring([4, 4, 4, 4, 4])
     metrics = algo._metrics_for_locations(stops)
     clusters = [sweep_clustering._ClusterState() for _ in range(2)]
-    journal: list[tuple[int, sweep_clustering._ClusterState]] = []
     for stop, index in zip(stops[:4], [0, 0, 1, 1], strict=True):
         algo._add_to_cluster(clusters[index], stop, metrics[stop.location_id])
     before = [list(c.locations) for c in clusters]
@@ -683,18 +769,16 @@ def test_failed_placement_leaves_routes_untouched() -> None:
     placed = algo._place(
         location=stops[4],
         clusters=clusters,
-        journal=journal,
         max_boxes=10,
         metrics_by_id=metrics,
         depth=sweep_clustering.REPAIR_DEPTH,
-        locked=frozenset(),
+        consolidate_far=False,
         check_timeout=lambda: None,
     )
 
     assert not placed
     assert [list(c.locations) for c in clusters] == before
     assert [c.box_count for c in clusters] == [8, 8]
-    assert journal == []
 
 
 def test_repair_checks_the_timeout() -> None:
@@ -714,11 +798,10 @@ def test_repair_checks_the_timeout() -> None:
         algo._place(
             location=stops[2],
             clusters=clusters,
-            journal=[],
             max_boxes=2,
             metrics_by_id=metrics,
             depth=sweep_clustering.REPAIR_DEPTH,
-            locked=frozenset(),
+            consolidate_far=False,
             check_timeout=expired,
         )
 
