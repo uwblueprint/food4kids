@@ -40,6 +40,8 @@ export interface DataTableProps<T> {
   /** Rendered when rows is empty. */
   emptyState?: ReactNode;
   className?: string;
+  /** Table-wide tbody className applied to the tbody element. */
+  bodyClassName?: string;
   /** Active sort; when set, rows are sorted by the matching column's sortValue. */
   sort?: SortState | null;
   /** Called with a column key when its sortable header is clicked. */
@@ -111,6 +113,7 @@ function DataTable<T>({
   getRowClassName,
   emptyState,
   className,
+  bodyClassName,
   sort,
   onSortChange,
   onRowClick,
@@ -188,7 +191,7 @@ function DataTable<T>({
 
           {/* Row rules are the lighter grey-200; only the header's is
               grey-300, so the head reads as separate from the body. */}
-          <tbody className="divide-grey-200 divide-y">
+          <tbody className={cn('divide-grey-200 divide-y', bodyClassName)}>
             {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length}>{emptyState}</td>
