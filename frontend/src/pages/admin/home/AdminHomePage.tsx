@@ -5,7 +5,7 @@ import { AnnouncementsBoard } from '@/features/announcements';
 import { CalendarWidget } from '@/features/calendar';
 import { StatisticsWidget } from '@/features/statistics';
 
-import { UnassignedRoutesCard } from './components';
+import { RouteGenerationCostCard, UnassignedRoutesCard } from './components';
 
 const today = formatDisplayDate(new Date());
 
@@ -36,9 +36,7 @@ export const AdminHomePage = () => {
       <div className="grid grid-cols-[1fr_363px] grid-rows-[468px_380px] gap-5">
         <CalendarWidget />
         <div className="grid grid-rows-[121px_1fr] gap-5">
-          <Card className={TILE}>
-            <CardContent>TODO: Route Generation Cost</CardContent>
-          </Card>
+          <RouteGenerationCostCard />
           <StatisticsWidget />
         </div>
         <UnassignedRoutesCard />
