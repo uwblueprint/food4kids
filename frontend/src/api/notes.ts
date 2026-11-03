@@ -4,11 +4,21 @@ import { useAuthStore } from './authStore';
 import {
   createNoteMutation,
   deleteNoteMutation,
+  getNotesFeedOptions,
   getNotesOptions,
   getNotesQueryKey,
   updateNoteMutation,
   uploadImageMutation,
 } from './generated/@tanstack/react-query.gen';
+import type { GetNotesFeedData } from './generated/types.gen';
+
+export function useNotesFeed(query: GetNotesFeedData['query'], enabled = true) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  return useQuery({
+    ...getNotesFeedOptions({ query }),
+    enabled: isAuthenticated && enabled,
+  });
+}
 
 export function useNotes(
   noteChainId: string | null | undefined,
