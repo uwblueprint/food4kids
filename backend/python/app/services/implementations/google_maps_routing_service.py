@@ -158,6 +158,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         target = _target_route_seconds(
             locations, warehouse_lat, warehouse_lon, settings
         )
+        horizon = GLOBAL_HORIZON_HOURS * 3600
         # endLocation controls whether drivers return to the warehouse.
         # During school term drivers return; during summer they end at their
         # last delivery to save time.
@@ -179,11 +180,14 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 },
                 "costPerHour": VEHICLE_COST_PER_HOUR,
                 "routeDurationLimit": {
-                    # The API requires a hard cap alongside the quadratic cost.
-                    "maxDuration": f"{GLOBAL_HORIZON_HOURS * 3600}s",
-                    "softMaxDuration": f"{target}s",
+                    # The API requires a hard cap alongside the quadratic cost,
+                    # and both soft limits strictly below it.
+                    "maxDuration": f"{horizon}s",
+                    "softMaxDuration": f"{min(target, horizon - 1)}s",
                     "costPerHourAfterSoftMax": OVER_TARGET_COST_PER_HOUR,
-                    "quadraticSoftMaxDuration": f"{round(target * QUADRATIC_TARGET_FACTOR)}s",
+                    "quadraticSoftMaxDuration": (
+                        f"{min(round(target * QUADRATIC_TARGET_FACTOR), horizon - 1)}s"
+                    ),
                     "costPerSquareHourAfterQuadraticSoftMax": (
                         OVER_TARGET_COST_PER_SQUARE_HOUR
                     ),

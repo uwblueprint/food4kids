@@ -88,11 +88,11 @@ async def run_generation_job(
         request = _parse_request(job)
         group, locations = await _resolve_locations(session, request.location_group)
         warehouse_lat, warehouse_lon = await _resolve_warehouse(session)
-        if not 1 <= request.settings.num_routes <= len(locations):
+        if request.settings.num_routes > len(locations):
             raise GenerationFailed(
                 f"Asked for {request.settings.num_routes} route(s) for "
                 f"{len(locations)} location(s). Every route needs at least one "
-                "stop, so ask for between 1 and the number of locations."
+                "stop, so ask for at most one route per location."
             )
 
         logger.info(
@@ -338,7 +338,7 @@ async def _build_route_group(
     if len(clusters) != settings.num_routes or empty:
         raise GenerationFailed(
             f"Asked for {settings.num_routes} route(s), but the routing engine "
-            f"returned {len(clusters) - empty} with stops."
+            f"returned {len(clusters)}, {empty} of them empty."
         )
 
     name = f"{group.name} - {settings.route_start_time:%Y-%m-%d}"

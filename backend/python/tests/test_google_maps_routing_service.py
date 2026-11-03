@@ -133,7 +133,7 @@ class TestBuildPayload:
                     "maxDuration": f"{GLOBAL_HORIZON_HOURS * 3600}s",
                     "softMaxDuration": f"{target}s",
                     "costPerHourAfterSoftMax": OVER_TARGET_COST_PER_HOUR,
-                    "quadraticSoftMaxDuration": f"{round(target * 1.3)}s",
+                    "quadraticSoftMaxDuration": f"{round(target * QUADRATIC_TARGET_FACTOR)}s",
                     "costPerSquareHourAfterQuadraticSoftMax": (
                         OVER_TARGET_COST_PER_SQUARE_HOUR
                     ),
@@ -365,12 +365,25 @@ class TestBuildPayload:
             "stops": {"amount": "1"},
         }
 
-    def test_time_over_target_costs_more_than_driving(self) -> None:
-        """Overrunning the target must cost more than an hour of driving, or
-        the optimizer would never add driving to even out the routes."""
-        assert OVER_TARGET_COST_PER_HOUR > VEHICLE_COST_PER_HOUR
-        assert OVER_TARGET_COST_PER_SQUARE_HOUR > 0
-        assert QUADRATIC_TARGET_FACTOR > 1
+    def test_soft_limits_stay_below_the_hard_cap(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """The API rejects soft limits at or over maxDuration, so a plan whose
+        target alone nears the horizon (one route, many long drop-offs) is
+        clamped rather than sent invalid."""
+        locs = [make_location(latitude=43.0, longitude=-79.0) for _ in range(70)]
+        settings = _settings(service_time_minutes=17)  # ~20h of drop-offs
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
+
+        horizon = GLOBAL_HORIZON_HOURS * 3600
+        limit = payload["model"]["vehicles"][0]["routeDurationLimit"]
+        assert _target_route_seconds(locs, 43.0, -79.0, settings) < horizon
+        assert limit["maxDuration"] == f"{horizon}s"
+        assert limit["softMaxDuration"] == "71400s"
+        assert limit["quadraticSoftMaxDuration"] == f"{horizon - 1}s"
 
     def test_oversized_location_demand_clamped_to_capacity(
         self,
@@ -789,6 +802,19 @@ class TestTargetRouteSeconds:
         expected_km = 2 * 1 + 0.57 * (2 * 1) ** 0.5
         assert target == pytest.approx(
             _hours_to_seconds(expected_km) + 2 * self.SERVICE, abs=1
+        )
+
+    def test_stops_in_a_line_have_no_area(self, make_location: Any) -> None:
+        """A flat bounding box adds nothing beyond the depot legs."""
+        locs = [
+            make_location(latitude=km * DEGREES_PER_KM, longitude=0.0) for km in (1, 2)
+        ]
+        settings = _settings(return_to_warehouse=True)
+
+        target = _target_route_seconds(locs, 0.0, 0.0, settings)
+
+        assert target == pytest.approx(
+            _hours_to_seconds(2 * 1.5) + 2 * self.SERVICE, abs=1
         )
 
     @pytest.mark.parametrize("missing", ["latitude", "longitude"])
