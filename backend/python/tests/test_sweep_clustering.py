@@ -722,19 +722,19 @@ async def test_full_far_route_takes_the_quick_stops(slow_first: bool) -> None:
     _assert_valid_routes(routes, stops, 2, 10, algo)
 
 
-async def test_far_routes_pack_with_slack_across_many_seeds() -> None:
+@pytest.mark.parametrize("seed", range(25))
+async def test_far_routes_pack_with_slack_across_many_seeds(seed: int) -> None:
     """Near-fit instances with a few far stops all pack and keep far caps."""
     algo = _algo()
-    for seed in range(25):
-        rng = random.Random(seed)
-        num_routes, max_boxes = rng.randint(3, 8), 10
-        far = [_far_stop(2, f"Far {i}") for i in range(rng.randint(1, 2))]
-        near_total = num_routes * max_boxes - 2 * len(far) - rng.randint(1, 3)
-        stops = far + _sized_ring(_one_and_two_box_sizes(near_total, seed), seed)
+    rng = random.Random(seed)
+    num_routes, max_boxes = rng.randint(3, 8), 10
+    far = [_far_stop(2, f"Far {i}") for i in range(rng.randint(1, 2))]
+    near_total = num_routes * max_boxes - 2 * len(far) - rng.randint(1, 3)
+    stops = far + _sized_ring(_one_and_two_box_sizes(near_total, seed), seed)
 
-        routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
 
-        _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
 
 
 async def test_far_stop_last_in_the_sweep_still_gets_a_short_route() -> None:

@@ -114,7 +114,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         Locations are sweep-sorted from the warehouse, then assigned greedily
         to the least-loaded feasible route so work is spread evenly while
         respecting box and far-delivery limits. Far stops go first, then the
-        rest largest-first, so small stops fill the gaps big ones leave.
+        rest largest-first, so small stops fill the gaps big ones leave. That
+        always packs 1- and 2-box stops without far routes when they fit;
+        otherwise it is a heuristic and can miss a packing.
         """
         start_time = time.time()
 
@@ -194,8 +196,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             boxes = effective_boxes(unplaced, self._children_per_box)
             raise ValueError(
                 f"Cannot assign '{unplaced.name}' ({boxes} boxes) across {num_clusters} "
-                f"drivers without violating max {max_boxes_per_cluster} boxes per driver "
-                f"or far-route caps. Add drivers or adjust loads."
+                f"drivers: no fit found within max {max_boxes_per_cluster} boxes per "
+                f"driver and the far-route caps. Add drivers or adjust loads."
             )
 
         sweep_rank = {
