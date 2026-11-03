@@ -132,7 +132,7 @@ async def _add_warehouse(session: AsyncSession, *, configured: bool = True) -> N
 
 
 async def _queue_running_job(
-    session: AsyncSession, requested_group: LocationGroup, *, num_routes: int = 2
+    session: AsyncSession, requested_group: LocationGroup, *, num_routes: int = 1
 ) -> Job:
     """A job in the state the worker hands to the runner: claimed (Running)
     with the request it was queued with saved on it."""
@@ -174,7 +174,7 @@ class TestSuccessfulGeneration:
         third = await _add_location(test_session, group, "Family C")
         await _add_location(test_session, group, "Family Gone", in_roster=False)
         await _add_warehouse(test_session)
-        job = await _queue_running_job(test_session, group)
+        job = await _queue_running_job(test_session, group, num_routes=2)
 
         received: list[Location] = []
 
@@ -318,23 +318,35 @@ class TestSuccessfulGeneration:
         assert "not geocoded" in (job.error_message or "")
 
     @pytest.mark.asyncio
-    async def test_empty_clusters_do_not_become_routes(
-        self, test_session: AsyncSession
+    @pytest.mark.parametrize(
+        "clusters",
+        [
+            pytest.param(lambda a, b: [[a, b], []], id="one-empty"),
+            pytest.param(lambda a, b: [[a], [b], []], id="too-many"),
+            pytest.param(lambda a, b: [[a, b]], id="too-few"),
+        ],
+    )
+    async def test_every_requested_route_must_have_stops(
+        self, test_session: AsyncSession, clusters: Callable[..., Any]
     ) -> None:
-        """Asking for more routes than the engine can fill leaves empty
-        clusters, and an empty route is not worth saving."""
+        """The coordinator chose the route count, so an engine that comes
+        back with a different number of filled routes fails the job instead
+        of quietly saving fewer."""
         group = await _add_group(test_session)
-        location = await _add_location(test_session, group, "Family A")
+        a = await _add_location(test_session, group, "Family A")
+        b = await _add_location(test_session, group, "Family B")
         await _add_warehouse(test_session)
-        job = await _queue_running_job(test_session, group, num_routes=3)
+        job = await _queue_running_job(test_session, group, num_routes=2)
 
-        algorithm = FakeRoutingAlgorithm(lambda _locations: [[location], [], []])
+        algorithm = FakeRoutingAlgorithm(lambda _locations: clusters(a, b))
         await run_generation_job(job.job_id, test_session, algorithm)
 
         await test_session.refresh(job)
-        assert job.progress == ProgressEnum.COMPLETED
-        assert job.routes_created == 1
-        assert job.total_stops == 1
+        assert job.progress == ProgressEnum.FAILED
+        assert "Asked for 2 route(s), but the routing engine" in (
+            job.error_message or ""
+        )
+        assert await _route_groups(test_session) == []
 
     @pytest.mark.asyncio
     async def test_the_engine_is_given_a_timeout(
@@ -354,6 +366,29 @@ class TestSuccessfulGeneration:
 
 
 class TestFailedGeneration:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("num_routes", [0, 3])
+    async def test_route_count_outside_one_to_locations_fails_before_routing(
+        self, test_session: AsyncSession, num_routes: int
+    ) -> None:
+        """Every route needs a stop, so more routes than locations (or none)
+        can't be honoured; fail before paying for an engine call."""
+        group = await _add_group(test_session)
+        await _add_location(test_session, group, "Family A")
+        await _add_location(test_session, group, "Family B")
+        await _add_warehouse(test_session)
+        job = await _queue_running_job(test_session, group, num_routes=num_routes)
+
+        await run_generation_job(
+            job.job_id, test_session, FakeRoutingAlgorithm(_never_called)
+        )
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.FAILED
+        assert f"Asked for {num_routes} route(s) for 2 location(s)" in (
+            job.error_message or ""
+        )
+
     @pytest.mark.asyncio
     async def test_engine_error_fails_the_job_and_saves_nothing(
         self, test_session: AsyncSession
@@ -565,7 +600,7 @@ class TestFailedGeneration:
 
         await test_session.refresh(job)
         assert job.progress == ProgressEnum.FAILED
-        assert "did not place any locations" in (job.error_message or "")
+        assert "returned 0 with stops" in (job.error_message or "")
         assert await _route_groups(test_session) == []
 
     @pytest.mark.asyncio

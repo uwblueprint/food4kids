@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
 from app.utilities.boxes import compute_boxes
+from app.utilities.geo import haversine_km
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -382,20 +383,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 f"Location {location.location_id} is missing longitude."
             )
 
-        lat2 = location.latitude
-        lon2 = location.longitude
-        radius_km = 6371.0
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        delta_phi = math.radians(lat2 - lat1)
-        delta_lambda = math.radians(lon2 - lon1)
-
-        a = (
-            math.sin(delta_phi / 2) ** 2
-            + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
-        )
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        return radius_km * c
+        return haversine_km(lat1, lon1, location.latitude, location.longitude)
 
     def _sorted_locations(
         self,

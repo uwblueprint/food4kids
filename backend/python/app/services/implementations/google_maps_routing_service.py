@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import threading
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ import requests
 from app.config import settings as app_settings
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.boxes import compute_boxes
+from app.utilities.geo import haversine_km
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -31,17 +33,18 @@ API_TIMEOUT_SECONDS = 60
 # Penalty cost high enough that the optimizer will never skip a delivery.
 MANDATORY_DELIVERY_PENALTY = 1_000_000
 
-# Two-term objective:
-#   1. globalDurationCostPerHour (dominant) — all drivers leave the warehouse
-#      together, so the plan's "global duration" is when the LAST driver
-#      finishes. Charging it heavily makes the optimizer minimize the longest
-#      route, so no volunteer gets stuck with a brutal day.
-#   2. costPerHour on every vehicle (modest) — charges each route's total time
-#      (driving + drop-offs), keeping non-bottleneck routes efficient.
-# Only the ratio matters: at 6:1 the optimizer will spend up to 6 extra total
-# driver-hours to get the last driver home one hour sooner.
-GLOBAL_DURATION_COST_PER_HOUR = 6
+# Scoring. Each route costs its hours, plus a steep extra above a target
+# length: 6 per hour beyond it and 6 per hour² beyond 1.3x it. So the
+# optimizer spends extra driving to even out the routes, but only where one
+# would otherwise run long. Tuned on seed data, offline and live; see
+# _target_route_seconds for the target.
 VEHICLE_COST_PER_HOUR = 1
+OVER_TARGET_COST_PER_HOUR = 6
+OVER_TARGET_COST_PER_SQUARE_HOUR = 6
+QUADRATIC_TARGET_FACTOR = 1.3
+
+# Straight-line km/h: 50 km/h on roads about 1.3x longer than the crow flies.
+STRAIGHT_LINE_KMH = 50 / 1.3
 
 # The plan's time horizon. A globalEndTime is mandatory, so this is wide
 # enough that it never binds — nothing else here constrains the plan either.
@@ -67,6 +70,44 @@ def _to_rfc3339(moment: datetime) -> str:
     must be unambiguous — a naive one is rejected.
     """
     return _localize(moment).isoformat()
+
+
+def _target_route_seconds(
+    locations: list[Location],
+    warehouse_lat: float,
+    warehouse_lon: float,
+    settings: RouteGenerationSettings,
+) -> int:
+    """Daganzo's estimate of each route's length if the work split evenly.
+
+    Fleet distance ~ depot legs (mean warehouse distance per leg, per route)
+    plus 0.57 * sqrt(stops * area), area being the stops' bounding box. Within
+    about 10% of solved plans on seed data, without solving anything.
+    """
+    lats = [_coordinate(loc.latitude) for loc in locations]
+    lons = [_coordinate(loc.longitude) for loc in locations]
+    mean_km = sum(
+        haversine_km(warehouse_lat, warehouse_lon, lat, lon)
+        for lat, lon in zip(lats, lons, strict=True)
+    ) / len(locations)
+    area_km2 = haversine_km(min(lats), min(lons), max(lats), min(lons)) * haversine_km(
+        min(lats), min(lons), min(lats), max(lons)
+    )
+    legs = 2 if settings.return_to_warehouse else 1
+    fleet_km = legs * mean_km * settings.num_routes + 0.57 * math.sqrt(
+        len(locations) * area_km2
+    )
+    fleet_seconds = (
+        fleet_km / STRAIGHT_LINE_KMH * 3600
+        + settings.service_time_minutes * 60 * len(locations)
+    )
+    return round(fleet_seconds / settings.num_routes)
+
+
+def _coordinate(value: float | None) -> float:
+    if value is None:
+        raise ValueError("Fleet Routing needs every location geocoded")
+    return value
 
 
 class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
@@ -114,6 +155,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # max_boxes_per_driver.
         max_load = settings.max_boxes_per_driver
 
+        target = _target_route_seconds(
+            locations, warehouse_lat, warehouse_lon, settings
+        )
         # endLocation controls whether drivers return to the warehouse.
         # During school term drivers return; during summer they end at their
         # last delivery to save time.
@@ -122,8 +166,28 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "displayName": f"driver_{i}",
                 "startLocation": warehouse,
                 **({"endLocation": warehouse} if settings.return_to_warehouse else {}),
-                "loadLimits": {"load": {"maxLoad": str(max_load)}},
+                # Every requested route goes out: it must leave carrying at
+                # least one stop and come back with none, so it delivers one.
+                # Stops, not boxes, since a location can need zero boxes.
+                "usedIfRouteIsEmpty": True,
+                "loadLimits": {
+                    "load": {"maxLoad": str(max_load)},
+                    "stops": {
+                        "startLoadInterval": {"min": "1"},
+                        "endLoadInterval": {"max": "0"},
+                    },
+                },
                 "costPerHour": VEHICLE_COST_PER_HOUR,
+                "routeDurationLimit": {
+                    # The API requires a hard cap alongside the quadratic cost.
+                    "maxDuration": f"{GLOBAL_HORIZON_HOURS * 3600}s",
+                    "softMaxDuration": f"{target}s",
+                    "costPerHourAfterSoftMax": OVER_TARGET_COST_PER_HOUR,
+                    "quadraticSoftMaxDuration": f"{round(target * QUADRATIC_TARGET_FACTOR)}s",
+                    "costPerSquareHourAfterQuadraticSoftMax": (
+                        OVER_TARGET_COST_PER_SQUARE_HOUR
+                    ),
+                },
             }
             for i in range(settings.num_routes)
         ]
@@ -160,7 +224,10 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                                 "longitude": loc.longitude,
                             },
                             "duration": service_duration,
-                            "loadDemands": {"load": {"amount": str(demand)}},
+                            "loadDemands": {
+                                "load": {"amount": str(demand)},
+                                "stops": {"amount": "1"},
+                            },
                         }
                     ],
                 }
@@ -179,7 +246,6 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         global_end = global_start + timedelta(hours=GLOBAL_HORIZON_HOURS)
         return {
             "model": {
-                "globalDurationCostPerHour": GLOBAL_DURATION_COST_PER_HOUR,
                 "globalStartTime": _to_rfc3339(global_start),
                 "globalEndTime": _to_rfc3339(global_end),
                 "vehicles": vehicles,
