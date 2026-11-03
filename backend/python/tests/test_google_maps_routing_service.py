@@ -12,13 +12,20 @@ import pytest
 from app.config import settings as app_settings
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
-    GLOBAL_DURATION_COST_PER_HOUR,
     GLOBAL_HORIZON_HOURS,
     MANDATORY_DELIVERY_PENALTY,
+    OVER_TARGET_COST_PER_HOUR,
+    OVER_TARGET_COST_PER_SQUARE_HOUR,
+    QUADRATIC_TARGET_FACTOR,
     SCOPES,
+    STRAIGHT_LINE_KMH,
     VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
+    _target_route_seconds,
 )
+
+# Degrees of latitude per km (and of longitude per km at the equator).
+DEGREES_PER_KM = 1 / 111.195
 
 
 @dataclass
@@ -103,20 +110,38 @@ class TestBuildPayload:
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
         model = payload["model"]
+        target = _target_route_seconds(locs, 43.0, -79.0, sample_settings)
 
         # --- vehicles ---
         vehicles = model["vehicles"]
         assert len(vehicles) == 2
         for i, v in enumerate(vehicles):
-            assert v["displayName"] == f"driver_{i}"
-            assert v["startLocation"] == {"latitude": 43.0, "longitude": -79.0}
-            assert v["loadLimits"] == {
-                "load": {"maxLoad": str(sample_settings.max_boxes_per_driver)}
+            assert v == {
+                "displayName": f"driver_{i}",
+                "startLocation": {"latitude": 43.0, "longitude": -79.0},
+                "usedIfRouteIsEmpty": True,
+                "loadLimits": {
+                    "load": {"maxLoad": str(sample_settings.max_boxes_per_driver)},
+                    # Leaves with at least one stop, returns with none.
+                    "stops": {
+                        "startLoadInterval": {"min": "1"},
+                        "endLoadInterval": {"max": "0"},
+                    },
+                },
+                "costPerHour": VEHICLE_COST_PER_HOUR,
+                "routeDurationLimit": {
+                    "maxDuration": f"{GLOBAL_HORIZON_HOURS * 3600}s",
+                    "softMaxDuration": f"{target}s",
+                    "costPerHourAfterSoftMax": OVER_TARGET_COST_PER_HOUR,
+                    "quadraticSoftMaxDuration": f"{round(target * QUADRATIC_TARGET_FACTOR)}s",
+                    "costPerSquareHourAfterQuadraticSoftMax": (
+                        OVER_TARGET_COST_PER_SQUARE_HOUR
+                    ),
+                },
             }
-            assert v["costPerHour"] == VEHICLE_COST_PER_HOUR
 
-        # --- global duration cost per hour: minimize total time between first start and last end ---
-        assert model["globalDurationCostPerHour"] == GLOBAL_DURATION_COST_PER_HOUR
+        # Spreading the work is priced per route, not by the plan's span.
+        assert "globalDurationCostPerHour" not in model
 
         # --- shipments: one delivery per location, in order ---
         shipments = model["shipments"]
@@ -133,7 +158,10 @@ class TestBuildPayload:
             }
             # Demand is the derived box count, not raw children:
             # ceil(2 children / 2 per box) = 1 box.
-            assert delivery["loadDemands"] == {"load": {"amount": "1"}}
+            assert delivery["loadDemands"] == {
+                "load": {"amount": "1"},
+                "stops": {"amount": "1"},
+            }
 
     def test_global_start_time_anchors_the_model(
         self,
@@ -319,11 +347,43 @@ class TestBuildPayload:
         vehicle = payload["model"]["vehicles"][0]
         assert "endLocation" not in vehicle
 
-    def test_longest_route_cost_dominates_per_vehicle_cost(self) -> None:
-        """The cost of when the last driver finishes must outweigh the
-        per-vehicle time cost, or the optimizer would never trade extra total
-        driving time for getting the last driver home sooner."""
-        assert GLOBAL_DURATION_COST_PER_HOUR > VEHICLE_COST_PER_HOUR
+    def test_location_with_no_children_is_still_a_stop(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """Routes are forced out by stops, not boxes, so a route of only
+        zero-box locations still counts as delivering something."""
+        locs = [make_location(num_children=0)]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
+        assert delivery["loadDemands"] == {
+            "load": {"amount": "0"},
+            "stops": {"amount": "1"},
+        }
+
+    def test_soft_limits_stay_below_the_hard_cap(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """The API rejects soft limits at or over maxDuration, so a plan whose
+        target alone nears the horizon (one route, many long drop-offs) is
+        clamped rather than sent invalid."""
+        locs = [make_location(latitude=43.0, longitude=-79.0) for _ in range(70)]
+        settings = _settings(service_time_minutes=17)  # ~20h of drop-offs
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
+
+        horizon = GLOBAL_HORIZON_HOURS * 3600
+        limit = payload["model"]["vehicles"][0]["routeDurationLimit"]
+        assert _target_route_seconds(locs, 43.0, -79.0, settings) < horizon
+        assert limit["maxDuration"] == f"{horizon}s"
+        assert limit["softMaxDuration"] == "71400s"
+        assert limit["quadraticSoftMaxDuration"] == f"{horizon - 1}s"
 
     def test_oversized_location_demand_clamped_to_capacity(
         self,
@@ -340,7 +400,7 @@ class TestBuildPayload:
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
         delivery = payload["model"]["shipments"][0]["deliveries"][0]
-        assert delivery["loadDemands"] == {"load": {"amount": str(cap_boxes)}}
+        assert delivery["loadDemands"]["load"] == {"amount": str(cap_boxes)}
 
     def test_demand_at_capacity_not_clamped(
         self,
@@ -355,7 +415,7 @@ class TestBuildPayload:
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
         delivery = payload["model"]["shipments"][0]["deliveries"][0]
-        assert delivery["loadDemands"] == {"load": {"amount": str(cap_boxes)}}
+        assert delivery["loadDemands"]["load"] == {"amount": str(cap_boxes)}
 
     def test_demand_below_capacity_rounds_up_to_whole_boxes(
         self,
@@ -370,7 +430,7 @@ class TestBuildPayload:
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
         delivery = payload["model"]["shipments"][0]["deliveries"][0]
-        assert delivery["loadDemands"] == {"load": {"amount": "3"}}
+        assert delivery["loadDemands"]["load"] == {"amount": "3"}
 
     def test_custom_children_per_box(
         self,
@@ -388,7 +448,7 @@ class TestBuildPayload:
         payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
 
         delivery = payload["model"]["shipments"][0]["deliveries"][0]
-        assert delivery["loadDemands"] == {"load": {"amount": "3"}}
+        assert delivery["loadDemands"]["load"] == {"amount": "3"}
 
 
 # ---------------------------------------------------------------------------
@@ -680,3 +740,91 @@ class TestEnsureCredentials:
             algorithm._ensure_credentials()
 
         default.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _target_route_seconds
+# ---------------------------------------------------------------------------
+
+
+def _hours_to_seconds(km: float) -> float:
+    return km / STRAIGHT_LINE_KMH * 3600
+
+
+class TestTargetRouteSeconds:
+    SERVICE = CONFIGURED_DROPOFF_MINUTES * 60
+
+    def test_stop_at_the_warehouse_is_only_its_drop_off(
+        self, make_location: Any
+    ) -> None:
+        locs = [make_location(latitude=0.0, longitude=0.0)]
+        assert _target_route_seconds(locs, 0.0, 0.0, _settings()) == self.SERVICE
+
+    @pytest.mark.parametrize(("return_to_warehouse", "legs"), [(True, 2), (False, 1)])
+    def test_one_far_stop_drives_out_and_maybe_back(
+        self, make_location: Any, return_to_warehouse: bool, legs: int
+    ) -> None:
+        locs = [make_location(latitude=10 * DEGREES_PER_KM, longitude=0.0)]
+        settings = _settings(return_to_warehouse=return_to_warehouse)
+
+        target = _target_route_seconds(locs, 0.0, 0.0, settings)
+
+        assert target == pytest.approx(
+            _hours_to_seconds(10 * legs) + self.SERVICE, abs=1
+        )
+
+    def test_more_routes_split_the_same_work_per_route(
+        self, make_location: Any
+    ) -> None:
+        """Each route makes its own depot legs, so doubling stops and routes
+        together keeps the per-route target when the stops share a spot."""
+        far = 10 * DEGREES_PER_KM
+        one = [make_location(latitude=far, longitude=0.0)]
+        two = [make_location(latitude=far, longitude=0.0) for _ in range(2)]
+
+        assert _target_route_seconds(
+            one, 0.0, 0.0, _settings(num_routes=1, return_to_warehouse=True)
+        ) == _target_route_seconds(
+            two, 0.0, 0.0, _settings(num_routes=2, return_to_warehouse=True)
+        )
+
+    def test_spread_out_stops_add_the_area_term(self, make_location: Any) -> None:
+        """Stops 1 km north and 1 km east: mean depot distance 1 km and a
+        1 km x 1 km bounding box, so 2 * 1 + 0.57 * sqrt(2 * 1) km."""
+        locs = [
+            make_location(latitude=DEGREES_PER_KM, longitude=0.0),
+            make_location(latitude=0.0, longitude=DEGREES_PER_KM),
+        ]
+        settings = _settings(return_to_warehouse=True)
+
+        target = _target_route_seconds(locs, 0.0, 0.0, settings)
+
+        expected_km = 2 * 1 + 0.57 * (2 * 1) ** 0.5
+        assert target == pytest.approx(
+            _hours_to_seconds(expected_km) + 2 * self.SERVICE, abs=1
+        )
+
+    def test_stops_in_a_line_have_no_area(self, make_location: Any) -> None:
+        """A flat bounding box adds nothing beyond the depot legs."""
+        locs = [
+            make_location(latitude=km * DEGREES_PER_KM, longitude=0.0) for km in (1, 2)
+        ]
+        settings = _settings(return_to_warehouse=True)
+
+        target = _target_route_seconds(locs, 0.0, 0.0, settings)
+
+        assert target == pytest.approx(
+            _hours_to_seconds(2 * 1.5) + 2 * self.SERVICE, abs=1
+        )
+
+    def test_no_locations_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least one location"):
+            _target_route_seconds([], 0.0, 0.0, _settings())
+
+    @pytest.mark.parametrize("missing", ["latitude", "longitude"])
+    def test_ungeocoded_location_raises(self, make_location: Any, missing: str) -> None:
+        loc = make_location()
+        setattr(loc, missing, None)
+
+        with pytest.raises(ValueError, match="geocoded"):
+            _target_route_seconds([loc], 0.0, 0.0, _settings())
