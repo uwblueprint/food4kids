@@ -589,8 +589,8 @@ async def test_oversized_stop_is_rejected_even_when_the_total_fits() -> None:
 async def test_mixed_larger_box_sizes(
     sizes: list[int], num_routes: int, max_boxes: int, packs: bool
 ) -> None:
-    """Larger stops: the repair finds these packings, and a total that fits
-    is not mistaken for a packing that exists."""
+    """Larger stops: largest-first finds these packings, and a total that
+    fits is not mistaken for a packing that exists."""
     stops = _sized_ring(sizes)
     algo = _algo()
     if packs:
@@ -611,10 +611,10 @@ def _far_stop(boxes: int, name: str = "Far") -> Location:
     )
 
 
-async def test_far_route_trades_small_stops_for_big_ones_to_fit_everything() -> None:
+async def test_far_route_fills_with_big_stops_to_fit_everything() -> None:
     """A far route holds at most five stops, so at an exact fit it needs a
-    2-box far stop and four 2-box near stops. The sweep hands it whatever
-    comes round; the repair has to swap its 1-box stops out."""
+    2-box far stop and four 2-box near stops, not whatever the sweep
+    reaches first."""
     algo = _algo()
     num_routes, max_boxes = 4, 10
     far = _far_stop(2)
@@ -706,39 +706,20 @@ def _near_at(km_east: float, boxes: int, name: str) -> Location:
     )
 
 
-@pytest.mark.parametrize(
-    ("candidates", "expected"),
-    [
-        # Same boxes: the quicker stop wins on minutes alone.
-        ([("quick", 2.0, 1)], "quick"),
-        # More boxes beat fewer minutes.
-        ([("quick", 2.0, 1), ("big", 15.0, 2)], "big"),
-        # Neither bigger nor quicker: no swap.
-        ([("slow", 18.0, 1)], None),
-    ],
-)
-def test_far_swap_prefers_boxes_then_minutes(
-    candidates: list[tuple[str, float, int]], expected: str | None
-) -> None:
+@pytest.mark.parametrize("slow_first", [True, False])
+async def test_full_far_route_takes_the_quick_stops(slow_first: bool) -> None:
+    """Five 2-box stops fill a far route only if the near ones are quick
+    enough for its minutes cap, whichever the sweep reaches first."""
     algo = _algo()
-    far = _far_stop(2)
-    outgoing = _near_at(10.0, 1, "outgoing")
-    others = [_near_at(km, boxes, name) for name, km, boxes in candidates]
-    metrics = algo._metrics_for_locations([far, outgoing, *others])
-    far_route = sweep_clustering._ClusterState()
-    for stop in (far, outgoing):
-        algo._add_to_cluster(far_route, stop, metrics[stop.location_id])
-    route = sweep_clustering._ClusterState()
-    for stop in others:
-        algo._add_to_cluster(route, stop, metrics[stop.location_id])
+    direction = 1.0 if slow_first else -1.0
+    slow = [_near_at(12.0 * direction, 2, f"Slow {i}") for i in range(4)]
+    quick = [_near_at(-2.0 * direction, 2, f"Quick {i}") for i in range(4)]
+    ones = [_near_at(5.0, 1, f"One {i}") for i in range(2)]
+    stops = [_far_stop(2), *slow, *quick, *ones]
 
-    swap = algo._best_far_swap(far_route, route, 10, metrics)
+    routes = await algo.cluster_locations(stops, 2, 10)
 
-    if expected is None:
-        assert swap is None
-    else:
-        assert swap is not None
-        assert (swap[0].name, swap[1].name) == ("outgoing", expected)
+    _assert_valid_routes(routes, stops, 2, 10, algo)
 
 
 async def test_far_routes_pack_with_slack_across_many_seeds() -> None:
@@ -756,60 +737,9 @@ async def test_far_routes_pack_with_slack_across_many_seeds() -> None:
         _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
 
 
-def test_failed_placement_leaves_routes_untouched() -> None:
-    """A repair that can't finish must roll back every move it tried."""
-    algo = _algo()
-    stops = _sized_ring([4, 4, 4, 4, 4])
-    metrics = algo._metrics_for_locations(stops)
-    clusters = [sweep_clustering._ClusterState() for _ in range(2)]
-    for stop, index in zip(stops[:4], [0, 0, 1, 1], strict=True):
-        algo._add_to_cluster(clusters[index], stop, metrics[stop.location_id])
-    before = [list(c.locations) for c in clusters]
-
-    placed = algo._place(
-        location=stops[4],
-        clusters=clusters,
-        max_boxes=10,
-        metrics_by_id=metrics,
-        depth=sweep_clustering.REPAIR_DEPTH,
-        consolidate_far=False,
-        check_timeout=lambda: None,
-    )
-
-    assert not placed
-    assert [list(c.locations) for c in clusters] == before
-    assert [c.box_count for c in clusters] == [8, 8]
-
-
-def test_repair_checks_the_timeout() -> None:
-    """The repair search polls the deadline, so a slow one can't overrun it."""
-    algo = _algo()
-    stops = _sized_ring([1, 1, 2])
-    metrics = algo._metrics_for_locations(stops)
-    clusters = [sweep_clustering._ClusterState() for _ in range(2)]
-    for stop, cluster in zip(stops[:2], clusters, strict=True):
-        algo._add_to_cluster(cluster, stop, metrics[stop.location_id])
-
-    def expired() -> None:
-        raise sweep_clustering.TimeoutError("deadline")
-
-    # Each 2-box car has one box free: placing the 2-box stop needs a repair.
-    with pytest.raises(sweep_clustering.TimeoutError):
-        algo._place(
-            location=stops[2],
-            clusters=clusters,
-            max_boxes=2,
-            metrics_by_id=metrics,
-            depth=sweep_clustering.REPAIR_DEPTH,
-            consolidate_far=False,
-            check_timeout=expired,
-        )
-
-
 async def test_far_stop_last_in_the_sweep_still_gets_a_short_route() -> None:
     """A far stop just short of a full turn is swept last, when every route
-    already has more stops than a far route may. It must still be placed,
-    and as a 1-box stop it has no smaller stops to swap in for."""
+    already has more stops than a far route may. It must still be placed."""
     algo = _algo()
     # ~40 km east, slightly south: an angle just under 2*pi.
     far = _location(
