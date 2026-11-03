@@ -114,7 +114,11 @@ export function CalendarWidget() {
       {
         key: 'driver_name',
         header: 'Driver',
-        render: (row) => row.driver_name ?? <AssignDriverCell row={row} />,
+        render: (row) => row.driver_name ?? (
+          <div className="flex h-[1lh] items-center">
+            <AssignDriverCell row={row} />
+          </div>
+        ),
         headerClassName: HEADER_CLASS,
         getCellClassName,
       },
