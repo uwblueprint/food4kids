@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import random
 from datetime import datetime
@@ -382,6 +383,12 @@ async def test_routing_returns_every_stop_once_across_num_routes(
     assert sorted(returned) == sorted(stop.location_id for stop in stops)
 
 
+def _swept(values: list[float] | list[int]) -> bool:
+    """Increasing, allowing one wrap: a sector may cross angle 0."""
+    pairs = zip(values, [*values[1:], *values[:1]], strict=True)
+    return sum(a > b for a, b in pairs) <= 1
+
+
 @pytest.mark.asyncio
 async def test_routing_visits_each_route_in_sweep_order() -> None:
     """The cluster order is the visit order, so it must already be swept."""
@@ -401,8 +408,7 @@ async def test_routing_visits_each_route_in_sweep_order() -> None:
     )
 
     for route in routes:
-        angles = [angle(stop) for stop in route]
-        assert angles == sorted(angles)
+        assert _swept([angle(stop) for stop in route])
 
 
 @pytest.mark.asyncio
@@ -488,7 +494,7 @@ def _assert_valid_routes(
     for route in routes:
         assert sum(effective_boxes(s, CHILDREN_PER_BOX) for s in route) <= max_boxes
         ranks = [sweep_rank[s.location_id] for s in route]
-        assert ranks == sorted(ranks), "route lost its sweep (visit) order"
+        assert _swept(ranks), "route lost its sweep (visit) order"
         metrics = [algo._location_metrics(s) for s in route]
         if any(m.is_far for m in metrics):
             assert len(route) <= FAR_MAX_STOPS_PER_CLUSTER
@@ -644,6 +650,15 @@ async def test_far_route_with_a_one_box_far_stop_cannot_fill_its_car() -> None:
     _assert_valid_routes(routes, near_only, 3, 10, algo)
 
 
+def _spread_of(
+    algo: SweepClusteringAlgorithm, stops: list[Location], num_routes: int, cap: int
+) -> list[list[Location]]:
+    """The fallback's plan, for cases sectors already handle."""
+    order = algo._sorted_locations(stops, lambda: None)
+    metrics = algo._metrics_for_locations(order)
+    return algo._spread(order, num_routes, cap, metrics, lambda: None)
+
+
 async def test_box_tight_far_stops_must_each_get_their_own_route() -> None:
     """Two 2-box far stops at an exact fit. Sharing a route leaves time for
     only two more stops (2 + 2 + 2 + 2 = 8 boxes), so each needs its own."""
@@ -661,8 +676,9 @@ async def test_box_tight_far_stops_must_each_get_their_own_route() -> None:
 
     routes = await algo.cluster_locations(stops, num_routes, max_boxes)
 
-    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
-    assert [sum(s in r for s in far) for r in routes].count(1) == 2
+    for plan in (routes, _spread_of(algo, stops, num_routes, max_boxes)):
+        _assert_valid_routes(plan, stops, num_routes, max_boxes, algo)
+        assert [sum(s in r for s in far) for r in plan].count(1) == 2
 
 
 async def test_stop_tight_far_stops_must_share_a_route() -> None:
@@ -674,8 +690,10 @@ async def test_stop_tight_far_stops_must_share_a_route() -> None:
 
     routes = await algo.cluster_locations(stops, 4, 10)
 
-    _assert_valid_routes(routes, stops, 4, 10, algo)
-    assert max(sum(s in r for s in far) for r in routes) >= 2
+    # Sectors group far stops anyway; the fallback has to retry to.
+    for plan in (routes, _spread_of(algo, stops, 4, 10)):
+        _assert_valid_routes(plan, stops, 4, 10, algo)
+        assert max(sum(s in r for s in far) for r in plan) >= 2
 
 
 @pytest.mark.parametrize(
@@ -719,7 +737,8 @@ async def test_full_far_route_takes_the_quick_stops(slow_first: bool) -> None:
 
     routes = await algo.cluster_locations(stops, 2, 10)
 
-    _assert_valid_routes(routes, stops, 2, 10, algo)
+    for plan in (routes, _spread_of(algo, stops, 2, 10)):
+        _assert_valid_routes(plan, stops, 2, 10, algo)
 
 
 @pytest.mark.parametrize("seed", range(25))
@@ -756,3 +775,135 @@ async def test_far_stop_last_in_the_sweep_still_gets_a_short_route() -> None:
     routes = await algo.cluster_locations(stops, 4, 10)
 
     _assert_valid_routes(routes, stops, 4, 10, algo)
+
+
+def _ordered_ring(sizes: list[int]) -> list[Location]:
+    """Stops evenly around the warehouse, swept in the order of ``sizes``."""
+    return [
+        _location(
+            lat=WAREHOUSE_LAT + 0.05 * math.sin(math.tau * (i + 0.5) / len(sizes)),
+            lon=WAREHOUSE_LON + 0.05 * math.cos(math.tau * (i + 0.5) / len(sizes)),
+            num_children=boxes * CHILDREN_PER_BOX,
+            name=f"Stop {i}",
+        )
+        for i, boxes in enumerate(sizes)
+    ]
+
+
+def _arcs(routes: list[list[Location]], stops: list[Location]) -> list[list[int]]:
+    """Each route's stops as positions in ``stops``."""
+    position = {s.location_id: i for i, s in enumerate(stops)}
+    return [[position[s.location_id] for s in route] for route in routes]
+
+
+def _is_contiguous(arc: list[int], count: int) -> bool:
+    """``arc`` visits consecutive positions on a circle of ``count``."""
+    return all((b - a) % count == 1 for a, b in itertools.pairwise(arc))
+
+
+@pytest.mark.parametrize(
+    ("sizes", "num_routes", "max_boxes", "stops_per_route"),
+    [
+        ([2] * 12, 4, 6, [3, 3, 3, 3]),
+        # Slack: the sectors even out stop counts rather than filling cars.
+        ([1, 2] * 6, 3, 10, [4, 4, 4]),
+    ],
+)
+async def test_sectors_are_contiguous_and_even(
+    sizes: list[int], num_routes: int, max_boxes: int, stops_per_route: list[int]
+) -> None:
+    algo = _algo()
+    stops = _ordered_ring(sizes)
+
+    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+
+    _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
+    assert all(_is_contiguous(arc, len(stops)) for arc in _arcs(routes, stops))
+    assert sorted(len(r) for r in routes) == stops_per_route
+
+
+def _sectors_of(
+    algo: SweepClusteringAlgorithm, stops: list[Location], num_routes: int, cap: int
+) -> list[list[Location]] | None:
+    order = algo._sorted_locations(stops, lambda: None)
+    metrics = algo._metrics_for_locations(order)
+    return algo._sectors(order, num_routes, cap, metrics, lambda: None)
+
+
+async def test_sectors_cut_anywhere_around_the_circle() -> None:
+    """The only fit cuts away from where the sweep starts, and an even 2/3
+    split would run a sector over capacity."""
+    algo = _algo()
+    stops = _ordered_ring([2, 1, 2, 2, 1])
+
+    sectors = _sectors_of(algo, stops, 2, 4)
+
+    assert sectors is not None
+    assert sorted(sorted(arc) for arc in _arcs(sectors, stops)) == [[0, 1, 4], [2, 3]]
+
+
+async def test_overfull_sector_hands_a_stop_to_a_neighbour() -> None:
+    """No three runs of this circle hold exactly 4 boxes each, so one sector
+    runs over and its last stop moves next door."""
+    algo = _algo()
+    stops = _ordered_ring([2, 2, 1, 2, 2, 1, 2])
+
+    sectors = _sectors_of(algo, stops, 3, 4)
+
+    assert sectors is not None
+    _assert_valid_routes(sectors, stops, 3, 4, algo)
+    arcs = _arcs(sectors, stops)
+    assert sum(_is_contiguous(arc, len(stops)) for arc in arcs) == 2
+
+
+async def test_overfull_sector_hands_off_a_small_stop() -> None:
+    """The other sectors only have single boxes free, so the overflowing
+    sector must hand off a 1-box stop, not whichever stop is last."""
+    algo = _algo()
+    stops = _ordered_ring([2, 1, 1, 1, 2, 2, 1, 2])
+
+    sectors = _sectors_of(algo, stops, 3, 4)
+
+    assert sectors is not None
+    _assert_valid_routes(sectors, stops, 3, 4, algo)
+
+
+async def test_hand_off_keeps_the_sector_contiguous() -> None:
+    """The 1-box stop handed off sits at the sector's edge, not mid-sector."""
+    algo = _algo()
+    stops = _ordered_ring([2, 1, 2, 1, 2, 1, 2, 1, 2, 1])
+
+    sectors = _sectors_of(algo, stops, 3, 5)
+
+    assert sectors is not None
+    arcs = _arcs(sectors, stops)
+    assert sum(_is_contiguous(arc, len(stops)) for arc in arcs) == 2
+
+
+async def test_handed_off_stops_go_to_the_nearest_sector_with_room() -> None:
+    algo = _algo()
+    stops = _ordered_ring([2, 2, 1, 2, 2, 1, 2, 1, 2, 2, 1, 2, 2, 1])
+
+    sectors = _sectors_of(algo, stops, 6, 4)
+
+    assert sectors is not None
+    _assert_valid_routes(sectors, stops, 6, 4, algo)
+    # Stop 2 overflows its sector, and the sectors either side are full.
+    assert sorted(sorted(arc) for arc in _arcs(sectors, stops)) == [
+        [0, 1],
+        [2, 12, 13],
+        [3, 4],
+        [5, 6, 7],
+        [8, 9],
+        [10, 11],
+    ]
+
+
+async def test_falls_back_to_spreading_when_no_sectoring_fits() -> None:
+    algo = _algo()
+    stops = _ordered_ring([2, 1, 1, 1, 2, 2, 2, 2, 2])
+    assert _sectors_of(algo, stops, 3, 5) is None
+
+    routes = await algo.cluster_locations(stops, 3, 5)
+
+    _assert_valid_routes(routes, stops, 3, 5, algo)
