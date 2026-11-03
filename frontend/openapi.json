@@ -3112,6 +3112,7 @@
             "type": "integer"
           },
           "num_routes": {
+            "minimum": 1,
             "title": "Num Routes",
             "type": "integer"
           },
