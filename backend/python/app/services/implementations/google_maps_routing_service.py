@@ -84,6 +84,8 @@ def _target_route_seconds(
     plus 0.57 * sqrt(stops * area), area being the stops' bounding box. Within
     about 10% of solved plans on seed data, without solving anything.
     """
+    if not locations:
+        raise ValueError("A route target needs at least one location")
     lats = [_coordinate(loc.latitude) for loc in locations]
     lons = [_coordinate(loc.longitude) for loc in locations]
     mean_km = sum(

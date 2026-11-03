@@ -817,6 +817,10 @@ class TestTargetRouteSeconds:
             _hours_to_seconds(2 * 1.5) + 2 * self.SERVICE, abs=1
         )
 
+    def test_no_locations_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least one location"):
+            _target_route_seconds([], 0.0, 0.0, _settings())
+
     @pytest.mark.parametrize("missing", ["latitude", "longitude"])
     def test_ungeocoded_location_raises(self, make_location: Any, missing: str) -> None:
         loc = make_location()
