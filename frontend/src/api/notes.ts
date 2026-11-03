@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { useAuthStore } from './authStore';
 import {
@@ -12,11 +17,15 @@ import {
 } from './generated/@tanstack/react-query.gen';
 import type { GetNotesFeedData } from './generated/types.gen';
 
-export function useNotesFeed(query: GetNotesFeedData['query'], enabled = true) {
+export function useNotesFeed(
+  query: GetNotesFeedData['query'],
+  options: { keepPreviousData?: boolean } = {}
+) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   return useQuery({
     ...getNotesFeedOptions({ query }),
-    enabled: isAuthenticated && enabled,
+    enabled: isAuthenticated,
+    placeholderData: options.keepPreviousData ? keepPreviousData : undefined,
   });
 }
 

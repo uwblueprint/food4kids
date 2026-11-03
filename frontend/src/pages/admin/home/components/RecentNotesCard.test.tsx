@@ -18,6 +18,7 @@ import type {
 } from '@/api/generated/types.gen';
 import axiosClient from '@/lib/axiosClient';
 
+import { NoteFeedEntry } from './NoteFeedEntry';
 import { RecentNotesCard } from './RecentNotesCard';
 
 const originalAdapter = axiosClient.defaults.adapter;
@@ -70,8 +71,11 @@ function respond(data: PaginatedResponseNoteFeedItem) {
   });
 }
 
-function renderCard() {
-  useAuthStore.setState({ isAuthenticated: true, accessToken: 'test-token' });
+function renderCard(authenticated = true) {
+  useAuthStore.setState({
+    isAuthenticated: authenticated,
+    accessToken: authenticated ? 'test-token' : null,
+  });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -84,6 +88,142 @@ function renderCard() {
 }
 
 describe('Recent notes on the admin homepage', () => {
+  it.each([
+    {
+      is_system: true,
+      author_name: 'Alex',
+      expected: 'System',
+      created_at: null,
+    },
+    {
+      is_system: false,
+      author_name: null,
+      expected: 'Unknown author',
+      created_at: null,
+    },
+    {
+      is_system: false,
+      author_name: '  ',
+      expected: 'Unknown author',
+      created_at: 'bad-date',
+    },
+  ])(
+    'handles note metadata: $expected, $created_at',
+    ({ expected, ...metadata }) => {
+      const { container } = render(
+        <NoteFeedEntry note={{ ...note, ...metadata, attachments: [] }} />
+      );
+      expect(screen.getByText(`${expected} · Waterloo PS`)).toBeDefined();
+      expect(container.querySelector('time')).toBeNull();
+      expect(screen.queryByText(/Invalid Date/)).toBeNull();
+      expect(screen.queryByRole('img')).toBeNull();
+    }
+  );
+
+  it('waits for authentication before requesting notes', async () => {
+    let requests = 0;
+    axiosClient.defaults.adapter = async (config) => {
+      requests += 1;
+      return {
+        data: feed(),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+    renderCard(false);
+    expect(requests).toBe(0);
+    useAuthStore.setState({ isAuthenticated: true, accessToken: 'test-token' });
+    expect(await screen.findByText('Alex Driver · Waterloo PS')).toBeDefined();
+    expect(requests).toBe(1);
+  });
+
+  it('keeps rows visible and disables navigation while the next page loads', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    axiosClient.defaults.adapter = async (config) => {
+      const page = Number(
+        new URL(config.url!, 'http://localhost').searchParams.get('page')
+      );
+      if (page === 2) await pending;
+      return {
+        data: feed(
+          [
+            {
+              ...note,
+              note_id: `note-${page}`,
+              author_name: page === 1 ? 'Alex Driver' : 'Blair Driver',
+            },
+          ],
+          page,
+          2
+        ),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: /Alex Driver/ });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Page 2' }));
+    expect(
+      within(dialog)
+        .getByRole('button', { name: /Alex Driver/ })
+        .matches(':disabled')
+    ).toBe(true);
+    expect(
+      within(dialog)
+        .getByRole('group', { name: 'Notes pagination' })
+        .hasAttribute('disabled')
+    ).toBe(true);
+    expect(within(dialog).getByRole('combobox').matches(':disabled')).toBe(
+      true
+    );
+    expect(
+      within(dialog).queryByRole('status', { name: 'Loading' })
+    ).toBeNull();
+    release();
+    expect(
+      await within(dialog).findByRole('button', { name: /Blair Driver/ })
+    ).toBeDefined();
+    expect(
+      within(dialog)
+        .getByRole('group', { name: 'Notes pagination' })
+        .hasAttribute('disabled')
+    ).toBe(false);
+  });
+
+  it('clears a selection removed by a refetch so it does not reappear selected later', async () => {
+    respond(feed());
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(
+      await within(dialog).findByRole('button', { name: /Alex Driver/ })
+    );
+    respond(feed([]));
+    await clients[0].invalidateQueries();
+    expect(await within(dialog).findByText('No notes yet.')).toBeDefined();
+    expect(
+      within(dialog).getByText('Select a note to display it here')
+    ).toBeDefined();
+    respond(feed());
+    await clients[0].invalidateQueries();
+    const row = await within(dialog).findByRole('button', {
+      name: /Alex Driver/,
+    });
+    expect(row.getAttribute('aria-pressed')).toBe('false');
+    expect(
+      within(dialog).getByText('Select a note to display it here')
+    ).toBeDefined();
+  });
+
   it('requests a limited recent feed, then loads and displays a full note in All Notes', async () => {
     const requests: unknown[] = [];
     axiosClient.defaults.adapter = async (config) => {

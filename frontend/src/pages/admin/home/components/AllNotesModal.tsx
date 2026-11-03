@@ -25,12 +25,19 @@ export function AllNotesModal() {
   const [sort, setSort] = useState<NoteFeedSort>('recent');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data, isPending, isError, isFetching, refetch } = useNotesFeed({
-    sort,
-    page,
-    page_size: 20,
-  });
+  const { data, isPending, isError, isFetching, isPlaceholderData, refetch } =
+    useNotesFeed(
+      {
+        sort,
+        page,
+        page_size: 20,
+      },
+      { keepPreviousData: true }
+    );
   const selectedNote = data?.items.find((note) => note.note_id === selectedId);
+  if (selectedId && data && !isPlaceholderData && !isError && !selectedNote) {
+    setSelectedId(null);
+  }
 
   return (
     <ModalContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-[960px] overflow-y-auto bg-white">
@@ -43,6 +50,7 @@ export function AllNotesModal() {
         </span>
         <Dropdown
           value={sort}
+          disabled={isPlaceholderData}
           onValueChange={(value) => {
             setSort(value as NoteFeedSort);
             setPage(1);
@@ -64,7 +72,10 @@ export function AllNotesModal() {
         </Dropdown>
       </div>
       <div className="tablet:h-[420px] tablet:grid-cols-2 grid min-h-[320px] grid-cols-1 gap-4">
-        <div className="border-grey-200 min-h-0 overflow-y-auto rounded-xl border">
+        <div
+          aria-busy={isFetching}
+          className="border-grey-200 min-h-0 overflow-y-auto rounded-xl border"
+        >
           {isPending ? (
             <div className="flex justify-center p-8">
               <Spinner size="sm" />
@@ -83,11 +94,17 @@ export function AllNotesModal() {
           ) : !data?.items.length ? (
             <p className="text-p2 text-grey-400 p-4">No notes yet.</p>
           ) : (
-            <ul className="divide-grey-200 divide-y">
+            <ul
+              className={cn(
+                'divide-grey-200 divide-y',
+                isPlaceholderData && 'opacity-50'
+              )}
+            >
               {data.items.map((note) => (
                 <li key={note.note_id}>
                   <button
                     type="button"
+                    disabled={isPlaceholderData}
                     aria-pressed={note.note_id === selectedId}
                     onClick={() => setSelectedId(note.note_id)}
                     className={cn(
@@ -116,15 +133,21 @@ export function AllNotesModal() {
         </section>
       </div>
       {!isError && data && (
-        <Pagination
-          page={page}
-          totalPages={data.total_pages}
-          onPageChange={(nextPage) => {
-            setPage(nextPage);
-            setSelectedId(null);
-          }}
-          className="mt-0 flex-wrap gap-3"
-        />
+        <fieldset
+          disabled={isPlaceholderData}
+          aria-label="Notes pagination"
+          className="min-w-0"
+        >
+          <Pagination
+            page={page}
+            totalPages={data.total_pages}
+            onPageChange={(nextPage) => {
+              setPage(nextPage);
+              setSelectedId(null);
+            }}
+            className="mt-0 flex-wrap gap-3"
+          />
+        </fieldset>
       )}
       <ModalFooter className="justify-end">
         <ModalClose asChild>

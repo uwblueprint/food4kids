@@ -1,4 +1,5 @@
 import type { NoteFeedItem } from '@/api/generated/types.gen';
+import { cn } from '@/lib/utils';
 
 export function NoteFeedEntry({
   note,
@@ -7,15 +8,17 @@ export function NoteFeedEntry({
   note: NoteFeedItem;
   preview?: boolean;
 }) {
-  const date = note.created_at
-    ? new Date(note.created_at).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : null;
+  const createdAt = note.created_at ? new Date(note.created_at) : null;
+  const date =
+    createdAt && !Number.isNaN(createdAt.getTime())
+      ? createdAt.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : null;
 
   return (
     <div className="text-p2 text-grey-500 min-w-0 break-words">
@@ -38,16 +41,14 @@ export function NoteFeedEntry({
       {!preview && (
         <p className="text-grey-400 mt-1">{note.location_address}</p>
       )}
-      <p
-        className={`mt-2 whitespace-pre-wrap ${preview ? 'line-clamp-3' : ''}`}
-      >
+      <p className={cn('mt-2 whitespace-pre-wrap', preview && 'line-clamp-3')}>
         {note.message}
       </p>
       {!preview && (note.attachments?.length ?? 0) > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {note.attachments?.map((attachment) => (
             <a
-              key={attachment.filename}
+              key={attachment.url}
               href={attachment.url}
               target="_blank"
               rel="noreferrer"
