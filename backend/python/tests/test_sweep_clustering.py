@@ -805,7 +805,7 @@ def _is_contiguous(arc: list[int], count: int) -> bool:
     ("sizes", "num_routes", "max_boxes", "stops_per_route"),
     [
         ([2] * 12, 4, 6, [3, 3, 3, 3]),
-        # Slack: the sectors even out stop counts rather than filling cars.
+        # Slack: the sectors share boxes evenly rather than filling cars.
         ([1, 2] * 6, 3, 10, [4, 4, 4]),
     ],
 )
@@ -831,27 +831,26 @@ def _sectors_of(
 
 
 async def test_sectors_cut_anywhere_around_the_circle() -> None:
-    """The only fit cuts away from where the sweep starts, and an even 2/3
-    split would run a sector over capacity."""
+    """Cut from the sweep's start, the 3-box stop over capacity fits nowhere;
+    starting one stop later fills both cars exactly."""
     algo = _algo()
-    stops = _ordered_ring([2, 1, 2, 2, 1])
+    stops = _ordered_ring([2, 2, 3, 3])
 
-    sectors = _sectors_of(algo, stops, 2, 4)
+    sectors = _sectors_of(algo, stops, 2, 5)
 
     assert sectors is not None
-    assert sorted(sorted(arc) for arc in _arcs(sectors, stops)) == [[0, 1, 4], [2, 3]]
+    assert sorted(sorted(arc) for arc in _arcs(sectors, stops)) == [[0, 3], [1, 2]]
 
 
 async def test_overfull_sector_hands_a_stop_to_a_neighbour() -> None:
-    """No three runs of this circle hold exactly 4 boxes each, so one sector
-    runs over and its last stop moves next door."""
+    """The even box shares cut a 6-box sector, so one stop moves next door."""
     algo = _algo()
-    stops = _ordered_ring([2, 2, 1, 2, 2, 1, 2])
+    stops = _ordered_ring([1, 2, 2, 2, 2, 2, 2, 1, 1])
 
-    sectors = _sectors_of(algo, stops, 3, 4)
+    sectors = _sectors_of(algo, stops, 3, 5)
 
     assert sectors is not None
-    _assert_valid_routes(sectors, stops, 3, 4, algo)
+    _assert_valid_routes(sectors, stops, 3, 5, algo)
     arcs = _arcs(sectors, stops)
     assert sum(_is_contiguous(arc, len(stops)) for arc in arcs) == 2
 
@@ -882,20 +881,19 @@ async def test_hand_off_keeps_the_sector_contiguous() -> None:
 
 async def test_handed_off_stops_go_to_the_nearest_sector_with_room() -> None:
     algo = _algo()
-    stops = _ordered_ring([2, 2, 1, 2, 2, 1, 2, 1, 2, 2, 1, 2, 2, 1])
+    stops = _ordered_ring([2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1])
 
-    sectors = _sectors_of(algo, stops, 6, 4)
+    sectors = _sectors_of(algo, stops, 5, 4)
 
     assert sectors is not None
-    _assert_valid_routes(sectors, stops, 6, 4, algo)
-    # Stop 2 overflows its sector, and the sectors either side are full.
+    _assert_valid_routes(sectors, stops, 5, 4, algo)
+    # Stop 6 overflows sector [6, 7, 8]; [9, 10] is next door, [2, 3] two away.
     assert sorted(sorted(arc) for arc in _arcs(sectors, stops)) == [
         [0, 1],
-        [2, 12, 13],
-        [3, 4],
-        [5, 6, 7],
-        [8, 9],
-        [10, 11],
+        [2, 3],
+        [4, 5],
+        [6, 9, 10],
+        [7, 8],
     ]
 
 

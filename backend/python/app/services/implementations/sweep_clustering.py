@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import math
 import time
 from dataclasses import dataclass, field
@@ -34,10 +35,6 @@ AVERAGE_SPEED_KMH = 40.0
 
 # Extra minutes on far routes: approximate warehouse round-trip drive allowance.
 FAR_ROUND_TRIP_DRIVE_MINUTES = 90.0
-
-# Boxes a sector may run over its car before the extra stops move to a
-# neighbour; more just means more stops leave their sector.
-SECTOR_OVERFLOW_BOXES = 2
 
 
 class LocationLatitudeError(Exception):
@@ -259,65 +256,43 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         metrics_by_id: dict[UUID, _LocationMetrics],
         check_timeout: Callable[[], None],
     ) -> list[list[Location]] | None:
-        """Cut the circular sweep into ``num_clusters`` contiguous sectors with
-        the fewest boxes over capacity, then the most even stop counts.
+        """Cut the circular sweep into ``num_clusters`` contiguous sectors,
+        each cut nearest the next even share of the boxes. The start of the
+        circle moves every cut, so it tries a car's worth of starts and keeps
+        the one with the fewest boxes over capacity.
 
         Each sector over capacity hands its smallest stops, nearest its edges,
         to the nearest sectors with room: other sectors' room is mostly single
-        boxes. Returns None if no cut, or no
-        hand-off, fits.
+        boxes. Returns None if a sector breaks a far-route cap or a hand-off
+        doesn't fit.
         """
         n = len(sorted_locations)
-        run_limit = max_boxes + SECTOR_OVERFLOW_BOXES  # every stop has a box
-        # Overflow outranks evenness: a sum of squared stop counts is <= n^2.
-        overflow_weight = n * n + 1
         best: tuple[int, list[Location], list[int]] | None = None
-        # Every cut of the circle has a sector boundary within its first
-        # run_limit positions, so these rotations cover them all.
-        for start in range(min(n, run_limit)):
+        for start in range(min(n, max_boxes)):
+            check_timeout()
             sequence = sorted_locations[start:] + sorted_locations[:start]
-            # costs[i][length]: sector sequence[i : i + length], if it fits.
-            costs: list[list[int]] = []
-            for i in range(n):
-                check_timeout()
-                state, row = _ClusterState(), [0]
-                for stop in sequence[i : min(n, i + run_limit)]:
-                    metrics = metrics_by_id[stop.location_id]
-                    if not self._can_add_to_cluster(state, stop, run_limit, metrics):
-                        break
-                    self._add_to_cluster(state, stop, metrics)
-                    overflow = max(0, state.box_count - max_boxes)
-                    row.append(overflow * overflow_weight + state.stop_count**2)
-                costs.append(row)
+            boxes = itertools.accumulate(
+                effective_boxes(stop, self._children_per_box) for stop in sequence
+            )
+            prefix = [0, *boxes]
+            cuts = [0]
+            for sector in range(1, num_clusters):
+                share = sector * prefix[n] / num_clusters
+                cuts.append(
+                    min(
+                        range(cuts[-1] + 1, n - num_clusters + sector + 1),
+                        key=lambda cut: abs(prefix[cut] - share),
+                    )
+                )
+            cuts.append(n)
+            overflow = sum(
+                max(0, prefix[end] - prefix[begin] - max_boxes)
+                for begin, end in itertools.pairwise(cuts)
+            )
+            if best is None or overflow < best[0]:
+                best = (overflow, sequence, cuts)
 
-            unreachable = math.inf
-            total = [0.0] + [unreachable] * n
-            lengths: list[list[int]] = []
-            for _ in range(num_clusters):
-                check_timeout()
-                next_total = [unreachable] * (n + 1)
-                next_lengths = [0] * (n + 1)
-                for end in range(1, n + 1):
-                    for length in range(1, min(run_limit, end) + 1):
-                        row = costs[end - length]
-                        if length < len(row):
-                            candidate = total[end - length] + row[length]
-                            if candidate < next_total[end]:
-                                next_total[end] = candidate
-                                next_lengths[end] = length
-                total = next_total
-                lengths.append(next_lengths)
-            if total[n] == unreachable:
-                continue
-            if best is None or total[n] < best[0]:
-                cuts, end = [], n
-                for sector_lengths in reversed(lengths):
-                    end -= sector_lengths[end]
-                    cuts.append(end)
-                best = (int(total[n]), sequence, [*cuts[::-1], n])
-
-        if best is None:
-            return None
+        assert best is not None
         _, sequence, cuts = best
         sectors = [_ClusterState() for _ in range(num_clusters)]
         handed_off: list[tuple[int, Location]] = []
@@ -331,7 +306,10 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 overflow -= effective_boxes(stop, self._children_per_box)
                 handed_off.append((index, stop))
             for stop in run:
-                self._add_to_cluster(state, stop, metrics_by_id[stop.location_id])
+                metrics = metrics_by_id[stop.location_id]
+                if not self._can_add_to_cluster(state, stop, max_boxes, metrics):
+                    return None
+                self._add_to_cluster(state, stop, metrics)
 
         for home, stop in handed_off:
             metrics = metrics_by_id[stop.location_id]
