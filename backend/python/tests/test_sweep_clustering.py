@@ -383,32 +383,34 @@ async def test_routing_returns_every_stop_once_across_num_routes(
     assert sorted(returned) == sorted(stop.location_id for stop in stops)
 
 
-def _swept(values: list[float] | list[int]) -> bool:
-    """Increasing, allowing one wrap: a sector may cross angle 0."""
-    pairs = zip(values, [*values[1:], *values[:1]], strict=True)
-    return sum(a > b for a, b in pairs) <= 1
-
-
 @pytest.mark.asyncio
-async def test_routing_visits_each_route_in_sweep_order() -> None:
-    """The cluster order is the visit order, so it must already be swept."""
-
-    def angle(stop: Location) -> float:
-        assert stop.latitude is not None and stop.longitude is not None
-        return (
-            math.atan2(stop.latitude - WAREHOUSE_LAT, stop.longitude - WAREHOUSE_LON)
-            % math.tau
+async def test_routing_visits_each_route_nearest_first() -> None:
+    """Radii zigzag around the circle, so sweep order would not be
+    nearest-first."""
+    stops = [
+        _location(
+            lat=WAREHOUSE_LAT + radius * math.sin(math.tau * i / 12),
+            lon=WAREHOUSE_LON
+            + radius
+            * math.cos(math.tau * i / 12)
+            / math.cos(math.radians(WAREHOUSE_LAT)),
+            num_children=2,
+            name=f"Stop {i}",
         )
+        for i, radius in enumerate([0.02, 0.05, 0.03] * 4)
+    ]
 
     routes = await SweepRoutingAlgorithm().generate_routes(
-        list(reversed(_ring(12))),
-        WAREHOUSE_LAT,
-        WAREHOUSE_LON,
-        _routing_settings(num_routes=3),
+        stops, WAREHOUSE_LAT, WAREHOUSE_LON, _routing_settings(num_routes=3)
     )
 
+    radius_of = {
+        stop.location_id: [0.02, 0.05, 0.03][i % 3] for i, stop in enumerate(stops)
+    }
     for route in routes:
-        assert _swept([angle(stop) for stop in route])
+        radii = [radius_of[stop.location_id] for stop in route]
+        assert radii == sorted(radii)
+    assert any(len({radius_of[s.location_id] for s in r}) > 1 for r in routes)
 
 
 @pytest.mark.asyncio
@@ -487,14 +489,8 @@ def _assert_valid_routes(
     assert sorted(s.location_id for r in routes for s in r) == sorted(
         s.location_id for s in stops
     )
-    sweep_rank = {
-        s.location_id: rank
-        for rank, s in enumerate(algo._sorted_locations(stops, lambda: None))
-    }
     for route in routes:
         assert sum(effective_boxes(s, CHILDREN_PER_BOX) for s in route) <= max_boxes
-        ranks = [sweep_rank[s.location_id] for s in route]
-        assert _swept(ranks), "route lost its sweep (visit) order"
         metrics = [algo._location_metrics(s) for s in route]
         if any(m.is_far for m in metrics):
             assert len(route) <= FAR_MAX_STOPS_PER_CLUSTER
