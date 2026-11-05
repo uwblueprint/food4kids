@@ -31,7 +31,6 @@ const SettingsPageHeader = () => {
     isDirty,
     hasMissingRequired,
     hasIncompleteReminder,
-    hasIncompleteImportField,
     justSaved,
     dismissSaved,
     startEditing,
@@ -53,11 +52,9 @@ const SettingsPageHeader = () => {
    * the fix for it is different -- pick a day, or remove the row. */
   const blockedReason = hasIncompleteReminder
     ? 'Choose how many days before for every notification, or remove it.'
-    : hasIncompleteImportField
-      ? 'Please complete all fields before saving.'
-      : hasMissingRequired
-        ? 'Fill in every required field before saving.'
-        : null;
+    : hasMissingRequired
+      ? 'Fill in every required field before saving.'
+      : null;
 
   return (
     <div className="flex items-start justify-between gap-6">
@@ -141,7 +138,7 @@ const SettingsPageHeader = () => {
 };
 
 const AdminSettingsPageContent = () => {
-  const { saveError } = useSettingsForm();
+  const { saveError, importFieldErrors } = useSettingsForm();
 
   return (
     <div className="flex flex-col gap-8">
@@ -149,6 +146,14 @@ const AdminSettingsPageContent = () => {
       {saveError && (
         <Banner variant="error" className="max-w-[600px]">
           {saveError}
+        </Banner>
+      )}
+      {/* The rows live on one tab, so a save tried from another needs to say
+       * where to look. */}
+      {importFieldErrors.some(Boolean) && (
+        <Banner variant="error" className="max-w-[600px]">
+          Fix the highlighted spreadsheet import fields on the Delivery Defaults
+          tab before saving.
         </Banner>
       )}
       <Tabs defaultValue="delivery-defaults">

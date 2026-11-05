@@ -10,6 +10,7 @@ Tests cover:
 """
 
 import json
+import logging
 from collections.abc import AsyncGenerator
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
@@ -26,7 +27,10 @@ from app.dependencies.auth import (
     require_admin,
     require_self_driver_or_admin,
 )
-from app.dependencies.services import get_google_maps_client
+from app.dependencies.services import (
+    get_google_maps_client,
+    get_system_settings_service,
+)
 from app.models import get_session
 from app.models.enum import NotePermission, ProgressEnum, RouteStatusEnum
 from app.models.location import Location
@@ -37,6 +41,9 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.services.implementations.system_settings_service import (
+    SystemSettingsService,
+)
 from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult
 
@@ -6682,6 +6689,25 @@ class TestSystemSettingsRoutes:
         )
         assert response.status_code == 200, response.text
         assert response.json()["support_phone"] == "tel:+1-519-576-3443"
+
+    @pytest.mark.asyncio
+    async def test_unroutable_warehouse_is_reported_against_its_field(
+        self, client_with_overrides: Any
+    ) -> None:
+        """A failed geocode names warehouse_location, so the form can mark it."""
+        service = SystemSettingsService(
+            logging.getLogger(__name__), FakeGoogleMapsClient()
+        )
+        client = await client_with_overrides(
+            {get_system_settings_service: lambda: service}
+        )
+        response = await client.patch(
+            "/system-settings/", json={"warehouse_location": "Invalid Street"}
+        )
+        assert response.status_code == 422, response.text
+        [error] = response.json()["detail"]
+        assert error["loc"] == ["body", "warehouse_location"]
+        assert "Geocoding failed" in error["msg"]
 
     @pytest.mark.asyncio
     async def test_patch_system_settings_rejects_empty_delivery_types(

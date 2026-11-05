@@ -40,7 +40,7 @@ const NUMERIC_SETTINGS: NumericSetting[] = [
 ];
 
 const NumericRow = ({ setting }: { setting: NumericSetting }) => {
-  const { isEditing, getField, setField } = useSettingsForm();
+  const { isEditing, getField, setField, fieldErrors } = useSettingsForm();
   const value = getField(setting.key);
 
   return (
@@ -53,11 +53,22 @@ const NumericRow = ({ setting }: { setting: NumericSetting }) => {
         <span className="text-p3 text-grey-400">{setting.hint}</span>
       </div>
       <Input
-        type="number"
+        // Read-only as text: a number input reserves room for spin buttons
+        // that a 41px box cannot spare.
+        type={isEditing ? 'number' : 'text'}
         min={setting.min}
         aria-label={setting.label}
         readOnly={!isEditing}
-        className={cn('w-16 text-center', !isEditing && 'bg-grey-150')}
+        className={cn(
+          'text-center',
+          isEditing
+            ? 'w-16'
+            : // Figma's read-only Text Box: 41x32, r8. No side padding: the
+              // text is centred, so it only costs room for digits.
+              'bg-grey-150 text-grey-400 h-8 w-[41px] rounded-[8px] px-0 py-2 leading-4'
+        )}
+        wrapperClassName="items-end"
+        error={fieldErrors[setting.key]}
         value={value ?? ''}
         onChange={(event) => {
           const next = event.target.value;
@@ -75,6 +86,7 @@ const TextRow = ({
   placeholder,
   required,
   format,
+  invalidMessage,
 }: {
   settingKey: Extract<
     keyof SystemSettingsUpdate,
@@ -85,8 +97,10 @@ const TextRow = ({
   placeholder: string;
   required?: boolean;
   format?: (value: string) => string;
+  /** Shown in place of the server's wording when it rejects the value. */
+  invalidMessage: string;
 }) => {
-  const { isEditing, getField, setField } = useSettingsForm();
+  const { isEditing, getField, setField, fieldErrors } = useSettingsForm();
   const stored = getField(settingKey) ?? '';
 
   return (
@@ -102,6 +116,7 @@ const TextRow = ({
         readOnly={!isEditing}
         className={cn(!isEditing && 'bg-grey-150 text-grey-400')}
         placeholder={isEditing ? placeholder : undefined}
+        error={fieldErrors[settingKey] && invalidMessage}
         value={format ? format(stored) : stored}
         onChange={(event) => setField(settingKey, event.target.value || null)}
       />
@@ -200,6 +215,7 @@ export const DeliveryDefaultsPanel = () => {
         placeholder="Enter phone number"
         required
         format={formatPhone}
+        invalidMessage="Please enter a valid phone number"
       />
 
       <TextRow
@@ -208,6 +224,7 @@ export const DeliveryDefaultsPanel = () => {
         hint="If enabled for a route in Route Generation, that route will start and end at this address."
         placeholder="Enter address"
         required
+        invalidMessage="Please enter a valid address"
       />
 
       <DeliveryTypesRow />

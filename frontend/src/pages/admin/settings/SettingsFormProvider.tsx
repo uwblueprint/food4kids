@@ -9,7 +9,7 @@ import {
   useUpdateSystemSettings,
 } from '@/api/system-settings';
 
-import { isFieldComplete } from './importFieldOptions';
+import { type ImportFieldError, importFieldErrors } from './importFieldOptions';
 import { isReminderComplete } from './reminderOptions';
 import {
   describeSaveFailure,
@@ -20,6 +20,8 @@ import {
 } from './settingsFields';
 import { SettingsFormContext } from './useSettingsForm';
 
+const NO_IMPORT_FIELD_ERRORS: (ImportFieldError | null)[] = [];
+
 export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const { data: settings, isLoading } = useSystemSettings();
   const updateSettings = useUpdateSystemSettings();
@@ -28,6 +30,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<SettingFieldErrors>({});
   const [justSaved, setJustSaved] = useState(false);
+  // Row errors stay hidden until a save is attempted, then track the draft.
+  const [showImportFieldErrors, setShowImportFieldErrors] = useState(false);
   // Only edited fields land here, which is exactly the PATCH body: an
   // untouched field is absent rather than sent back at its current value.
   const [draft, setDraft] = useState<SystemSettingsUpdate>({});
@@ -87,6 +91,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     setDraft({});
     setSaveError(null);
     setFieldErrors({});
+    setShowImportFieldErrors(false);
   }, []);
 
   /* Only fields the admin emptied *in this session* block the save. A field
@@ -119,18 +124,20 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     [draft, settings]
   );
 
-  /* A column with no name has no key for the API to address it by, so the
-   * save is blocked here rather than bouncing off a 422. */
-  const hasIncompleteImportField = useMemo(
-    () => (draft.import_fields ?? []).some((f) => !isFieldComplete(f)),
+  const allImportFieldErrors = useMemo(
+    () => importFieldErrors(draft.import_fields ?? []),
     [draft.import_fields]
   );
+  const hasImportFieldErrors = allImportFieldErrors.some(Boolean);
 
   const save = useCallback(() => {
     // The header disables the button, but guard here too so the rule holds for
     // any other caller rather than relying on the UI to enforce it.
-    if (hasMissingRequired || hasIncompleteReminder || hasIncompleteImportField)
+    if (hasMissingRequired || hasIncompleteReminder) return;
+    if (hasImportFieldErrors) {
+      setShowImportFieldErrors(true);
       return;
+    }
     setSaveError(null);
     setFieldErrors({});
     setJustSaved(false);
@@ -141,6 +148,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
           setIsEditing(false);
           setDraft({});
           setJustSaved(true);
+          setShowImportFieldErrors(false);
         },
         onError: (error) => {
           /* Stay in edit mode with the draft intact so the admin can correct
@@ -156,9 +164,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     draft,
     hasMissingRequired,
     hasIncompleteReminder,
-    hasIncompleteImportField,
+    hasImportFieldErrors,
     updateSettings,
   ]);
+
+  const visibleImportFieldErrors = showImportFieldErrors
+    ? allImportFieldErrors
+    : NO_IMPORT_FIELD_ERRORS;
 
   const value = useMemo(
     () => ({
@@ -168,7 +180,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       isDirty,
       hasMissingRequired,
       hasIncompleteReminder,
-      hasIncompleteImportField,
+      importFieldErrors: visibleImportFieldErrors,
       saveError,
       fieldErrors,
       justSaved,
@@ -187,7 +199,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       isDirty,
       hasMissingRequired,
       hasIncompleteReminder,
-      hasIncompleteImportField,
+      visibleImportFieldErrors,
       saveError,
       fieldErrors,
       justSaved,

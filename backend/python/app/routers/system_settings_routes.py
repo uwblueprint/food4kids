@@ -16,6 +16,7 @@ from app.services.implementations.system_settings_service import (
     DeliveryTypeRenameError,
     ImportFieldLockedError,
     SystemSettingsService,
+    WarehouseGeocodeError,
 )
 from app.services.jobs import refresh_daily_reminder_email_schedule
 
@@ -79,6 +80,19 @@ async def patch_system_settings(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
+        ) from e
+    except WarehouseGeocodeError as e:
+        # Subclass of ValueError — must precede the ValueError handler below.
+        # Shaped like a validation error so the client can mark the field.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=[
+                {
+                    "type": "value_error",
+                    "loc": ["body", "warehouse_location"],
+                    "msg": str(e),
+                }
+            ],
         ) from e
     except ValueError as ve:
         raise HTTPException(
