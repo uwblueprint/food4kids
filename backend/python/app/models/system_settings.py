@@ -361,6 +361,16 @@ class SystemSettingsUpdate(SQLModel):
     delivery_types: list[str] | None = Field(default=None)
     import_fields: list[ImportField] | None = Field(default=None)
 
+    @field_validator(
+        "boxes_per_car", "dropoff_minutes", "children_per_box", mode="before"
+    )
+    @classmethod
+    def reject_null(cls, v: Any) -> Any:
+        """Omit to leave unchanged; null would violate the NOT NULL column."""
+        if v is None:
+            raise ValueError("This field is required")
+        return v
+
     @field_validator("contact_phone", "support_phone")
     @classmethod
     def validate_contact_phone(cls, v: str | None) -> str | None:

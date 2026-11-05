@@ -24,6 +24,10 @@ class ImportFieldLockedError(ValueError):
     """Raised when import columns are edited while routes are still upcoming."""
 
 
+class WarehouseGeocodeError(ValueError):
+    """Raised when the warehouse address cannot be geocoded."""
+
+
 class DeliveryTypeRenameError(ValueError):
     """Raised when a delivery type rename is invalid (unknown, blank, or clash)."""
 
@@ -185,7 +189,7 @@ class SystemSettingsService:
             else:
                 geocode_result = await self.google_maps_client.geocode_address(address)
                 if geocode_result is None:
-                    raise ValueError(
+                    raise WarehouseGeocodeError(
                         f"Geocoding failed for warehouse location: {address}"
                     )
                 updates["warehouse_location"] = geocode_result.formatted_address

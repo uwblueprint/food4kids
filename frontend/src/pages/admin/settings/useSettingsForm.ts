@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 import type { SystemSettingsUpdate } from '@/api/generated/types.gen';
 
+import type { ImportFieldError } from './importFieldOptions';
 import type { SettingFieldErrors } from './settingsFields';
 
 export interface SettingsFormValue {
@@ -38,6 +39,11 @@ export interface SettingsFormValue {
    * save until the admin picks one -- or removes the row.
    */
   hasIncompleteReminder: boolean;
+  /**
+   * Per import column, why the API would reject it. Empty until a save is
+   * attempted; from then on it follows the draft.
+   */
+  importFieldErrors: (ImportFieldError | null)[];
   /** True from a successful save until the next edit, for the saved banner. */
   justSaved: boolean;
   dismissSaved: () => void;
