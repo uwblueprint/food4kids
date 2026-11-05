@@ -6691,6 +6691,20 @@ class TestSystemSettingsRoutes:
         assert response.json()["support_phone"] == "tel:+1-519-576-3443"
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "key", ["boxes_per_car", "children_per_box", "dropoff_minutes"]
+    )
+    async def test_clearing_a_numeric_setting_is_reported_against_its_field(
+        self, async_client: AsyncClient, key: str
+    ) -> None:
+        """null is a field error, not the table model's raw ValidationError."""
+        response = await async_client.patch("/system-settings/", json={key: None})
+        assert response.status_code == 422, response.text
+        [error] = response.json()["detail"]
+        assert error["loc"] == ["body", key]
+        assert "This field is required" in error["msg"]
+
+    @pytest.mark.asyncio
     async def test_unroutable_warehouse_is_reported_against_its_field(
         self, client_with_overrides: Any
     ) -> None:

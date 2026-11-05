@@ -5,6 +5,7 @@ import { Button, Field, FieldLabel, Input, Tag } from '@/common/components';
 import { formatPhone } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
+import { isBlank, REQUIRED_SETTING_KEYS } from '../settingsFields';
 import { useSettingsForm } from '../useSettingsForm';
 import { ImportFieldsTable } from './ImportFieldsTable';
 
@@ -40,8 +41,14 @@ const NUMERIC_SETTINGS: NumericSetting[] = [
 ];
 
 const NumericRow = ({ setting }: { setting: NumericSetting }) => {
-  const { isEditing, getField, setField, fieldErrors } = useSettingsForm();
+  const { isEditing, getField, setField, isEdited, fieldErrors } =
+    useSettingsForm();
   const value = getField(setting.key);
+  // Same rule as the save guard: only a box cleared in this session.
+  const error =
+    isEditing && isEdited(setting.key) && value == null
+      ? 'This field is required'
+      : fieldErrors[setting.key];
 
   return (
     <div className="flex items-start justify-between gap-8">
@@ -68,7 +75,7 @@ const NumericRow = ({ setting }: { setting: NumericSetting }) => {
               'bg-grey-150 text-grey-400 h-8 w-[41px] rounded-[8px] px-0 py-2 leading-4'
         )}
         wrapperClassName="items-end"
-        error={fieldErrors[setting.key]}
+        error={error}
         value={value ?? ''}
         onChange={(event) => {
           const next = event.target.value;
@@ -84,7 +91,6 @@ const TextRow = ({
   label,
   hint,
   placeholder,
-  required,
   format,
   invalidMessage,
 }: {
@@ -95,13 +101,22 @@ const TextRow = ({
   label: string;
   hint: string;
   placeholder: string;
-  required?: boolean;
   format?: (value: string) => string;
   /** Shown in place of the server's wording when it rejects the value. */
   invalidMessage: string;
 }) => {
-  const { isEditing, getField, setField, fieldErrors } = useSettingsForm();
+  const { isEditing, getField, setField, isEdited, fieldErrors } =
+    useSettingsForm();
   const stored = getField(settingKey) ?? '';
+  // The same list drives the asterisk and the save block.
+  const required = (REQUIRED_SETTING_KEYS as readonly string[]).includes(
+    settingKey
+  );
+  // Only a field emptied in this session, matching the save guard.
+  const error =
+    isEditing && required && isEdited(settingKey) && isBlank(stored)
+      ? `${label} is required`
+      : fieldErrors[settingKey] && invalidMessage;
 
   return (
     <Field className="max-w-[600px]">
@@ -116,7 +131,7 @@ const TextRow = ({
         readOnly={!isEditing}
         className={cn(!isEditing && 'bg-grey-150 text-grey-400')}
         placeholder={isEditing ? placeholder : undefined}
-        error={fieldErrors[settingKey] && invalidMessage}
+        error={error}
         value={format ? format(stored) : stored}
         onChange={(event) => setField(settingKey, event.target.value || null)}
       />
@@ -213,7 +228,6 @@ export const DeliveryDefaultsPanel = () => {
         label="Support Phone Number"
         hint="This is the default phone number drivers can call for help while delivering."
         placeholder="Enter phone number"
-        required
         format={formatPhone}
         invalidMessage="Please enter a valid phone number"
       />
@@ -223,7 +237,6 @@ export const DeliveryDefaultsPanel = () => {
         label="Warehouse Location"
         hint="If enabled for a route in Route Generation, that route will start and end at this address."
         placeholder="Enter address"
-        required
         invalidMessage="Please enter a valid address"
       />
 

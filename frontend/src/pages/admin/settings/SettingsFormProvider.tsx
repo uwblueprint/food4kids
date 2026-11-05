@@ -15,6 +15,7 @@ import {
   describeSaveFailure,
   fieldErrorsFrom,
   isBlank,
+  REQUIRED_NUMERIC_KEYS,
   REQUIRED_SETTING_KEYS,
   type SettingFieldErrors,
 } from './settingsFields';
@@ -101,7 +102,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
    * disabled for someone who only came to flip a toggle on another tab. */
   const hasMissingRequired = useMemo(
     () =>
-      REQUIRED_SETTING_KEYS.some((key) => key in draft && isBlank(draft[key])),
+      REQUIRED_SETTING_KEYS.some(
+        (key) => key in draft && isBlank(draft[key])
+      ) ||
+      REQUIRED_NUMERIC_KEYS.some((key) => key in draft && draft[key] == null),
     [draft]
   );
 
