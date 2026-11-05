@@ -212,7 +212,7 @@ export const ImportFieldsTable = () => {
         </div>
 
         {fields.map((field, index) => (
-          <Tooltip key={field.key || `new-${index}`}>
+          <Tooltip key={index}>
             <TooltipTrigger asChild>
               <div>
                 <ImportFieldRow
