@@ -14,6 +14,7 @@ from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import (
     DeliveryTypeInUseError,
     DeliveryTypeRenameError,
+    ImportFieldLockedError,
     SystemSettingsService,
 )
 from app.services.jobs import refresh_daily_reminder_email_schedule
@@ -67,6 +68,12 @@ async def patch_system_settings(
         await session.refresh(settings)
         await refresh_daily_reminder_email_schedule(scheduler_service, session)
         return SystemSettingsRead.model_validate(settings)
+    except ImportFieldLockedError as e:
+        # Subclass of ValueError — must precede the ValueError handler below.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
     except DeliveryTypeInUseError as e:
         # Subclass of ValueError — must precede the ValueError handler below.
         raise HTTPException(
