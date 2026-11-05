@@ -561,7 +561,7 @@ export const validateResetToken = <ThrowOnError extends boolean = false>(
 /**
  * Get Billing Costs
  *
- * Return month-to-date spend for the configured project, against its budget.
+ * Return monthly invoice and year-to-date usage spend for the project.
  *
  * Figures come from the Cloud Billing export and typically lag by several
  * hours — see ``data_as_of``. Responses are cached for

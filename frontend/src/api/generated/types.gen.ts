@@ -255,6 +255,10 @@ export type BillingCostsResponse = {
    * Project Id
    */
   project_id: string;
+  /**
+   * Year To Date Cost
+   */
+  year_to_date_cost: number;
 };
 
 /**
