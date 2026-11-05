@@ -6710,7 +6710,8 @@ class TestSystemSettingsRoutes:
     ) -> None:
         """A failed geocode names warehouse_location, so the form can mark it."""
         service = SystemSettingsService(
-            logging.getLogger(__name__), FakeGoogleMapsClient()
+            logging.getLogger(__name__),
+            FakeGoogleMapsClient(),  # type: ignore[arg-type]
         )
         client = await client_with_overrides(
             {get_system_settings_service: lambda: service}
