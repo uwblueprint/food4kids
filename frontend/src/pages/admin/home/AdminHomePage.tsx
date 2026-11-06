@@ -1,16 +1,17 @@
 import SearchIcon from '@/assets/icons/search.svg?react';
-import { Account, Button, Card, CardContent } from '@/common/components';
+import { Account, Button } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
 import { CalendarWidget } from '@/features/calendar';
 import { StatisticsWidget } from '@/features/statistics';
 
-import { RouteGenerationCostCard, UnassignedRoutesCard } from './components';
+import {
+  RecentNotesCard,
+  RouteGenerationCostCard,
+  UnassignedRoutesCard,
+} from './components';
 
 const today = formatDisplayDate(new Date());
-
-/** Every bento tile: 28px corners and the soft admin-page shadow. */
-const TILE = 'shadow-admin-bento rounded-4xl';
 
 export const AdminHomePage = () => {
   return (
@@ -40,9 +41,7 @@ export const AdminHomePage = () => {
           <StatisticsWidget />
         </div>
         <UnassignedRoutesCard />
-        <Card className={TILE}>
-          <CardContent>TODO: Recent Notes</CardContent>
-        </Card>
+        <RecentNotesCard />
       </div>
     </div>
   );
