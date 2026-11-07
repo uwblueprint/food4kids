@@ -261,6 +261,8 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
                 <Link
                   key={route.route_id}
                   to={`/admin/routes/${route.route_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-p3 grid grid-cols-[1fr_auto_auto] items-start gap-3 py-2 hover:text-blue-300"
                 >
                   <span>{route.name}</span>
@@ -293,6 +295,8 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
               <Link
                 key={route.route_id}
                 to={`/admin/routes/${route.route_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-p3 grid grid-cols-[1fr_auto] gap-x-2 py-2 hover:text-blue-300"
               >
                 <span className="text-blue-300 underline">{route.name}</span>
