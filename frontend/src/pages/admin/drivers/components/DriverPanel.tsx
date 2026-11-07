@@ -85,6 +85,7 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
     driver_id: selected.driver_id,
     start_date: week.start,
     end_date: week.end,
+    route_status: ['Upcoming'],
     order: 'asc',
     page_size: 20,
   });
