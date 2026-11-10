@@ -11,7 +11,7 @@ import {
   Pagination,
   TableToolbar,
 } from '@/common/components';
-import { useRowHighlight, useTableSort } from '@/common/hooks';
+import { useRowHighlight } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
 import type { RoutesTabState } from '../hooks';
@@ -23,13 +23,14 @@ import { RouteFilterModal } from './RouteFilterModal';
 import { RowActionCell } from './RowActionCell';
 import { StatusHeader } from './StatusHeader';
 
+// Sortable headers carry no sortValue: the server sorts (see
+// useRoutesTabState), so DataTable must not re-sort the page it's given.
 const COLUMNS: Column<RouteWithDateRead>[] = [
-  routeDriveDateColumn,
+  { ...routeDriveDateColumn, sortValue: undefined },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
     sortable: true,
-    sortValue: (row) => row.delivery_type,
     render: (row) => orDash(row.delivery_type),
   },
   { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
@@ -49,7 +50,6 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'status',
     sortable: true,
-    sortValue: (row) => row.status,
     header: (
       <StatusHeader>
         <p>
@@ -70,6 +70,8 @@ type RouteRoutesTabProps = RoutesTabState;
 
 export function RouteRoutesTab({
   rows,
+  sort,
+  toggleSort,
   page,
   setPage,
   totalPages,
@@ -90,7 +92,6 @@ export function RouteRoutesTab({
   handleApply,
 }: RouteRoutesTabProps) {
   const navigate = useNavigate();
-  const { sort, toggleSort } = useTableSort();
   // Highlight + scroll a row after a driver reassignment updates it in place.
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
   const handleRowChanged = useCallback(

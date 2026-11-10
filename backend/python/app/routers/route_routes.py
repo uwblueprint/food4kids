@@ -49,10 +49,14 @@ async def get_routes(
     end_date: date | None = Query(
         None, description="Filter route groups until this date"
     ),
+    sort_by: Literal["drive_date", "delivery_type", "status"] = Query(
+        "drive_date", description="Column to sort by, applied before pagination"
+    ),
     order: Literal["asc", "desc"] = Query(
         "asc",
-        description="Order by drive_date: 'asc' (default, oldest-first) for the "
-        "upcoming feed, 'desc' (most-recent-first) for the past feed.",
+        description="Direction for sort_by. For drive_date: 'asc' (default, "
+        "oldest-first) for the upcoming feed, 'desc' (most-recent-first) for "
+        "the past feed.",
     ),
     search: str | None = Query(
         None,
@@ -112,6 +116,7 @@ async def get_routes(
         route_status,
         driver_assignment_status,
         route_group_id,
+        sort_by,
     )
 
 

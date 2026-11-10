@@ -77,6 +77,7 @@ class RouteService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         route_group_id: UUID | None = None,
+        sort_by: Literal["drive_date", "delivery_type", "status"] = "drive_date",
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes, filtered and paginated. Powers both the admin Routes tab
@@ -90,8 +91,9 @@ class RouteService:
             search: Case-insensitive substring of the assigned driver's full
                 name, the route's name, or its group's name, applied before
                 pagination.
-            order: drive_date ordering — "asc" for the upcoming feed, "desc"
-                for the past feed.
+            sort_by: Column to sort by before pagination (default drive_date).
+            order: Direction for sort_by — for drive_date, "asc" is the
+                upcoming feed and "desc" the past feed.
             weekday, delivery_type, route_status, driver_assignment_status:
                 the Groups-tab filters, applied per route. Upcoming = drive_date
                 today or later, Completed = earlier.
@@ -254,16 +256,27 @@ class RouteService:
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
-        drive_date_order = (
-            col(RouteGroup.drive_date).desc()
-            if order == "desc"
-            else col(RouteGroup.drive_date).asc()
+        # Sorted before pagination so the order holds across pages. NULL
+        # delivery types (routes with no stops) go last in either direction.
+        sort_expr: Any = {
+            "drive_date": col(RouteGroup.drive_date),
+            "delivery_type": delivery_type_expr,
+            "status": status_expr,
+        }[sort_by]
+        primary_order = (
+            sort_expr.desc() if order == "desc" else sort_expr.asc()
+        ).nulls_last()
+        # Secondary drive_date (asc) keeps ties within a delivery type or
+        # status in date order. route_id last so the order is total: two
+        # routes on the same date can share a name, and paginate_query's count
+        # and page are separate statements, so any remaining tie can shuffle a
+        # row between pages.
+        tie_breakers = (
+            [] if sort_by == "drive_date" else [col(RouteGroup.drive_date).asc()]
         )
-        # route_id last so the order is total: two routes on the same date can
-        # share a name, and paginate_query's count and page are separate
-        # statements, so any remaining tie can shuffle a row between pages.
         statement = statement.order_by(
-            drive_date_order,
+            primary_order,
+            *tie_breakers,
             *route_name_order_by(col(Route.name), col(Route.route_id)),
         )
 

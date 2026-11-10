@@ -2,20 +2,32 @@ import { useMemo, useState } from 'react';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
-import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import type {
+  UsePaginationReturn,
+  UseSearchReturn,
+  UseTableSortReturn,
+} from '@/common/hooks';
 import {
   clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
   useSearch,
+  useTableSort,
 } from '@/common/hooks';
 
 import type { UseRouteFiltersReturn } from './useRouteFilters';
 import { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
 
+/** Column keys the server can sort GET /routes by. */
+const SORT_KEYS = {
+  drive_date: 'drive_date',
+  delivery_type: 'delivery_type',
+  status: 'status',
+} as const;
+
 export interface RoutesTabState
-  extends UseRouteFiltersReturn, UsePaginationReturn {
+  extends UseRouteFiltersReturn, UsePaginationReturn, UseTableSortReturn {
   rows: RouteWithDateRead[];
   totalPages: number;
   search: UseSearchReturn;
@@ -37,8 +49,18 @@ export function useRoutesTabState(): RoutesTabState {
   // server-side too.
   const searchTerm = useDebouncedValue(search.value).trim();
 
+  // Sorted server-side so the order holds across pages — DataTable's own
+  // sort would only reorder the current page. In the query (and so the
+  // pagination key), a new sort goes back to page 1.
+  const { sort, toggleSort } = useTableSort();
+  const sortKey = SORT_KEYS[sort?.key as keyof typeof SORT_KEYS];
+
   const filterQuery = routeFiltersToQuery(filters.appliedFilters);
-  const query = { search: searchTerm || undefined, ...filterQuery };
+  const query = {
+    search: searchTerm || undefined,
+    ...filterQuery,
+    ...(sortKey && { sort_by: sortKey, order: sort?.dir }),
+  };
   const { page: requestedPage, setPage } = usePagination(JSON.stringify(query));
   const { data } = useRoutes({
     ...query,
@@ -64,6 +86,8 @@ export function useRoutesTabState(): RoutesTabState {
   return {
     ...filters,
     rows,
+    sort,
+    toggleSort,
     page: clampPage(requestedPage, totalPages, setPage),
     setPage,
     totalPages,
