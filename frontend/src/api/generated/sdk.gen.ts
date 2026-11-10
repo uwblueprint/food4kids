@@ -781,6 +781,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
  * Accept a generation request: persist it as PENDING and wake the worker.
  *
  * Admin-only — route generation is an admin workflow, and it burns Maps quota.
+ * Refused with 400 if any family in the group already has a route that day,
+ * since a family should be on at most one route per day.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>
@@ -1384,7 +1386,9 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
- * Optional body overrides the copy's name and drive date.
+ * Optional body overrides the copy's name and drive date. The date must be
+ * one none of the group's families are already routed on, so in practice
+ * it's needed.
  */
 export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<DuplicateRouteGroupData, ThrowOnError>

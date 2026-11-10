@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy import update
+from sqlalchemy import or_, update
 from sqlmodel import col, select
 
 from app.models.enum import ProgressEnum
@@ -32,11 +32,14 @@ from app.models.system_settings import SystemSettings
 from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
+    count_families_already_routed,
+    double_booking_message,
 )
 from app.utilities.datetime_utils import now_utc
 from app.utilities.routes_utils import fetch_route_polyline
 
 if TYPE_CHECKING:
+    from datetime import date
     from uuid import UUID
 
     from sqlalchemy.engine import CursorResult
@@ -87,6 +90,11 @@ async def run_generation_job(
 
         request = _parse_request(job)
         group, locations = await _resolve_locations(session, request.location_group)
+        await _ensure_no_double_booking(
+            session,
+            [location.location_id for location in locations],
+            request.settings.route_start_time.date(),
+        )
         warehouse_lat, warehouse_lon = await _resolve_warehouse(session)
 
         logger.info(
@@ -150,6 +158,39 @@ async def run_generation_job(
             time.perf_counter() - started,
         )
         await _fail(session, job_id, f"Unexpected error: {error}")
+
+
+async def _ensure_no_double_booking(
+    session: AsyncSession, location_ids: list[UUID], drive_date: date
+) -> None:
+    """Fail the job if any of these families already has a route that day."""
+    count = await count_families_already_routed(session, location_ids, drive_date)
+    if count:
+        raise GenerationFailed(double_booking_message(count, drive_date))
+
+
+async def count_group_families_already_routed(
+    session: AsyncSession, requested: LocationGroup, drive_date: date
+) -> int:
+    """How many in-roster families in this location group already have a
+    route on drive_date. Returns 0 if the group can't be found, so the job
+    itself reports that problem as before."""
+    group_id = (
+        await session.execute(
+            select(LocationGroup.location_group_id).where(
+                or_(
+                    LocationGroup.location_group_id == requested.location_group_id,
+                    LocationGroup.name == requested.name,
+                )
+            )
+        )
+    ).scalars().first()
+    if group_id is None:
+        return 0
+    families = select(Location.location_id).where(
+        Location.location_group_id == group_id, col(Location.in_roster)
+    )
+    return await count_families_already_routed(session, families, drive_date)
 
 
 async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
@@ -389,6 +430,13 @@ async def _save_or_discard(
     a RouteGroup attached to a cancelled job, `update_progress` would refuse
     to overwrite the cancellation, and the routes would be stranded.
     """
+    # Checked again here because something else may have booked these
+    # families on this day while the routing engine was running.
+    await _ensure_no_double_booking(
+        session,
+        [stop.location_id for route in route_group.routes for stop in route.route_stops],
+        route_group.drive_date,
+    )
     session.add(route_group)
     await session.flush()
 
