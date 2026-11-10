@@ -65,7 +65,7 @@ export function AssignedRoutesSection({
       page,
       page_size: 20,
     });
-  const update = useUpdateRoute();
+  const unassignRoute = useUpdateRoute();
   const rowClass =
     'text-p3 grid w-full grid-cols-[1fr_auto_auto] items-start gap-3 py-2 text-left hover:text-blue-300';
 
@@ -81,17 +81,14 @@ export function AssignedRoutesSection({
         Assigned Routes
       </h3>
       <p className="text-p3 text-grey-400 mb-3">This week</p>
-      {editing && (
-        <p role="status" className="text-p2 mb-2 text-blue-300">
-          Select a route to edit
-        </p>
-      )}
-      {message && (
-        <p role="status" className="text-p3 text-grey-500 mb-2">
-          {message}
-        </p>
-      )}
-      {update.isError && (
+      <p
+        role="status"
+        aria-atomic="true"
+        className={`text-p3 text-grey-500 ${message || editing ? 'mb-2' : ''}`}
+      >
+        {message || (editing ? 'Select a route to edit' : '')}
+      </p>
+      {unassignRoute.isError && (
         <p role="alert" className="text-p3 text-red mb-2">
           Couldn&apos;t unassign this route. Please try again.
         </p>
@@ -130,7 +127,7 @@ export function AssignedRoutesSection({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    disabled={update.isPending || isPlaceholderData}
+                    disabled={unassignRoute.isPending || isPlaceholderData}
                     className={`${rowClass} cursor-pointer rounded-lg hover:bg-blue-50`}
                   >
                     {routeLabel(route)}
@@ -140,11 +137,11 @@ export function AssignedRoutesSection({
                   <Button
                     variant="ghost"
                     className="h-auto w-full justify-start rounded-lg px-3 py-2"
-                    disabled={update.isPending}
+                    disabled={unassignRoute.isPending}
                     onClick={() => {
-                      update.reset();
+                      unassignRoute.reset();
                       setMessage('');
-                      update.mutate(
+                      unassignRoute.mutate(
                         {
                           path: { route_id: route.route_id },
                           body: { driver_id: null },
@@ -159,16 +156,16 @@ export function AssignedRoutesSection({
                       );
                     }}
                   >
-                    {update.isPending ? 'Unassigning…' : 'Unassign'}
+                    {unassignRoute.isPending ? 'Unassigning…' : 'Unassign'}
                   </Button>
                   <Button
                     variant="ghost"
                     className="h-auto w-full justify-start rounded-lg px-3 py-2"
-                    disabled={update.isPending}
+                    disabled={unassignRoute.isPending}
                     onClick={() => {
                       setActionRouteId(null);
                       setMessage('');
-                      update.reset();
+                      unassignRoute.reset();
                       setReassignRoute(route);
                     }}
                   >
@@ -194,7 +191,7 @@ export function AssignedRoutesSection({
       )}
       {!isError && data && (
         <fieldset
-          disabled={isPlaceholderData || update.isPending}
+          disabled={isPlaceholderData || unassignRoute.isPending}
           className="min-w-0"
         >
           <Pagination
@@ -214,11 +211,11 @@ export function AssignedRoutesSection({
             variant="tertiary"
             className="flex-1"
             aria-pressed={editing}
-            disabled={update.isPending}
+            disabled={unassignRoute.isPending}
             onClick={() => {
               setEditing(!editing);
               setActionRouteId(null);
-              update.reset();
+              unassignRoute.reset();
               setMessage('');
             }}
           >
@@ -227,7 +224,7 @@ export function AssignedRoutesSection({
         )}
         <Button
           className="flex-1"
-          disabled={update.isPending}
+          disabled={unassignRoute.isPending}
           onClick={() => {
             setAssignOpen(true);
             setActionRouteId(null);

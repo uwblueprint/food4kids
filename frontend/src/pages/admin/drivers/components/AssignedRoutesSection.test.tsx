@@ -40,6 +40,7 @@ function route(
     status: 'Upcoming',
   };
 }
+
 let routes: RouteWithDateRead[];
 let failPatch = false;
 let failList = false;
@@ -128,6 +129,18 @@ async function openAssign() {
   return screen.findByRole('dialog', { name: 'Assign Route' });
 }
 describe('Driver sidebar route actions', () => {
+  it('keeps the status region mounted before entering and leaving edit mode', async () => {
+    renderSection();
+    const status = screen.getByRole('status', { name: '' });
+    expect(status.textContent).toBe('');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('status', { name: '' })).toBe(status);
+    expect(status.textContent).toBe('Select a route to edit');
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('status', { name: '' })).toBe(status);
+    expect(status.textContent).toBe('');
+  });
+
   it('does not submit a selected route that disappears from the unassigned feed', async () => {
     renderSection();
     const dialog = await openAssign();
