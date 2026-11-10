@@ -695,3 +695,113 @@ class TestJobsItShouldNotTouch:
         await test_session.refresh(job)
         assert job.progress == ProgressEnum.CANCELLED
         assert job.error_message is None
+
+
+async def _book_on_existing_route(
+    session: AsyncSession, location: Location, when: datetime
+) -> RouteGroup:
+    """Put a family on a route in some other group, on the given day."""
+    other = RouteGroup(name=f"Existing {uuid4()}", drive_date=when.date())
+    route = Route(name="Route 1", length=1.0, route_group_id=other.route_group_id)
+    route.route_stops.append(
+        RouteStop(
+            route_id=route.route_id, location_id=location.location_id, stop_number=1
+        )
+    )
+    other.routes.append(route)
+    session.add(other)
+    await session.commit()
+    return other
+
+
+class TestOneRoutePerFamilyPerDay:
+    @pytest.mark.asyncio
+    async def test_refuses_when_a_family_already_has_a_route_that_day(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Generating again for the same day would put families on two routes,
+        so the job fails before the routing engine is called."""
+        group = await _add_group(test_session)
+        booked = await _add_location(test_session, group, "Family A")
+        await _add_location(test_session, group, "Family B")
+        await _add_warehouse(test_session)
+        await _book_on_existing_route(test_session, booked, DRIVE_DATE)
+        job = await _queue_running_job(test_session, group)
+
+        await run_generation_job(
+            job.job_id, test_session, FakeRoutingAlgorithm(_never_called)
+        )
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.FAILED
+        assert job.error_message is not None
+        assert "1 family is already on a route" in job.error_message
+        assert len(await _route_groups(test_session)) == 1
+
+    @pytest.mark.asyncio
+    async def test_a_route_on_another_day_does_not_block(
+        self, test_session: AsyncSession
+    ) -> None:
+        group = await _add_group(test_session)
+        booked = await _add_location(test_session, group, "Family A")
+        await _add_warehouse(test_session)
+        await _book_on_existing_route(
+            test_session, booked, datetime(2026, 6, 2, 8, 0)
+        )
+        job = await _queue_running_job(test_session, group, num_routes=1)
+
+        await run_generation_job(
+            job.job_id, test_session, FakeRoutingAlgorithm(lambda locs: [locs])
+        )
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_booking_made_while_generating_fails_the_save(
+        self, test_session: AsyncSession
+    ) -> None:
+        """If someone books a family while the engine is running, the
+        generated routes are thrown away rather than double-booking."""
+        group = await _add_group(test_session)
+        family = await _add_location(test_session, group, "Family A")
+        await _add_warehouse(test_session)
+        job = await _queue_running_job(test_session, group, num_routes=1)
+
+        async def plan(locations: list[Location]) -> list[list[Location]]:
+            await _book_on_existing_route(test_session, family, DRIVE_DATE)
+            return [locations]
+
+        await run_generation_job(job.job_id, test_session, FakeRoutingAlgorithm(plan))
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.FAILED
+        assert job.route_group_id is None
+        assert len(await _route_groups(test_session)) == 1
+
+    @pytest.mark.asyncio
+    async def test_generate_endpoint_returns_400_up_front(
+        self, async_client: Any, test_session: AsyncSession
+    ) -> None:
+        """The admin sees the problem when they click Generate, and no job
+        is queued."""
+        group = await _add_group(test_session)
+        booked = await _add_location(test_session, group, "Family A")
+        await _book_on_existing_route(test_session, booked, DRIVE_DATE)
+        body = RouteGenerationGroupInput(
+            location_group=group,
+            settings=RouteGenerationSettings(
+                route_start_time=DRIVE_DATE,
+                num_routes=1,
+                max_boxes_per_driver=CONFIGURED_BOXES_PER_CAR,
+                children_per_box=CONFIGURED_CHILDREN_PER_BOX,
+                service_time_minutes=CONFIGURED_DROPOFF_MINUTES,
+            ),
+        ).model_dump(mode="json")
+
+        response = await async_client.post("/jobs/generate", json=body)
+
+        assert response.status_code == 400
+        assert "already on a route on 2026-06-01" in response.json()["detail"]
+        jobs = (await test_session.execute(select(Job))).scalars().all()
+        assert list(jobs) == []

@@ -34,6 +34,39 @@ ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
 
 
+async def count_families_already_routed(
+    session: AsyncSession,
+    location_ids: Any,
+    drive_date: date,
+    exclude_group_id: UUID | None = None,
+) -> int:
+    """Count how many of location_ids already have a stop on drive_date.
+
+    location_ids can be a list of ids or a select of them. Routes in
+    exclude_group_id are ignored (used when that group is the one moving).
+    """
+    clash = (
+        select(func.count(distinct(col(RouteStop.location_id))))
+        .join(Route)
+        .join(RouteGroup)
+        .where(
+            RouteGroup.drive_date == drive_date,
+            col(RouteStop.location_id).in_(location_ids),
+        )
+    )
+    if exclude_group_id is not None:
+        clash = clash.where(RouteGroup.route_group_id != exclude_group_id)
+    return (await session.execute(clash)).scalar_one()
+
+
+def double_booking_message(count: int, drive_date: date) -> str:
+    return (
+        f"{count} {'family is' if count == 1 else 'families are'} "
+        f"already on a route on {drive_date.isoformat()}. Pick another "
+        "date, or remove them from the other routes first."
+    )
+
+
 class RouteGroupService:
     """Route group service for CRUD operations"""
 
@@ -63,24 +96,11 @@ class RouteGroupService:
             .join(Route)
             .where(Route.route_group_id == source_group_id)
         )
-        clash = (
-            select(func.count(distinct(col(RouteStop.location_id))))
-            .join(Route)
-            .join(RouteGroup)
-            .where(
-                RouteGroup.drive_date == drive_date,
-                col(RouteStop.location_id).in_(families),
-            )
+        count = await count_families_already_routed(
+            session, families, drive_date, exclude_group_id
         )
-        if exclude_group_id is not None:
-            clash = clash.where(RouteGroup.route_group_id != exclude_group_id)
-        count = (await session.execute(clash)).scalar_one()
         if count:
-            raise ValueError(
-                f"{count} {'family is' if count == 1 else 'families are'} "
-                f"already on a route on {drive_date.isoformat()}. Pick another "
-                "date, or remove them from the other routes first."
-            )
+            raise ValueError(double_booking_message(count, drive_date))
 
     async def update_route_group(
         self,
