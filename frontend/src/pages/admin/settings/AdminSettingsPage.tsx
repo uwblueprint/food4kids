@@ -16,6 +16,7 @@ import { AnnouncementsBoard } from '@/features/announcements';
 import {
   BlockedButton,
   ContactInformationPanel,
+  DeliveryDefaultsPanel,
   RouteRemindersPanel,
   SettingsBanner,
 } from './components';
@@ -137,7 +138,7 @@ const SettingsPageHeader = () => {
 };
 
 const AdminSettingsPageContent = () => {
-  const { saveError } = useSettingsForm();
+  const { saveError, importFieldErrors } = useSettingsForm();
 
   return (
     <div className="flex flex-col gap-8">
@@ -145,6 +146,14 @@ const AdminSettingsPageContent = () => {
       {saveError && (
         <Banner variant="error" className="max-w-[600px]">
           {saveError}
+        </Banner>
+      )}
+      {/* The rows live on one tab, so a save tried from another needs to say
+       * where to look. */}
+      {importFieldErrors.some(Boolean) && (
+        <Banner variant="error" className="max-w-[600px]">
+          Fix the highlighted spreadsheet import fields on the Delivery Defaults
+          tab before saving.
         </Banner>
       )}
       <Tabs defaultValue="delivery-defaults">
@@ -156,7 +165,7 @@ const AdminSettingsPageContent = () => {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="delivery-defaults">
-          {/* Filled in by the Delivery Defaults PR. */}
+          <DeliveryDefaultsPanel />
         </TabsContent>
         <TabsContent value="route-reminders">
           <RouteRemindersPanel />
