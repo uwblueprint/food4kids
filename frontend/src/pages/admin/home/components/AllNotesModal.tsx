@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import type { NoteFeedItem, NoteFeedSort } from '@/api/generated/types.gen';
 import { useMarkNoteRead, useNotesFeed } from '@/api/notes';
@@ -249,13 +250,7 @@ export function AllNotesModal() {
       <ModalFooter className="flex-wrap justify-end">
         {hasAddress ? (
           <Button variant="secondary" asChild>
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedNote!.location_address)}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View address
-            </a>
+            <Link to="/admin/routes?tab=addresses">View address</Link>
           </Button>
         ) : (
           <Button variant="secondary" disabled>

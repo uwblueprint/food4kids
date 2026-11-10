@@ -9,6 +9,7 @@ import {
   within,
 } from '@testing-library/react';
 import { AxiosError } from 'axios';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { useAuthStore } from '@/api/authStore';
@@ -88,7 +89,9 @@ function renderCard(authenticated = true) {
   clients.push(client);
   return render(
     <QueryClientProvider client={client}>
-      <RecentNotesCard />
+      <MemoryRouter>
+        <RecentNotesCard />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -281,7 +284,7 @@ describe('Recent notes on the admin homepage', () => {
       within(dialog)
         .getByRole('link', { name: 'View address' })
         .getAttribute('href')
-    ).toContain('123%20School%20Street');
+    ).toBe('/admin/routes?tab=addresses');
     expect(within(detail).getByText(/Ring the bell on arrival/)).toBeDefined();
     expect(
       within(detail)
