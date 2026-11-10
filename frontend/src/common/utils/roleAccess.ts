@@ -52,26 +52,3 @@ export function resolveRoleAccess(
 export function homePathForRole(role: string | null | undefined): string {
   return isRole(role) ? HOME_PATH[role] : '/login';
 }
-
-/**
- * Where to land after login: the page the user was sent away from, if it is
- * inside their own app, otherwise their role's home.
- *
- * `from` comes from router state, so it is checked rather than trusted: only a
- * same-origin path under the role's own section is honoured. A driver who
- * followed an admin link (or inherited one from the previous user of a shared
- * browser) goes to their home instead of bouncing through the role guard.
- */
-export function postLoginPath(
-  role: string | null | undefined,
-  from: string | null | undefined
-): string {
-  const home = homePathForRole(role);
-  if (!isRole(role) || !from) {
-    return home;
-  }
-  const section = `/${role}`;
-  const isInSection =
-    from === section || /^[/?#]/.test(from.slice(section.length));
-  return from.startsWith(section) && isInSection ? from : home;
-}

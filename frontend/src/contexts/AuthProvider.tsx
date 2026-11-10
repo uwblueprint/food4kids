@@ -87,9 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    // Remember the page so login can bring them back to it.
-    const from = location.pathname + location.search + location.hash;
-    return <Navigate to="/login" replace state={{ from }} />;
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

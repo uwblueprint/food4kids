@@ -196,18 +196,3 @@ describe('the root redirect follows the role', () => {
     expect(visit('/')).toBe('/login');
   });
 });
-
-describe('a signed-out visit remembers where it was headed', () => {
-  it('sends /admin/routes?page=2 to /login with the full path in state', () => {
-    useAuthStore.setState({ isRestoringSession: false });
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/admin/routes?page=2'],
-    });
-    render(<RouterProvider router={router} />);
-
-    expect(router.state.location.pathname).toBe('/login');
-    expect(router.state.location.state).toEqual({
-      from: '/admin/routes?page=2',
-    });
-  });
-});

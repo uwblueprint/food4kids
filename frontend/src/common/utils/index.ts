@@ -13,7 +13,6 @@ export {
   HOME_PATH,
   homePathForRole,
   isRole,
-  postLoginPath,
   resolveRoleAccess,
   ROLES,
 } from './roleAccess';
