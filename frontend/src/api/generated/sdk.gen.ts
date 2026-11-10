@@ -413,7 +413,11 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes refresh tokens and clears cookies
+ * Ends this browser's session by clearing its auth cookies.
+ *
+ * Deliberately does not revoke with Firebase: `revoke_refresh_tokens` ends
+ * every session the user has, so logging out (or idling out) on one device
+ * would sign them out everywhere. Password reset still revokes everything.
  */
 export const logout = <ThrowOnError extends boolean = false>(
   options?: Options<LogoutData, ThrowOnError>

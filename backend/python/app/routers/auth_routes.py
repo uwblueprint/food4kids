@@ -188,25 +188,15 @@ async def refresh(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(
-    response: Response,
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
-) -> None:
+async def logout(response: Response) -> None:
     """
-    Revokes refresh tokens and clears cookies
+    Ends this browser's session by clearing its auth cookies.
+
+    Deliberately does not revoke with Firebase: `revoke_refresh_tokens` ends
+    every session the user has, so logging out (or idling out) on one device
+    would sign them out everywhere. Password reset still revokes everything.
     """
-    try:
-        refresh_token = request.cookies.get("refreshToken")
-        if refresh_token:
-            await auth_service.revoke_tokens_by_refresh_token(refresh_token)
-
-    except Exception:
-        logger.exception("Failed to revoke refresh tokens during logout")
-
-    finally:
-        # Always clear auth cookies
-        clear_auth_cookies(response)
+    clear_auth_cookies(response)
 
 
 # Server-side twin of the countdown in RequestLinkForm.tsx; keep them in step.
