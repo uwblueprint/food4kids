@@ -5755,7 +5755,7 @@ class TestNoteFeedRoutes:
     @pytest.mark.asyncio
     async def test_get_notes_feed_recent_page_size(
         self,
-        async_client: AsyncClient,
+        authed_async_client: AsyncClient,
         test_session: AsyncSession,
         test_admin_user: Any,
     ) -> None:
@@ -5774,7 +5774,7 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
 
-        response = await async_client.get("/notes?page_size=1&sort=recent")
+        response = await authed_async_client.get("/notes?page_size=1&sort=recent")
 
         assert response.status_code == 200
         body = response.json()
@@ -5787,16 +5787,16 @@ class TestNoteFeedRoutes:
 
     @pytest.mark.asyncio
     async def test_get_notes_feed_rejects_invalid_sort(
-        self, async_client: AsyncClient
+        self, authed_async_client: AsyncClient
     ) -> None:
-        response = await async_client.get("/notes?sort=not-a-sort")
+        response = await authed_async_client.get("/notes?sort=not-a-sort")
 
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_get_notes_feed_authorless_note_has_null_author_name(
         self,
-        async_client: AsyncClient,
+        authed_async_client: AsyncClient,
         test_session: AsyncSession,
     ) -> None:
         # System notes have no author (user_id is None). The feed's outer join
@@ -5810,7 +5810,7 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
-        response = await async_client.get("/notes?sort=recent")
+        response = await authed_async_client.get("/notes?sort=recent")
 
         assert response.status_code == 200
         body = response.json()
@@ -5823,7 +5823,7 @@ class TestNoteFeedRoutes:
     @pytest.mark.asyncio
     async def test_get_notes_feed_supports_sorting_and_pagination(
         self,
-        async_client: AsyncClient,
+        authed_async_client: AsyncClient,
         test_session: AsyncSession,
         test_admin_user: Any,
     ) -> None:
@@ -5862,10 +5862,12 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
-        oldest_response = await async_client.get("/notes?sort=oldest")
-        location_response = await async_client.get("/notes?sort=location")
-        driver_response = await async_client.get("/notes?sort=driver")
-        page_response = await async_client.get("/notes?page=2&page_size=1&sort=recent")
+        oldest_response = await authed_async_client.get("/notes?sort=oldest")
+        location_response = await authed_async_client.get("/notes?sort=location")
+        driver_response = await authed_async_client.get("/notes?sort=driver")
+        page_response = await authed_async_client.get(
+            "/notes?page=2&page_size=1&sort=recent"
+        )
 
         assert oldest_response.status_code == 200
         assert [item["message"] for item in oldest_response.json()["items"]] == [
@@ -5896,6 +5898,156 @@ class TestNoteFeedRoutes:
         assert page_body["page"] == 2
         assert page_body["page_size"] == 1
         assert page_body["items"][0]["message"] == "Admin middle"
+
+    @pytest.mark.asyncio
+    async def test_search_applies_before_pagination(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        await self._seed_location_note(
+            test_session,
+            location_name="Waterloo School",
+            message="Use the SIDE DOOR",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Other School",
+            message="Call reception",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        )
+        for search in [
+            "side door",
+            "waterloo",
+            "Waterloo School Group",
+            "Waterloo School Address",
+        ]:
+            response = await authed_async_client.get(
+                "/notes", params={"search": search, "page_size": 1}
+            )
+            assert response.status_code == 200
+            assert response.json()["total"] == 1
+            assert response.json()["items"][0]["location_name"] == "Waterloo School"
+        response = await authed_async_client.get(
+            "/notes", params={"search": "Admin User"}
+        )
+        assert response.json()["total"] == 2
+
+    @pytest.mark.asyncio
+    async def test_unread_is_per_admin_and_edited_notes_become_unread(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+        client_with_overrides: Any,
+    ) -> None:
+        from sqlmodel import select
+
+        from app.dependencies.auth import get_current_database_user_id
+        from app.models.note import Note
+        from app.models.note_read_receipt import NoteReadReceipt
+        from app.models.user import User
+
+        await self._seed_location_note(
+            test_session,
+            location_name="Older",
+            message="First",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Newer",
+            message="Second",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        )
+        response = await authed_async_client.get("/notes?sort=unread")
+        newest = response.json()["items"][0]
+        assert newest["author_email"] == test_admin_user.email
+        assert all(not item["is_read"] for item in response.json()["items"])
+        for _ in range(2):
+            assert (
+                await authed_async_client.post(f"/notes/{newest['note_id']}/read")
+            ).status_code == 204
+        response = await authed_async_client.get("/notes?sort=unread")
+        assert [item["is_read"] for item in response.json()["items"]] == [False, True]
+        receipts = (await test_session.execute(select(NoteReadReceipt))).scalars().all()
+        assert len(receipts) == 1
+        other = User(
+            first_name="Other",
+            last_name="Admin",
+            email="other-admin@example.com",
+            auth_id=None,
+            role="admin",
+        )
+        test_session.add(other)
+        await test_session.commit()
+        other_client = await client_with_overrides(
+            {get_current_database_user_id: lambda: other.user_id}
+        )
+        assert all(
+            not item["is_read"]
+            for item in (await other_client.get("/notes?sort=unread")).json()["items"]
+        )
+        note = await test_session.get(Note, UUID(newest["note_id"]))
+        assert note is not None
+        note.updated_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+        await test_session.commit()
+        assert all(
+            not item["is_read"]
+            for item in (await authed_async_client.get("/notes?sort=unread")).json()[
+                "items"
+            ]
+        )
+
+    @pytest.mark.asyncio
+    async def test_mark_read_rejects_non_location_notes(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        from app.models.note import Note
+        from app.models.note_chain import NoteChain
+
+        chain = NoteChain()
+        test_session.add(chain)
+        await test_session.flush()
+        note = Note(
+            note_chain_id=chain.note_chain_id,
+            user_id=test_admin_user.user_id,
+            message="Private driver note",
+        )
+        test_session.add(note)
+        await test_session.commit()
+        assert (
+            await authed_async_client.post(f"/notes/{note.note_id}/read")
+        ).status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_feed_and_read_receipts_require_admin(
+        self, client_with_overrides: Any, test_admin_user: Any
+    ) -> None:
+        from fastapi import HTTPException
+
+        from app.dependencies.auth import get_current_database_user_id, require_admin
+
+        def deny() -> None:
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        client = await client_with_overrides(
+            {
+                require_admin: deny,
+                get_current_database_user_id: lambda: test_admin_user.user_id,
+            }
+        )
+        assert (await client.get("/notes")).status_code == 403
+        assert (await client.post(f"/notes/{uuid4()}/read")).status_code == 403
 
 
 class TestValidationErrors:

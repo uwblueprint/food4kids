@@ -2462,6 +2462,17 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Email"
+          },
           "author_name": {
             "anyOf": [
               {
@@ -2495,6 +2506,11 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_read": {
+            "default": false,
+            "title": "Is Read",
+            "type": "boolean"
           },
           "is_system": {
             "default": false,
@@ -2573,6 +2589,7 @@
       },
       "NoteFeedSort": {
         "enum": [
+          "unread",
           "recent",
           "oldest",
           "driver",
@@ -6740,14 +6757,31 @@
         "operationId": "get_notes_feed",
         "parameters": [
           {
-            "description": "Sort by recent, oldest, driver, or location",
+            "description": "Sort by unread first, recent, oldest, driver, or location",
             "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
               "$ref": "#/components/schemas/NoteFeedSort",
               "default": "recent",
-              "description": "Sort by recent, oldest, driver, or location"
+              "description": "Sort by unread first, recent, oldest, driver, or location"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
             }
           },
           {
@@ -6802,6 +6836,48 @@
           }
         ],
         "summary": "Get Notes Feed",
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/read": {
+      "post": {
+        "description": "Mark a location note as viewed for the current admin only.",
+        "operationId": "mark_note_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Note Read",
         "tags": [
           "notes"
         ]

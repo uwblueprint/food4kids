@@ -1416,6 +1416,10 @@ export type NoteFeedItem = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Email
+   */
+  author_email?: string | null;
+  /**
    * Author Name
    */
   author_name?: string | null;
@@ -1427,6 +1431,10 @@ export type NoteFeedItem = {
    * Created At
    */
   created_at?: string | null;
+  /**
+   * Is Read
+   */
+  is_read?: boolean;
   /**
    * Is System
    */
@@ -1472,7 +1480,12 @@ export type NoteFeedItem = {
 /**
  * NoteFeedSort
  */
-export type NoteFeedSort = 'recent' | 'oldest' | 'driver' | 'location';
+export type NoteFeedSort =
+  | 'unread'
+  | 'recent'
+  | 'oldest'
+  | 'driver'
+  | 'location';
 
 /**
  * NotePermission
@@ -4276,9 +4289,13 @@ export type GetNotesFeedData = {
   path?: never;
   query?: {
     /**
-     * Sort by recent, oldest, driver, or location
+     * Sort by unread first, recent, oldest, driver, or location
      */
     sort?: NoteFeedSort;
+    /**
+     * Search
+     */
+    search?: string | null;
     /**
      * Page
      */
@@ -4309,6 +4326,37 @@ export type GetNotesFeedResponses = {
 
 export type GetNotesFeedResponse =
   GetNotesFeedResponses[keyof GetNotesFeedResponses];
+
+export type MarkNoteReadData = {
+  body?: never;
+  path: {
+    /**
+     * Note Id
+     */
+    note_id: string;
+  };
+  query?: never;
+  url: '/api/notes/{note_id}/read';
+};
+
+export type MarkNoteReadErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type MarkNoteReadError = MarkNoteReadErrors[keyof MarkNoteReadErrors];
+
+export type MarkNoteReadResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type MarkNoteReadResponse =
+  MarkNoteReadResponses[keyof MarkNoteReadResponses];
 
 export type GetMonthlySeriesData = {
   body?: never;

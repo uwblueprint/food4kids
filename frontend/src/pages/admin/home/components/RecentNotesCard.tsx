@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
+import { useAuthStore } from '@/api/authStore';
 import { useNotesFeed } from '@/api/notes';
+import ExpandIcon from '@/assets/icons/expand-content.svg?react';
 import {
   Button,
   Card,
@@ -11,12 +13,14 @@ import {
   ModalTrigger,
   Spinner,
 } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import { AllNotesModal } from './AllNotesModal';
 import { NoteFeedEntry } from './NoteFeedEntry';
 
 export function RecentNotesCard() {
   const [open, setOpen] = useState(false);
+  const userId = useAuthStore((state) => state.user?.id);
   const { data, isPending, isError, isFetching, refetch } = useNotesFeed({
     sort: 'recent',
     page: 1,
@@ -29,8 +33,13 @@ export function RecentNotesCard() {
         <CardHeader className="min-h-[60px] shrink-0 flex-row items-center justify-between gap-2 px-6 py-4">
           <CardTitle>Recent Notes</CardTitle>
           <ModalTrigger asChild>
-            <Button variant="textLink" className="shrink-0">
-              View all
+            <Button
+              variant="ghost"
+              shape="circular"
+              aria-label="View all"
+              className="tablet:size-8 size-8 shrink-0 bg-blue-50"
+            >
+              <ExpandIcon className="size-4" />
             </Button>
           </ModalTrigger>
         </CardHeader>
@@ -57,7 +66,10 @@ export function RecentNotesCard() {
           ) : (
             <ul className="pb-6">
               {data.items.map((note) => (
-                <li key={note.note_id} className="px-6 py-3 first:pt-2">
+                <li
+                  key={note.note_id}
+                  className={cn('px-6 py-4', !note.is_read && 'bg-grey-200')}
+                >
                   <NoteFeedEntry note={note} cardPreview />
                 </li>
               ))}
@@ -65,7 +77,7 @@ export function RecentNotesCard() {
           )}
         </CardContent>
       </Card>
-      {open && <AllNotesModal />}
+      {open && <AllNotesModal key={userId} />}
     </Modal>
   );
 }

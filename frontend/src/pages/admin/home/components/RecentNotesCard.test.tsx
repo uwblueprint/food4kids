@@ -28,7 +28,11 @@ afterEach(() => {
   clients.forEach((client) => client.clear());
   clients.length = 0;
   axiosClient.defaults.adapter = originalAdapter;
-  useAuthStore.setState({ isAuthenticated: false, accessToken: null });
+  useAuthStore.setState({
+    isAuthenticated: false,
+    accessToken: null,
+    user: null,
+  });
 });
 
 const note: NoteFeedItem = {
@@ -40,6 +44,8 @@ const note: NoteFeedItem = {
   location_address: '123 School Street',
   author_name: 'Alex Driver',
   author_role: 'driver',
+  author_email: 'alex@example.com',
+  is_read: true,
   created_at: '2026-11-02T15:00:00Z',
   message: 'Please use the side entrance.\nRing the bell on arrival.',
   attachments: [
@@ -111,9 +117,12 @@ describe('Recent notes on the admin homepage', () => {
     'handles note metadata: $expected, $created_at',
     ({ expected, ...metadata }) => {
       const { container } = render(
-        <NoteFeedEntry note={{ ...note, ...metadata, attachments: [] }} />
+        <NoteFeedEntry
+          note={{ ...note, ...metadata, attachments: [] }}
+          preview
+        />
       );
-      expect(screen.getByText(`${expected} · Waterloo PS`)).toBeDefined();
+      expect(screen.getByText(expected)).toBeDefined();
       expect(container.querySelector('time')).toBeNull();
       expect(screen.queryByText(/Invalid Date/)).toBeNull();
       expect(screen.queryByRole('img')).toBeNull();
@@ -204,6 +213,9 @@ describe('Recent notes on the admin homepage', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'View all' }));
     const dialog = await screen.findByRole('dialog');
+    const sort = within(dialog).getByRole('combobox');
+    fireEvent.keyDown(sort, { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Oldest' }));
     fireEvent.click(
       await within(dialog).findByRole('button', { name: /Alex Driver/ })
     );
@@ -265,7 +277,11 @@ describe('Recent notes on the admin homepage', () => {
     const detail = within(dialog).getByRole('region', {
       name: 'Selected note',
     });
-    expect(within(detail).getByText('123 School Street')).toBeDefined();
+    expect(
+      within(dialog)
+        .getByRole('link', { name: 'View address' })
+        .getAttribute('href')
+    ).toContain('123%20School%20Street');
     expect(within(detail).getByText(/Ring the bell on arrival/)).toBeDefined();
     expect(
       within(detail)
@@ -274,7 +290,7 @@ describe('Recent notes on the admin homepage', () => {
     ).toBe('https://example.com/entrance.png');
     expect(requests).toContainEqual({
       url: expect.stringMatching(/\/api\/notes$/),
-      params: { sort: 'recent', page: '1', page_size: '20' },
+      params: { sort: 'unread', page: '1', page_size: '20' },
       auth: 'Bearer test-token',
     });
     fireEvent.click(
@@ -401,5 +417,229 @@ describe('Recent notes on the admin homepage', () => {
     respond(feed());
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Alex Driver')).toBeDefined();
+  });
+  it('searches on the server and resets pagination and detail selection', async () => {
+    const queries: Record<string, string>[] = [];
+    axiosClient.defaults.adapter = async (config) => {
+      const params = Object.fromEntries(
+        new URL(config.url!, 'http://localhost').searchParams
+      );
+      queries.push(params);
+      const page = Number(params.page);
+      return {
+        data: params.search
+          ? feed(params.search === 'bell' ? [note] : [])
+          : feed(
+              [
+                {
+                  ...note,
+                  author_name: page === 1 ? 'Alex Driver' : 'Blair Driver',
+                },
+              ],
+              page,
+              2
+            ),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: /Alex Driver/ });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Page 2' }));
+    fireEvent.click(
+      await within(dialog).findByRole('button', { name: /Blair Driver/ })
+    );
+    fireEvent.change(
+      within(dialog).getByRole('textbox', { name: 'Search notes' }),
+      { target: { value: 'bell' } }
+    );
+    await waitFor(() =>
+      expect(queries).toContainEqual({
+        sort: 'unread',
+        page: '1',
+        page_size: '20',
+        search: 'bell',
+      })
+    );
+    expect(
+      await within(dialog).findByRole('button', { name: /Alex Driver/ })
+    ).toBeDefined();
+    expect(within(dialog).getByText('Nothing selected')).toBeDefined();
+    fireEvent.change(
+      within(dialog).getByRole('textbox', { name: 'Search notes' }),
+      { target: { value: 'absent' } }
+    );
+    expect(
+      await within(dialog).findByText('No results. Try being less specific.')
+    ).toBeDefined();
+  });
+
+  it('marks unread notes as read with retry and preserves detail when unread sorting moves the note off-page', async () => {
+    let read = false;
+    let failRead = true;
+    let writes = 0;
+    axiosClient.defaults.adapter = async (config) => {
+      if (config.method === 'post') {
+        writes += 1;
+        if (failRead) throw new AxiosError('Unavailable');
+        read = true;
+        return {
+          data: undefined,
+          status: 204,
+          statusText: 'No Content',
+          headers: {},
+          config,
+        };
+      }
+      const params = new URL(config.url!, 'http://localhost').searchParams;
+      const items =
+        read && params.get('sort') === 'unread'
+          ? [
+              {
+                ...note,
+                note_id: 'other',
+                author_name: 'Another Driver',
+                message: 'Another note',
+              },
+            ]
+          : [{ ...note, is_read: read }];
+      return {
+        data: feed(items),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'View address' })
+        .matches(':disabled')
+    ).toBe(true);
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'Email driver' })
+        .matches(':disabled')
+    ).toBe(true);
+    fireEvent.click(
+      await within(dialog).findByRole('button', { name: /Alex Driver/ })
+    );
+    expect(
+      await within(dialog).findByText(/Couldn't mark this note as read/)
+    ).toBeDefined();
+    failRead = false;
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Retry marking as read' })
+    );
+    expect(
+      await within(dialog).findByRole('button', { name: /Another Driver/ })
+    ).toBeDefined();
+    expect(
+      within(
+        within(dialog).getByRole('region', { name: 'Selected note' })
+      ).getByText(/Ring the bell on arrival/)
+    ).toBeDefined();
+    expect(
+      within(dialog)
+        .getByRole('link', { name: 'Email driver' })
+        .getAttribute('href')
+    ).toBe('mailto:alex%40example.com');
+    expect(writes).toBe(2);
+  });
+
+  it('uses Newest for recent sorting and does not email system notes', async () => {
+    const sorts: string[] = [];
+    axiosClient.defaults.adapter = async (config) => {
+      sorts.push(
+        new URL(config.url!, 'http://localhost').searchParams.get('sort')!
+      );
+      return {
+        data: feed([{ ...note, is_system: true }]),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.keyDown(within(dialog).getByRole('combobox'), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(await screen.findByRole('option', { name: 'Newest' }));
+    const systemRow = await within(dialog).findByRole('button', {
+      name: /System/,
+    });
+    await waitFor(() => expect(systemRow.matches(':disabled')).toBe(false));
+    fireEvent.click(systemRow);
+    expect(sorts).toContain('recent');
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'Email driver' })
+        .matches(':disabled')
+    ).toBe(true);
+    expect(
+      within(dialog).getByRole('link', { name: 'View address' })
+    ).toBeDefined();
+  });
+  it('does not reuse another admin’s read-state cache or placeholder rows', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const user = {
+      id: 'admin-a',
+      firstName: 'A',
+      lastName: 'Admin',
+      email: 'a@example.com',
+      fullName: 'A Admin',
+      role: 'admin',
+      driverId: null,
+      adminId: 'admin-a',
+    };
+    useAuthStore.setState({ user });
+    axiosClient.defaults.adapter = async (config) => {
+      const isB = useAuthStore.getState().user?.id === 'admin-b';
+      if (isB) await pending;
+      return {
+        data: feed([
+          {
+            ...note,
+            author_name: isB ? 'Second admin feed' : 'First admin feed',
+            is_read: !isB,
+          },
+        ]),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: /First admin feed/ });
+    useAuthStore.setState({ user: { ...user, id: 'admin-b' } });
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('dialog')).queryByRole('button', {
+          name: /First admin feed/,
+        })
+      ).toBeNull()
+    );
+    release();
+    expect(
+      await within(screen.getByRole('dialog')).findByRole('button', {
+        name: /Second admin feed/,
+      })
+    ).toBeDefined();
   });
 });

@@ -10,80 +10,69 @@ export function NoteFeedEntry({
   preview?: boolean;
   cardPreview?: boolean;
 }) {
-  const createdAt = note.created_at ? new Date(note.created_at) : null;
-  const date =
-    createdAt && !Number.isNaN(createdAt.getTime())
-      ? createdAt.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        })
-      : null;
+  const parsed = note.created_at ? new Date(note.created_at) : null;
+  const createdAt = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  const time = createdAt
+    ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    .replace(/\s/g, '');
+  const day = createdAt?.getDate() ?? 0;
+  const suffix =
+    day % 100 >= 11 && day % 100 <= 13
+      ? 'th'
+      : (({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] ??
+        'th');
+  const fullDate = createdAt
+    ? `${createdAt.toLocaleDateString('en-US', { month: 'long' })} ${day}${suffix}, ${time}`
+    : null;
+  const author = note.is_system
+    ? 'System'
+    : note.author_name?.trim() || 'Unknown author';
 
-  const time =
-    createdAt && !Number.isNaN(createdAt.getTime())
-      ? createdAt
-          .toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-          })
-          .replace(/\s/g, '')
-      : null;
-
-  if (cardPreview) {
+  if (preview || cardPreview) {
     return (
       <div className="text-grey-500 min-w-0 text-base leading-6 break-words">
-        <p className="font-bold">
-          {note.is_system
-            ? 'System'
-            : note.author_name?.trim() || 'Unknown author'}
+        <p
+          className={cn(
+            'flex items-center gap-2',
+            !note.is_read && 'font-bold'
+          )}
+        >
+          {author}
+          {!note.is_read && (
+            <span
+              role="img"
+              aria-label="Unread note"
+              className="inline-block size-2 shrink-0 rounded-full bg-blue-300"
+            />
+          )}
         </p>
-        <p className="text-sm leading-5">
+        <p
+          className={cn('text-sm leading-5', !note.is_read && 'font-semibold')}
+        >
           {note.location_name} - {note.location_group_name}
           {time && (
             <>
-              {' • '}
-              <time dateTime={note.created_at ?? undefined}>{time}</time>
+              {' '}
+              · <time dateTime={note.created_at ?? undefined}>{time}</time>
             </>
           )}
         </p>
-        <p className="whitespace-pre-wrap">{note.message}</p>
+        <p className={cn(preview ? 'truncate' : 'whitespace-pre-wrap')}>
+          {note.message}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="text-p2 text-grey-500 min-w-0 break-words">
-      <p className="font-semibold">
-        {note.is_system
-          ? 'System'
-          : note.author_name?.trim() || 'Unknown author'}
-        {' · '}
-        {note.location_name}
-      </p>
-      <p className="text-p3 text-grey-400">
-        {note.location_group_name}
-        {date && (
-          <>
-            {' '}
-            · <time dateTime={note.created_at ?? undefined}>{date}</time>
-          </>
-        )}
-      </p>
-      {!preview && (
-        <p className="text-grey-400 mt-1">{note.location_address}</p>
+    <article className="shadow-admin-bento text-grey-500 rounded-3xl bg-white p-8 text-base leading-6">
+      <p className="break-words whitespace-pre-wrap">{note.message}</p>
+      {createdAt && (
+        <p className="text-grey-400 mt-2 text-sm">
+          <time dateTime={note.created_at ?? undefined}>{fullDate}</time>
+        </p>
       )}
-      <p
-        className={cn(
-          'mt-2 font-normal whitespace-pre-wrap',
-          preview && 'line-clamp-3'
-        )}
-      >
-        {note.message}
-      </p>
-      {!preview && (note.attachments?.length ?? 0) > 0 && (
+      {(note.attachments?.length ?? 0) > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {note.attachments?.map((attachment) => (
             <a
@@ -103,6 +92,6 @@ export function NoteFeedEntry({
           ))}
         </div>
       )}
-    </div>
+    </article>
   );
 }
