@@ -23,8 +23,7 @@ import { RouteFilterModal } from './RouteFilterModal';
 import { RowActionCell } from './RowActionCell';
 import { StatusHeader } from './StatusHeader';
 
-// Sortable headers carry no sortValue: the server sorts (see
-// useRoutesTabState), so DataTable must not re-sort the page it's given.
+// No sortValue: sorting is server-side (useRoutesTabState).
 const COLUMNS: Column<RouteWithDateRead>[] = [
   { ...routeDriveDateColumn, sortValue: undefined },
   {

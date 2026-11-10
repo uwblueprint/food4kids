@@ -19,7 +19,6 @@ import {
 import type { UseRouteFiltersReturn } from './useRouteFilters';
 import { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
 
-/** Column keys the server can sort GET /routes by. */
 const SORT_KEYS = {
   drive_date: 'drive_date',
   delivery_type: 'delivery_type',
@@ -49,9 +48,7 @@ export function useRoutesTabState(): RoutesTabState {
   // server-side too.
   const searchTerm = useDebouncedValue(search.value).trim();
 
-  // Sorted server-side so the order holds across pages — DataTable's own
-  // sort would only reorder the current page. In the query (and so the
-  // pagination key), a new sort goes back to page 1.
+  // Server-side so the sort spans all pages.
   const { sort, toggleSort } = useTableSort();
   const sortKey = SORT_KEYS[sort?.key as keyof typeof SORT_KEYS];
 

@@ -256,8 +256,7 @@ class RouteService:
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
-        # Sorted before pagination so the order holds across pages. NULL
-        # delivery types (routes with no stops) go last in either direction.
+        # NULL delivery types (routes with no stops) go last either way.
         sort_expr: Any = {
             "drive_date": col(RouteGroup.drive_date),
             "delivery_type": delivery_type_expr,
@@ -266,11 +265,8 @@ class RouteService:
         primary_order = (
             sort_expr.desc() if order == "desc" else sort_expr.asc()
         ).nulls_last()
-        # Secondary drive_date (asc) keeps ties within a delivery type or
-        # status in date order. route_id last so the order is total: two
-        # routes on the same date can share a name, and paginate_query's count
-        # and page are separate statements, so any remaining tie can shuffle a
-        # row between pages.
+        # route_id last so the order is total and rows can't shuffle between
+        # pages.
         tie_breakers = (
             [] if sort_by == "drive_date" else [col(RouteGroup.drive_date).asc()]
         )
