@@ -62,6 +62,7 @@ import {
   login,
   logout,
   markAnnouncementsAsRead,
+  markNoteRead,
   type Options,
   patchSystemSettings,
   previewLocationImport,
@@ -226,6 +227,9 @@ import type {
   LogoutResponse,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponse,
+  MarkNoteReadData,
+  MarkNoteReadError,
+  MarkNoteReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
@@ -1983,6 +1987,35 @@ export const getNotesFeedInfiniteOptions = (
       queryKey: getNotesFeedInfiniteQueryKey(options),
     }
   );
+
+/**
+ * Mark Note Read
+ *
+ * Mark a location note as viewed for the current admin only.
+ */
+export const markNoteReadMutation = (
+  options?: Partial<Options<MarkNoteReadData>>
+): UseMutationOptions<
+  MarkNoteReadResponse,
+  AxiosError<MarkNoteReadError>,
+  Options<MarkNoteReadData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarkNoteReadResponse,
+    AxiosError<MarkNoteReadError>,
+    Options<MarkNoteReadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await markNoteRead({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getMonthlySeriesQueryKey = (
   options?: Options<GetMonthlySeriesData>

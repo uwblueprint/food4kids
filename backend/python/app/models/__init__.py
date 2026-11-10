@@ -87,6 +87,7 @@ def register_models() -> None:
     from .location_group import LocationGroup  # noqa: F401
     from .note import Note  # noqa: F401
     from .note_chain import NoteChain  # noqa: F401
+    from .note_read_receipt import NoteReadReceipt  # noqa: F401
     from .password_reset_token import PasswordResetToken  # noqa: F401
     from .route import Route  # noqa: F401
     from .route_group import RouteGroup  # noqa: F401
