@@ -25,8 +25,8 @@ export function RecentNotesCard() {
 
   return (
     <Modal open={open} onOpenChange={setOpen}>
-      <Card className="shadow-admin-bento min-h-0 rounded-4xl">
-        <CardHeader className="mb-4 flex-row items-center justify-between gap-2">
+      <Card className="shadow-admin-bento min-h-0 overflow-hidden rounded-4xl p-0">
+        <CardHeader className="min-h-[60px] shrink-0 flex-row items-center justify-between gap-2 px-6 py-4">
           <CardTitle>Recent Notes</CardTitle>
           <ModalTrigger asChild>
             <Button variant="textLink" className="shrink-0">
@@ -40,7 +40,7 @@ export function RecentNotesCard() {
               <Spinner size="sm" />
             </div>
           ) : isError ? (
-            <div role="alert" className="text-p2 text-grey-400">
+            <div role="alert" className="text-p2 text-grey-400 px-6 py-4">
               <p>Couldn&apos;t load recent notes.</p>
               <Button
                 variant="textLink"
@@ -55,10 +55,10 @@ export function RecentNotesCard() {
               No notes yet.
             </p>
           ) : (
-            <ul className="divide-grey-200 divide-y">
+            <ul className="pb-6">
               {data.items.map((note) => (
-                <li key={note.note_id} className="py-3 first:pt-0">
-                  <NoteFeedEntry note={note} preview />
+                <li key={note.note_id} className="px-6 py-3 first:pt-2">
+                  <NoteFeedEntry note={note} cardPreview />
                 </li>
               ))}
             </ul>
