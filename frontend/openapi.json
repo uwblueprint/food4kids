@@ -7649,13 +7649,30 @@
             }
           },
           {
-            "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+            "description": "Column to sort by, applied before pagination",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "drive_date",
+              "description": "Column to sort by, applied before pagination",
+              "enum": [
+                "drive_date",
+                "delivery_type",
+                "status"
+              ],
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
             "in": "query",
             "name": "order",
             "required": false,
             "schema": {
               "default": "asc",
-              "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+              "description": "Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
               "enum": [
                 "asc",
                 "desc"

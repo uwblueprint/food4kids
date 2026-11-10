@@ -4756,9 +4756,15 @@ export type GetRoutesData = {
      */
     end_date?: string | null;
     /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination
+     */
+    sort_by?: 'drive_date' | 'delivery_type' | 'status';
+    /**
      * Order
      *
-     * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
+     * Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
      */
     order?: 'asc' | 'desc';
     /**

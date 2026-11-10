@@ -3613,6 +3613,137 @@ class TestRouteRoutes:
         assert str(sch_route.route_id) not in fam_ids
 
     @pytest.mark.asyncio
+    async def test_get_routes_sort_by_status_spans_pages(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """sort_by applies before pagination, so page 1 holds the first row overall."""
+        future_group = RouteGroup(name="Future", drive_date=date(2099, 1, 1))
+        past_group = RouteGroup(name="Past", drive_date=date(2020, 1, 1))
+        test_session.add_all([future_group, past_group])
+        await test_session.flush()
+        # Upcoming first by date, so a page-only sort would leave it on page 1.
+        test_session.add_all(
+            [
+                Route(
+                    name="Up", length=1.0, route_group_id=future_group.route_group_id
+                ),
+                Route(
+                    name="Done", length=1.0, route_group_id=past_group.route_group_id
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        async def statuses(order: str) -> list[str]:
+            pages = [
+                await async_client.get(
+                    "/routes",
+                    params={
+                        "sort_by": "status",
+                        "order": order,
+                        "page": n,
+                        "page_size": 1,
+                    },
+                )
+                for n in (1, 2)
+            ]
+            return [p.json()["items"][0]["status"] for p in pages]
+
+        assert await statuses("asc") == ["Completed", "Upcoming"]
+        assert await statuses("desc") == ["Upcoming", "Completed"]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_by_delivery_type_puts_nulls_last(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+    ) -> None:
+        """A route with no stops has no delivery type and sorts last both ways."""
+        locs = [
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name=dt,
+                contact_name=dt,
+                address=f"{i} {dt} St",
+                phone_primary=f"tel:+1-519-576-000{i}",
+                delivery_type=dt,
+                num_children=2,
+            )
+            for i, dt in enumerate(["Family", "School"], start=1)
+        ]
+        test_session.add_all(locs)
+        await test_session.flush()
+        routes = [
+            Route(name=n, length=1.0, route_group_id=test_route_group.route_group_id)
+            for n in ("SchRoute", "EmptyRoute", "FamRoute")
+        ]
+        test_session.add_all(routes)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=routes[0].route_id,
+                    location_id=locs[1].location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=routes[2].route_id,
+                    location_id=locs[0].location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        async def types(order: str) -> list[str | None]:
+            res = await async_client.get(
+                "/routes", params={"sort_by": "delivery_type", "order": order}
+            )
+            assert res.status_code == 200
+            return [r["delivery_type"] for r in res.json()["items"]]
+
+        assert await types("asc") == ["Family", "School", None]
+        assert await types("desc") == ["School", "Family", None]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_ties_fall_back_to_drive_date(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """Rows with the same status come back oldest drive date first."""
+        groups = [
+            RouteGroup(name=f"G{d}", drive_date=date(2099, 1, d)) for d in (3, 1, 2)
+        ]
+        test_session.add_all(groups)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                Route(name="R", length=1.0, route_group_id=g.route_group_id)
+                for g in groups
+            ]
+        )
+        await test_session.commit()
+
+        for order in ("asc", "desc"):
+            res = await async_client.get(
+                "/routes", params={"sort_by": "status", "order": order}
+            )
+            dates = [r["drive_date"] for r in res.json()["items"]]
+            assert dates == ["2099-01-01", "2099-01-02", "2099-01-03"]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_rejects_unknown_sort_by(
+        self, async_client: AsyncClient
+    ) -> None:
+        res = await async_client.get("/routes", params={"sort_by": "length"})
+        assert res.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_routes_uses_snapshotted_box_totals_for_frozen_routes(
         self,
         async_client: AsyncClient,
