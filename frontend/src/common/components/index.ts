@@ -2,6 +2,7 @@
 // Example: export { Button } from './Button';
 // Example: export { Modal } from './Modal';
 export { Account } from './Account';
+export { AssignDriverCell } from './AssignDriverCell';
 export { Banner } from './Banner';
 export { Button } from './Button';
 export { Calendar } from './Calendar';
@@ -47,6 +48,7 @@ export {
   ModalTitle,
   ModalTrigger,
 } from './Modal';
+export { MultiSelect } from './MultiSelect';
 export { Pagination } from './Pagination';
 export {
   Popover,

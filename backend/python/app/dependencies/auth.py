@@ -345,7 +345,7 @@ def get_current_user_email(access_token: str = Depends(get_access_token)) -> str
     """
     try:
         decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
-            access_token, check_revoked=True
+            access_token, check_revoked=True, clock_skew_seconds=5
         )
         return str(decoded_token["email"])
     except Exception as e:
@@ -368,7 +368,7 @@ async def get_current_database_user_id(
     """
     try:
         decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
-            access_token, check_revoked=True
+            access_token, check_revoked=True, clock_skew_seconds=5
         )
         firebase_uid = decoded_token["uid"]
 

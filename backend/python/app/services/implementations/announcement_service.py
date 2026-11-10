@@ -210,6 +210,9 @@ class AnnouncementService:
         recipients = await self._announcement_recipients(session, audiences)
 
         base = frontend_base_url.rstrip("/")
+        # Fetched once for the whole batch, like the audience flags above --
+        # otherwise every recipient costs an extra settings query.
+        org_contact = await dispatcher.org_contact_context()
         sent_count = 0
         failed_count = 0
 
@@ -228,6 +231,7 @@ class AnnouncementService:
                     email_type="check-latest-announcement",
                     to=user.email,
                     context=context,
+                    org_contact=org_contact,
                 )
                 sent_count += 1
             except Exception as error:
