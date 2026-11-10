@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import computed_field, field_validator
-from sqlmodel import Field, Relationship, SQLModel, String
+from sqlalchemy import JSON
+from sqlmodel import Column, Field, Relationship, SQLModel, String
 
 from app.utilities.utils import validate_phone
 
@@ -45,6 +46,12 @@ class LocationBase(SQLModel):
     # rename/persist migration; enforced uniform within a RouteGroup at
     # generation time.
     delivery_type: str = Field(min_length=1, max_length=100, sa_type=String)
+    # Values for admin-defined import columns, keyed by ImportField.key.
+    # Built-in columns have their own fields above; anything an admin adds in
+    # Settings lands here and is carried through to the Validate step.
+    custom_fields: dict[str, str] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False, default=dict)
+    )
     # Stored bit: was this location in the most recent relevant spreadsheet
     # upload? The user-facing three-state status (Active/Unscheduled/Inactive)
     # is derived from this plus whether the location appears in a present/
@@ -131,6 +138,8 @@ class LocationImportEntry(SQLModel):
     num_children: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
+    # Values for admin-defined columns, keyed by ImportField.key.
+    custom_fields: dict[str, str] = Field(default_factory=dict)
 
 
 class ValidatedLocationImportEntry(LocationImportEntry):

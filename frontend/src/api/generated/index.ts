@@ -331,6 +331,8 @@ export type {
   GetTotalsResponse,
   GetTotalsResponses,
   HttpValidationError,
+  ImportField,
+  ImportFieldDataType,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverErrors,
