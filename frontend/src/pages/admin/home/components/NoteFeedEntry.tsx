@@ -4,9 +4,11 @@ import { cn } from '@/lib/utils';
 export function NoteFeedEntry({
   note,
   preview = false,
+  cardPreview = false,
 }: {
   note: NoteFeedItem;
   preview?: boolean;
+  cardPreview?: boolean;
 }) {
   const createdAt = note.created_at ? new Date(note.created_at) : null;
   const date =
@@ -19,6 +21,38 @@ export function NoteFeedEntry({
           minute: '2-digit',
         })
       : null;
+
+  const time =
+    createdAt && !Number.isNaN(createdAt.getTime())
+      ? createdAt
+          .toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+          .replace(/\s/g, '')
+      : null;
+
+  if (cardPreview) {
+    return (
+      <div className="text-grey-500 min-w-0 text-base leading-6 break-words">
+        <p className="font-bold">
+          {note.is_system
+            ? 'System'
+            : note.author_name?.trim() || 'Unknown author'}
+        </p>
+        <p className="text-sm leading-5">
+          {note.location_name} - {note.location_group_name}
+          {time && (
+            <>
+              {' • '}
+              <time dateTime={note.created_at ?? undefined}>{time}</time>
+            </>
+          )}
+        </p>
+        <p className="whitespace-pre-wrap">{note.message}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="text-p2 text-grey-500 min-w-0 break-words">
@@ -41,7 +75,12 @@ export function NoteFeedEntry({
       {!preview && (
         <p className="text-grey-400 mt-1">{note.location_address}</p>
       )}
-      <p className={cn('mt-2 whitespace-pre-wrap', preview && 'line-clamp-3')}>
+      <p
+        className={cn(
+          'mt-2 font-normal whitespace-pre-wrap',
+          preview && 'line-clamp-3'
+        )}
+      >
         {note.message}
       </p>
       {!preview && (note.attachments?.length ?? 0) > 0 && (

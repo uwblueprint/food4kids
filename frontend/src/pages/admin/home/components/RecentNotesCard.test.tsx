@@ -135,7 +135,7 @@ describe('Recent notes on the admin homepage', () => {
     renderCard(false);
     expect(requests).toBe(0);
     useAuthStore.setState({ isAuthenticated: true, accessToken: 'test-token' });
-    expect(await screen.findByText('Alex Driver · Waterloo PS')).toBeDefined();
+    expect(await screen.findByText('Alex Driver')).toBeDefined();
     expect(requests).toBe(1);
   });
 
@@ -243,7 +243,12 @@ describe('Recent notes on the admin homepage', () => {
       };
     };
     renderCard();
-    expect(await screen.findByText('Alex Driver · Waterloo PS')).toBeDefined();
+    expect(await screen.findByText('Alex Driver')).toBeDefined();
+    expect(screen.getByText(/Waterloo PS - Monday schools/)).toBeDefined();
+    const timestamp = document.querySelector('time');
+    expect(timestamp?.getAttribute('datetime')).toBe(note.created_at);
+    expect(timestamp?.textContent).toMatch(/^\d{1,2}:\d{2}[AP]M$/);
+    expect(screen.queryByText('123 School Street')).toBeNull();
     expect(requests[0]).toEqual({
       url: expect.stringMatching(/\/api\/notes$/),
       params: { sort: 'recent', page: '1', page_size: '5' },
@@ -358,7 +363,7 @@ describe('Recent notes on the admin homepage', () => {
   it('retries a failed All Notes request and resets selection when reopened', async () => {
     respond(feed());
     renderCard();
-    await screen.findByText('Alex Driver · Waterloo PS');
+    await screen.findByText('Alex Driver');
     axiosClient.defaults.adapter = async () => {
       throw new AxiosError('Unavailable');
     };
@@ -395,6 +400,6 @@ describe('Recent notes on the admin homepage', () => {
     ).toBeDefined();
     respond(feed());
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('Alex Driver · Waterloo PS')).toBeDefined();
+    expect(await screen.findByText('Alex Driver')).toBeDefined();
   });
 });
