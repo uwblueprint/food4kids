@@ -4,6 +4,7 @@ import {
   HOME_PATH,
   homePathForRole,
   isRole,
+  postLoginPath,
   resolveRoleAccess,
   type Role,
   ROLES,
@@ -99,5 +100,24 @@ describe('homePathForRole', () => {
     for (const value of NON_ROLES) {
       expect(homePathForRole(value)).not.toMatch(/^\/(admin|driver)\b/);
     }
+  });
+});
+
+describe('postLoginPath', () => {
+  it.each([
+    ['admin', '/admin/routes?page=2', '/admin/routes?page=2'],
+    ['admin', '/admin', '/admin'],
+    ['driver', '/driver/route/abc#stop-3', '/driver/route/abc#stop-3'],
+    ['admin', undefined, '/admin/home'],
+    ['driver', null, '/driver/home'],
+    ['driver', '/admin/routes', '/driver/home'],
+    ['admin', '/driver/home', '/admin/home'],
+    ['admin', '/administrator', '/admin/home'],
+    ['admin', '//evil.example/admin', '/admin/home'],
+    ['admin', 'https://evil.example/admin', '/admin/home'],
+    ['admin', '/login', '/admin/home'],
+    ['manager', '/admin/routes', '/login'],
+  ])('%s from %s lands on %s', (role, from, expected) => {
+    expect(postLoginPath(role, from)).toBe(expected);
   });
 });

@@ -1,12 +1,12 @@
 import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { describeApiFailure, useLogin } from '@/api';
 import { useAuthStore } from '@/api/authStore';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
-import { homePathForRole } from '@/common/utils';
+import { postLoginPath } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { ErrorNote } from './ErrorNote';
@@ -48,6 +48,8 @@ const LoginForm = () => {
 
   const loginMutation = useLogin();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: unknown } | null)?.from;
 
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,8 +58,11 @@ const LoginForm = () => {
       { email, password, remember_me: rememberMe },
       {
         onSuccess: (data) => {
-          // Redirect based on user role
-          navigate(homePathForRole(data.role));
+          // Back to the page that sent them here, else their role's home.
+          navigate(
+            postLoginPath(data.role, typeof from === 'string' ? from : null),
+            { replace: true }
+          );
         },
         onError: (failure) => {
           const connectionMessage = describeApiFailure(failure);
