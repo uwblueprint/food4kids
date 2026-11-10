@@ -6,6 +6,7 @@ import SettingsIcon from '@/assets/icons/settings.svg?react';
 import UsersIcon from '@/assets/icons/users.svg?react';
 import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
 import { PopupHost } from '@/common/components/PopupHost';
+import { useRouteScrollReset } from '@/common/hooks';
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +39,8 @@ const NAV_ITEMS = [
 ] as const;
 
 export const AdminLayout = () => {
+  const scrollRef = useRouteScrollReset();
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -54,7 +57,7 @@ export const AdminLayout = () => {
         </SidebarContent>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset ref={scrollRef}>
         <PopupHost>
           <div className="admin-page-margins">
             <Outlet />
