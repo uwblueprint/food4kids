@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   deleteRouteMutation,
+  getDriversQueryKey,
   getRouteGroupsQueryKey,
   getRouteOptions,
   getRouteQueryKey,
@@ -54,6 +55,8 @@ export function useRoute(routeId: string) {
  * Invalidates GET /routes plus GET /route-groups since group aggregates
  * (driver counts) derive from their routes, and the single-route detail
  * (GET /routes/{route_id}) so the individual-route screen reflects the edit.
+ * Assignment changes also refresh the driver list, whose activity status
+ * depends on current and future assignments.
  */
 export function useUpdateRoute() {
   const queryClient = useQueryClient();
@@ -61,6 +64,9 @@ export function useUpdateRoute() {
     ...updateRouteMutation(),
     onSuccess: (_data, variables) =>
       Promise.all([
+        ...('driver_id' in (variables.body ?? {})
+          ? [queryClient.invalidateQueries({ queryKey: getDriversQueryKey() })]
+          : []),
         queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() }),
         queryClient.invalidateQueries({
