@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import math
 import time
 from dataclasses import dataclass, field
@@ -111,9 +112,12 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         """
         Cluster into exactly ``num_clusters`` routes (one per driver).
 
-        Locations are sweep-sorted from the warehouse, then assigned greedily
-        to the least-loaded feasible route so work is spread evenly while
-        respecting box and far-delivery limits.
+        Locations are sweep-sorted from the warehouse and cut into contiguous
+        sectors (see ``_sectors``). If no sectoring fits, they are assigned
+        greedily to the least-loaded feasible route instead: far stops first,
+        then the rest largest-first, so small stops fill the gaps big ones
+        leave. That always packs 1- and 2-box stops without far routes when
+        they fit; otherwise it is a heuristic and can miss a packing.
         """
         start_time = time.time()
 
@@ -149,43 +153,37 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     f"which exceeds the per-driver maximum of {max_boxes_per_cluster}."
                 )
 
+        total_boxes = sum(
+            effective_boxes(location, self._children_per_box) for location in locations
+        )
+        if total_boxes > num_clusters * max_boxes_per_cluster:
+            raise ValueError(
+                f"{total_boxes} boxes need at least "
+                f"{math.ceil(total_boxes / max_boxes_per_cluster)} drivers at "
+                f"{max_boxes_per_cluster} boxes each, but only {num_clusters} "
+                f"were requested."
+            )
+
         sorted_locations = self._sorted_locations(
             locations=locations,
             check_timeout=check_timeout,
         )
         metrics_by_id = self._metrics_for_locations(sorted_locations)
 
-        cluster_states = [_ClusterState() for _ in range(num_clusters)]
-
-        for location in sorted_locations:
-            check_timeout()
-            metrics = metrics_by_id[location.location_id]
-            feasible_indices = [
-                index
-                for index, cluster in enumerate(cluster_states)
-                if self._can_add_to_cluster(
-                    cluster=cluster,
-                    location=location,
-                    max_boxes=max_boxes_per_cluster,
-                    metrics=metrics,
-                )
-            ]
-
-            if not feasible_indices:
-                boxes = effective_boxes(location, self._children_per_box)
-                raise ValueError(
-                    f"Cannot assign '{location.name}' ({boxes} boxes) across {num_clusters} "
-                    f"drivers without violating max {max_boxes_per_cluster} boxes per driver "
-                    f"or far-route caps. Add drivers or adjust loads."
-                )
-
-            best_index = min(
-                feasible_indices,
-                key=lambda index: self._cluster_load_key(cluster_states[index]),
-            )
-            self._add_to_cluster(cluster_states[best_index], location, metrics)
-
-        clusters = [state.locations for state in cluster_states]
+        sectors = self._sectors(
+            sorted_locations=sorted_locations,
+            num_clusters=num_clusters,
+            max_boxes=max_boxes_per_cluster,
+            metrics_by_id=metrics_by_id,
+            check_timeout=check_timeout,
+        )
+        clusters = sectors or self._spread(
+            sorted_locations=sorted_locations,
+            num_clusters=num_clusters,
+            max_boxes=max_boxes_per_cluster,
+            metrics_by_id=metrics_by_id,
+            check_timeout=check_timeout,
+        )
 
         # Defensive: should be unreachable if _can_add_to_cluster stays in sync.
         for index, cluster in enumerate(clusters):
@@ -199,6 +197,140 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 )
 
         return clusters
+
+    def _spread(
+        self,
+        sorted_locations: list[Location],
+        num_clusters: int,
+        max_boxes: int,
+        metrics_by_id: dict[UUID, _LocationMetrics],
+        check_timeout: Callable[[], None],
+    ) -> list[list[Location]]:
+        """Greedy least-loaded assignment."""
+        # Quickest first among equals: far routes take the earliest near stops.
+        placement_order = sorted(
+            sorted_locations,
+            key=lambda location: (
+                not metrics_by_id[location.location_id].is_far,
+                -effective_boxes(location, self._children_per_box),
+                metrics_by_id[location.location_id].stop_minutes,
+            ),
+        )
+        # Spreading far stops keeps each far route's box room; grouping them
+        # frees stop slots. Neither suits every load, so try both.
+        for group_far in (False, True):
+            assigned = self._assign(
+                placement_order=placement_order,
+                num_clusters=num_clusters,
+                max_boxes=max_boxes,
+                metrics_by_id=metrics_by_id,
+                group_far=group_far,
+                check_timeout=check_timeout,
+            )
+            if isinstance(assigned, list):
+                break
+            unplaced = assigned
+        else:
+            boxes = effective_boxes(unplaced, self._children_per_box)
+            raise ValueError(
+                f"Cannot assign '{unplaced.name}' ({boxes} boxes) across {num_clusters} "
+                f"drivers: no fit found within max {max_boxes} boxes per "
+                f"driver and the far-route caps. Add drivers or adjust loads."
+            )
+
+        return [state.locations for state in assigned]
+
+    def _sectors(
+        self,
+        sorted_locations: list[Location],
+        num_clusters: int,
+        max_boxes: int,
+        metrics_by_id: dict[UUID, _LocationMetrics],
+        check_timeout: Callable[[], None],
+    ) -> list[list[Location]] | None:
+        """Cut the circular sweep into ``num_clusters`` contiguous sectors,
+        each cut nearest the next even share of the boxes. The start of the
+        circle moves every cut, so it tries a car's worth of starts and keeps
+        the one with the fewest boxes over capacity.
+
+        Each sector over capacity hands its smallest stops, nearest its edges,
+        to the nearest sectors with room: other sectors' room is mostly single
+        boxes. Returns None if a sector breaks a far-route cap or a hand-off
+        doesn't fit.
+        """
+        n = len(sorted_locations)
+        best: tuple[int, list[Location], list[int]] | None = None
+        for start in range(min(n, max_boxes)):
+            check_timeout()
+            sequence = sorted_locations[start:] + sorted_locations[:start]
+            boxes = itertools.accumulate(
+                effective_boxes(stop, self._children_per_box) for stop in sequence
+            )
+            prefix = [0, *boxes]
+            cuts = [0]
+            for sector in range(1, num_clusters):
+                share = sector * prefix[n] / num_clusters
+                cuts.append(
+                    min(
+                        range(cuts[-1] + 1, n - num_clusters + sector + 1),
+                        key=lambda cut: abs(prefix[cut] - share),
+                    )
+                )
+            cuts.append(n)
+            overflow = sum(
+                max(0, prefix[end] - prefix[begin] - max_boxes)
+                for begin, end in itertools.pairwise(cuts)
+            )
+            if best is None or overflow < best[0]:
+                best = (overflow, sequence, cuts)
+
+        assert best is not None
+        _, sequence, cuts = best
+        sectors = [_ClusterState() for _ in range(num_clusters)]
+        handed_off: list[tuple[int, Location]] = []
+        for index, state in enumerate(sectors):
+            run = sequence[cuts[index] : cuts[index + 1]]
+            overflow = (
+                sum(effective_boxes(s, self._children_per_box) for s in run) - max_boxes
+            )
+            while overflow > 0:
+                stop = run.pop(self._hand_off_position(run))
+                overflow -= effective_boxes(stop, self._children_per_box)
+                handed_off.append((index, stop))
+            for stop in run:
+                metrics = metrics_by_id[stop.location_id]
+                if not self._can_add_to_cluster(state, stop, max_boxes, metrics):
+                    return None
+                self._add_to_cluster(state, stop, metrics)
+
+        for home, stop in handed_off:
+            metrics = metrics_by_id[stop.location_id]
+            fits = [
+                index
+                for index, state in enumerate(sectors)
+                if self._can_add_to_cluster(state, stop, max_boxes, metrics)
+            ]
+            if not fits:
+                return None
+
+            def distance(index: int, home: int = home) -> int:
+                gap = abs(index - home)
+                return min(gap, num_clusters - gap)
+
+            self._add_to_cluster(sectors[min(fits, key=distance)], stop, metrics)
+
+        return [state.locations for state in sectors]
+
+    def _hand_off_position(self, run: list[Location]) -> int:
+        """The stop to move out of an overfull sector: the smallest, nearest an
+        edge so the sector stays contiguous."""
+        return min(
+            range(len(run)),
+            key=lambda i: (
+                effective_boxes(run[i], self._children_per_box),
+                min(i, len(run) - 1 - i),
+            ),
+        )
 
     async def cluster_locations_by_constraints(
         self,
@@ -268,6 +400,46 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             cluster_states.append(current)
 
         return [state.locations for state in cluster_states]
+
+    def _assign(
+        self,
+        placement_order: list[Location],
+        num_clusters: int,
+        max_boxes: int,
+        metrics_by_id: dict[UUID, _LocationMetrics],
+        group_far: bool,
+        check_timeout: Callable[[], None],
+    ) -> list[_ClusterState] | Location:
+        """Routes holding every stop, or the first stop that wouldn't fit."""
+        cluster_states = [_ClusterState() for _ in range(num_clusters)]
+        for location in placement_order:
+            check_timeout()
+            metrics = metrics_by_id[location.location_id]
+            feasible_indices = [
+                index
+                for index, cluster in enumerate(cluster_states)
+                if self._can_add_to_cluster(
+                    cluster=cluster,
+                    location=location,
+                    max_boxes=max_boxes,
+                    metrics=metrics,
+                )
+            ]
+            if not feasible_indices:
+                return location
+
+            # Far routes are stop-capped, so near stops fill them first, while
+            # the stops are still big.
+            best_index = min(
+                feasible_indices,
+                key=lambda index: (
+                    (group_far or not metrics.is_far)
+                    and not cluster_states[index].has_far_stop,
+                    self._cluster_load_key(cluster_states[index]),
+                ),
+            )
+            self._add_to_cluster(cluster_states[best_index], location, metrics)
+        return cluster_states
 
     def _metrics_for_locations(
         self, locations: list[Location]
@@ -446,8 +618,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 class SweepRoutingAlgorithm:
     """Sweep clustering as a complete routing engine, at no API cost.
 
-    Each cluster is already in sweep order (angle, then distance from the
-    warehouse), so it doubles as the visit order.
+    Each route visits its stops nearest the warehouse first. Within a sector
+    that drives within 1-3% of an optimised order; angle order zigzags.
     """
 
     async def generate_routes(
@@ -464,9 +636,18 @@ class SweepRoutingAlgorithm:
             children_per_box=settings.children_per_box,
             service_minutes_per_stop=settings.service_time_minutes,
         )
-        return await clustering.cluster_locations(
+        clusters = await clustering.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
             max_boxes_per_cluster=settings.max_boxes_per_driver,
             timeout_seconds=timeout_seconds,
         )
+        return [
+            sorted(
+                cluster,
+                key=lambda stop: clustering._haversine_km(
+                    warehouse_lat, warehouse_lon, stop
+                ),
+            )
+            for cluster in clusters
+        ]
