@@ -4946,7 +4946,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "description": "Revokes refresh tokens and clears cookies",
+        "description": "Ends this browser's session by clearing its auth cookies.\n\nDeliberately does not revoke with Firebase: `revoke_refresh_tokens` ends\nevery session the user has, so logging out (or idling out) on one device\nwould sign them out everywhere. Password reset still revokes everything.",
         "operationId": "logout",
         "responses": {
           "204": {
