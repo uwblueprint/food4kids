@@ -5630,7 +5630,7 @@
     },
     "/api/jobs/generate": {
       "post": {
-        "description": "Accept a generation request: persist it as PENDING and wake the worker.\n\nAdmin-only — route generation is an admin workflow, and it burns Maps quota.",
+        "description": "Accept a generation request: persist it as PENDING and wake the worker.\n\nAdmin-only — route generation is an admin workflow, and it burns Maps quota.\nRefused with 400 if any family in the group already has a route that day,\nsince a family should be on at most one route per day.",
         "operationId": "generate_job",
         "requestBody": {
           "content": {

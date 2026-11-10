@@ -781,6 +781,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
  * Accept a generation request: persist it as PENDING and wake the worker.
  *
  * Admin-only — route generation is an admin workflow, and it burns Maps quota.
+ * Refused with 400 if any family in the group already has a route that day,
+ * since a family should be on at most one route per day.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>
