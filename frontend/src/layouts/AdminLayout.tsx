@@ -6,7 +6,6 @@ import SettingsIcon from '@/assets/icons/settings.svg?react';
 import UsersIcon from '@/assets/icons/users.svg?react';
 import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
 import { PopupHost } from '@/common/components/PopupHost';
-import { useRouteScrollReset } from '@/common/hooks';
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +15,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from '@/common/components/Sidebar';
+import { useRouteScrollReset } from '@/common/hooks';
 
 // Home and Routes are drawn on 20x22 and 24x22 artboards in the design; the
 // other two are square. Sizing them all `size-6` scaled the first two up and
