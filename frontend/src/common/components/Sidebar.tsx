@@ -129,7 +129,7 @@ function SidebarInset({
   className,
   children,
   ref,
-}: React.ComponentProps<'main'> & { ref?: React.Ref<HTMLElement> }) {
+}: React.ComponentProps<'main'>) {
   return (
     <main
       ref={ref}

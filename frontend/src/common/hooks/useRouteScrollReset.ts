@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
+/** Returns a ref for a scroll container (e.g. AdminLayout's `<main>`) that resets to the top on route change. */
 export function useRouteScrollReset() {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
 
   useLayoutEffect(() => {
