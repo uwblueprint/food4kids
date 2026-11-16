@@ -67,7 +67,7 @@ export function AssignedRoutesSection({
     });
   const unassignRoute = useUpdateRoute();
   const rowClass =
-    'text-p3 grid w-full grid-cols-[1fr_auto_auto] items-start gap-3 py-2 text-left hover:text-blue-300';
+    'text-p3 grid w-full grid-cols-[1fr_auto_auto] items-start gap-3 px-2 py-2 text-left hover:text-blue-300';
 
   return (
     <section
@@ -133,7 +133,7 @@ export function AssignedRoutesSection({
                     {routeLabel(route)}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-48 p-1">
+                <PopoverContent align="end" className="w-fit p-1">
                   <Button
                     variant="ghost"
                     className="h-auto w-full justify-start rounded-lg px-3 py-2"
