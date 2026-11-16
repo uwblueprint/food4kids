@@ -100,7 +100,10 @@ class NoteFeedItem(NoteRead):
     location_name: str
     location_address: str
     location_group_name: str
+    route_id: UUID | None = None
     author_role: str | None = None
+    author_email: str | None = None
+    is_read: bool = False
 
 
 class NoteUpdate(SQLModel):
