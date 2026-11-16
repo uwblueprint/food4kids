@@ -20,7 +20,7 @@ async def test_feed_route_is_nullable_and_uses_latest_drive_date(
     test_session: Any,
 ) -> None:
     session = test_session
-    group = LocationGroup(name="Schools")
+    group = LocationGroup(name="Schools", color="#3B82F6")
     chain = NoteChain(read_permission="All", write_permission="All")
     session.add_all([group, chain])
     await session.flush()

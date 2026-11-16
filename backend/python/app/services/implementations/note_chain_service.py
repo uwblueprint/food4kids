@@ -233,8 +233,11 @@ class NoteChainService:
             # date, with stable tie breakers, without duplicating feed rows.
             route_id_expr = (
                 select(Route.route_id)
-                .join(RouteStop, RouteStop.route_id == Route.route_id)
-                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)
+                .join(RouteStop, col(RouteStop.route_id) == col(Route.route_id))
+                .join(
+                    RouteGroup,
+                    col(RouteGroup.route_group_id) == col(Route.route_group_id),
+                )
                 .where(RouteStop.location_id == Location.location_id)
                 .order_by(
                     col(RouteGroup.drive_date).desc(),
