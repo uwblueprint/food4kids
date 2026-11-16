@@ -40,6 +40,7 @@ const note: NoteFeedItem = {
   note_id: 'note-1',
   note_chain_id: 'chain-1',
   location_id: 'location-1',
+  route_id: 'route-1',
   location_name: 'Waterloo PS',
   location_group_name: 'Monday schools',
   location_address: '123 School Street',
@@ -282,9 +283,9 @@ describe('Recent notes on the admin homepage', () => {
     });
     expect(
       within(dialog)
-        .getByRole('link', { name: 'View address' })
+        .getByRole('link', { name: 'View route' })
         .getAttribute('href')
-    ).toBe('/admin/routes?tab=addresses');
+    ).toBe('/admin/routes/route-1');
     expect(within(detail).getByText(/Ring the bell on arrival/)).toBeDefined();
     expect(
       within(detail)
@@ -481,6 +482,27 @@ describe('Recent notes on the admin homepage', () => {
     ).toBeDefined();
   });
 
+  it('disables View route for a location without a route', async () => {
+    axiosClient.defaults.adapter = async (config) => ({
+      data: feed([{ ...note, route_id: null }]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    });
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'View all' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(
+      await within(dialog).findByRole('button', { name: /Alex Driver/ })
+    );
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'View route' })
+        .matches(':disabled')
+    ).toBe(true);
+  });
+
   it('marks unread notes as read with retry and preserves detail when unread sorting moves the note off-page', async () => {
     let read = false;
     let failRead = true;
@@ -523,7 +545,7 @@ describe('Recent notes on the admin homepage', () => {
     const dialog = await screen.findByRole('dialog');
     expect(
       within(dialog)
-        .getByRole('button', { name: 'View address' })
+        .getByRole('button', { name: 'View route' })
         .matches(':disabled')
     ).toBe(true);
     expect(
@@ -590,7 +612,7 @@ describe('Recent notes on the admin homepage', () => {
         .matches(':disabled')
     ).toBe(true);
     expect(
-      within(dialog).getByRole('link', { name: 'View address' })
+      within(dialog).getByRole('link', { name: 'View route' })
     ).toBeDefined();
   });
   it('does not reuse another admin’s read-state cache or placeholder rows', async () => {

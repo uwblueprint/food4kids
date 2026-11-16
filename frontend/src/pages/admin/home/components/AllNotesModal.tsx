@@ -60,9 +60,7 @@ export function AllNotesModal() {
     markRead.reset();
     if (!note.is_read) markRead.mutate({ path: { note_id: note.note_id } });
   };
-  const hasAddress = Boolean(
-    selectedNote && !isError && selectedNote.location_address?.trim()
-  );
+  const hasRoute = Boolean(selectedNote && !isError && selectedNote.route_id);
   const email =
     !isError &&
     selectedNote?.author_role === 'driver' &&
@@ -248,13 +246,15 @@ export function AllNotesModal() {
         </fieldset>
       )}
       <ModalFooter className="flex-wrap justify-end">
-        {hasAddress ? (
+        {hasRoute ? (
           <Button variant="secondary" asChild>
-            <Link to="/admin/routes?tab=addresses">View address</Link>
+            <Link to={`/admin/routes/${selectedNote?.route_id}`}>
+              View route
+            </Link>
           </Button>
         ) : (
           <Button variant="secondary" disabled>
-            View address
+            View route
           </Button>
         )}
         {email ? (

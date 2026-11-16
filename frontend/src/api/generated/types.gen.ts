@@ -1531,6 +1531,10 @@ export type NoteFeedItem = {
    */
   note_id: string;
   /**
+   * Route Id
+   */
+  route_id?: string | null;
+  /**
    * Updated At
    */
   updated_at?: string | null;

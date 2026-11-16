@@ -2628,6 +2628,18 @@
             "title": "Note Id",
             "type": "string"
           },
+          "route_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Id"
+          },
           "updated_at": {
             "anyOf": [
               {

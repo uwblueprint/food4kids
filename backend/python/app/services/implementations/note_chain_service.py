@@ -15,6 +15,8 @@ from app.models.note import Note, NoteCreate, NoteFeedItem, NoteUpdate
 from app.models.note_chain import NoteChain, NoteChainCreate
 from app.models.note_read_receipt import NoteReadReceipt
 from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_stop import RouteStop
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.datetime_utils import now_utc
@@ -227,6 +229,22 @@ class NoteChainService:
     ) -> PaginatedResponse[NoteFeedItem]:
         """Get location notes across all location note chains."""
         try:
+            # Locations can occur on multiple dated routes. Use the latest drive
+            # date, with stable tie breakers, without duplicating feed rows.
+            route_id_expr = (
+                select(Route.route_id)
+                .join(RouteStop, RouteStop.route_id == Route.route_id)
+                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)
+                .where(RouteStop.location_id == Location.location_id)
+                .order_by(
+                    col(RouteGroup.drive_date).desc(),
+                    col(Route.created_at).desc(),
+                    col(Route.route_id),
+                )
+                .limit(1)
+                .correlate(Location)
+                .scalar_subquery()
+            )
             author_name_expr = self._author_name_expr()
             is_read = and_(
                 col(NoteReadReceipt.read_at).is_not(None),
@@ -244,6 +262,7 @@ class NoteChainService:
                     col(User.role).label("author_role"),
                     col(User.email).label("author_email"),
                     is_read.label("is_read"),
+                    route_id_expr.label("route_id"),
                 )
                 .join(Location, col(Location.note_chain_id) == col(Note.note_chain_id))
                 .join(
@@ -305,6 +324,7 @@ class NoteChainService:
                     author_role=author_role,
                     author_email=author_email,
                     is_read=is_read_value,
+                    route_id=route_id,
                 )
                 for (
                     note,
@@ -316,6 +336,7 @@ class NoteChainService:
                     author_role,
                     author_email,
                     is_read_value,
+                    route_id,
                 ) in result.all()
             ]
             return PaginatedResponse.create(
