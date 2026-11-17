@@ -1,7 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   deleteRouteMutation,
+  getDriversQueryKey,
   getRouteGroupsQueryKey,
   getRouteOptions,
   getRouteQueryKey,
@@ -49,6 +55,22 @@ export function useRoute(routeId: string) {
   );
 }
 
+/** Assignment edits can move historical mileage between drivers too.
+ * Invalidate all drivers' derived history because PATCH doesn't include the old
+ * driver ID. Generated query keys use `_id` to identify an endpoint; omitting
+ * its path matches every driver's cached response for that endpoint.
+ * GET /drivers/{id} contains profile fields only, so it is unaffected.
+ */
+function invalidateDriverAssignmentQueries(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: getDriversQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: [{ _id: 'getDriverHistory' }] }),
+    queryClient.invalidateQueries({
+      queryKey: [{ _id: 'getDriverHistorySummary' }],
+    }),
+  ]);
+}
+
 /**
  * PATCH /routes/{route_id} — driver reassignment or stop edits (the
  * `location_ids` field replaces the route's stops and re-runs routing).
@@ -56,6 +78,8 @@ export function useRoute(routeId: string) {
  * Invalidates GET /routes plus GET /route-groups since group aggregates
  * (driver counts) derive from their routes, and the single-route detail
  * (GET /routes/{route_id}) so the individual-route screen reflects the edit.
+ * Assignment changes also refresh driver activity and mileage history.
+ * An explicit driver_id: null is an unassignment and needs the same refresh.
  */
 export function useUpdateRoute() {
   const queryClient = useQueryClient();
@@ -63,6 +87,9 @@ export function useUpdateRoute() {
     ...updateRouteMutation(),
     onSuccess: (_data, variables) =>
       Promise.all([
+        ...('driver_id' in (variables.body ?? {})
+          ? [invalidateDriverAssignmentQueries(queryClient)]
+          : []),
         queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() }),
         queryClient.invalidateQueries({
