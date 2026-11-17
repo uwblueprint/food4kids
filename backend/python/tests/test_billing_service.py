@@ -25,6 +25,7 @@ class _FakeBillingClient:
             currency="CAD",
             usd_conversion_rate=1.37,
             last_export_time=datetime(2026, 7, 29, 15, 0),
+            year_to_date_cost=250.0,
         )
 
     def fetch_budget(self) -> BudgetInfo | None:
@@ -56,6 +57,7 @@ class TestMonthToDateSummary:
         assert summary.credits == -25.0
         assert summary.usd_conversion_rate == 1.37
         assert summary.month_to_date_cost == 75.0
+        assert summary.year_to_date_cost == 250.0
         assert summary.budget_amount == 500.0
         assert summary.budget_scope == "project"
         assert summary.data_as_of == datetime(2026, 7, 29, 15, 0)

@@ -399,6 +399,10 @@
           "project_id": {
             "title": "Project Id",
             "type": "string"
+          },
+          "year_to_date_cost": {
+            "title": "Year To Date Cost",
+            "type": "number"
           }
         },
         "required": [
@@ -406,6 +410,7 @@
           "invoice_month",
           "currency",
           "month_to_date_cost",
+          "year_to_date_cost",
           "gross_cost",
           "credits",
           "budget_amount",
@@ -1435,6 +1440,63 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ImportField": {
+        "description": "One column an admin expects to find in an imported spreadsheet.\n\nBuilt-in fields map onto real ``Location`` columns; custom ones are keyed\ninto ``Location.custom_fields`` and carried through to the Validate step.",
+        "properties": {
+          "builtin": {
+            "default": false,
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/ImportFieldDataType",
+            "default": "Text"
+          },
+          "delivery_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delivery Types",
+            "type": "array"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ImportField",
+        "type": "object"
+      },
+      "ImportFieldDataType": {
+        "description": "How an import column is validated. Values are what the admin sees.",
+        "enum": [
+          "Text",
+          "Address",
+          "Number",
+          "Phone Number",
+          "Email",
+          "Yes/No"
+        ],
+        "title": "ImportFieldDataType",
+        "type": "string"
+      },
       "JobEnqueueResponse": {
         "description": "Job creation response",
         "properties": {
@@ -1546,6 +1608,13 @@
           "contact_name": {
             "title": "Contact Name",
             "type": "string"
+          },
+          "custom_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Custom Fields",
+            "type": "object"
           },
           "delivery_type": {
             "maxLength": 100,
@@ -1860,6 +1929,13 @@
             ],
             "title": "Contact Name"
           },
+          "custom_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Custom Fields",
+            "type": "object"
+          },
           "delivery_group": {
             "anyOf": [
               {
@@ -2071,6 +2147,13 @@
           "contact_name": {
             "title": "Contact Name",
             "type": "string"
+          },
+          "custom_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Custom Fields",
+            "type": "object"
           },
           "delivery_type": {
             "maxLength": 100,
@@ -2457,6 +2540,17 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Email"
+          },
           "author_name": {
             "anyOf": [
               {
@@ -2490,6 +2584,11 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_read": {
+            "default": false,
+            "title": "Is Read",
+            "type": "boolean"
           },
           "is_system": {
             "default": false,
@@ -2528,6 +2627,18 @@
             "format": "uuid",
             "title": "Note Id",
             "type": "string"
+          },
+          "route_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Id"
           },
           "updated_at": {
             "anyOf": [
@@ -2568,6 +2679,7 @@
       },
       "NoteFeedSort": {
         "enum": [
+          "unread",
           "recent",
           "oldest",
           "driver",
@@ -3986,6 +4098,13 @@
             ],
             "title": "Import Column Map"
           },
+          "import_fields": {
+            "items": {
+              "$ref": "#/components/schemas/ImportField"
+            },
+            "title": "Import Fields",
+            "type": "array"
+          },
           "route_start_time": {
             "anyOf": [
               {
@@ -3997,6 +4116,19 @@
               }
             ],
             "title": "Route Start Time"
+          },
+          "support_phone": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Phone"
           },
           "system_settings_id": {
             "format": "uuid",
@@ -4228,6 +4360,20 @@
             ],
             "title": "Import Column Map"
           },
+          "import_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ImportField"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Fields"
+          },
           "route_start_time": {
             "anyOf": [
               {
@@ -4239,6 +4385,19 @@
               }
             ],
             "title": "Route Start Time"
+          },
+          "support_phone": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Phone"
           },
           "warehouse_latitude": {
             "anyOf": [
@@ -4816,7 +4975,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "description": "Revokes refresh tokens and clears cookies",
+        "description": "Ends this browser's session by clearing its auth cookies.\n\nDeliberately does not revoke with Firebase: `revoke_refresh_tokens` ends\nevery session the user has, so logging out (or idling out) on one device\nwould sign them out everywhere. Password reset still revokes everything.",
         "operationId": "logout",
         "responses": {
           "204": {
@@ -5047,7 +5206,7 @@
     },
     "/api/billing/costs": {
       "get": {
-        "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
+        "description": "Return monthly invoice and year-to-date usage spend for the project.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
         "operationId": "get_billing_costs",
         "responses": {
           "200": {
@@ -6100,6 +6259,44 @@
             }
           },
           {
+            "description": "Column to sort by, applied before pagination. Omit for newest locations first.",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "last_delivery",
+                    "status"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Column to sort by, applied before pagination. Omit for newest locations first.",
+              "title": "Sort By"
+            }
+          },
+          {
+            "description": "Direction for sort_by",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "Direction for sort_by",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -6735,14 +6932,31 @@
         "operationId": "get_notes_feed",
         "parameters": [
           {
-            "description": "Sort by recent, oldest, driver, or location",
+            "description": "Sort by unread first, recent, oldest, driver, or location",
             "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
               "$ref": "#/components/schemas/NoteFeedSort",
               "default": "recent",
-              "description": "Sort by recent, oldest, driver, or location"
+              "description": "Sort by unread first, recent, oldest, driver, or location"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
             }
           },
           {
@@ -6797,6 +7011,48 @@
           }
         ],
         "summary": "Get Notes Feed",
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/read": {
+      "post": {
+        "description": "Mark a location note as viewed for the current admin only.",
+        "operationId": "mark_note_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Note Read",
         "tags": [
           "notes"
         ]
@@ -7193,6 +7449,39 @@
             }
           },
           {
+            "description": "Column to sort by, applied before pagination",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "drive_date",
+              "description": "Column to sort by, applied before pagination",
+              "enum": [
+                "drive_date",
+                "delivery_type",
+                "status"
+              ],
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Direction for sort_by",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "Direction for sort_by",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -7519,13 +7808,31 @@
             }
           },
           {
-            "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+            "description": "Column to sort by, applied before pagination",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "drive_date",
+              "description": "Column to sort by, applied before pagination",
+              "enum": [
+                "group_name",
+                "drive_date",
+                "delivery_type",
+                "status"
+              ],
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
             "in": "query",
             "name": "order",
             "required": false,
             "schema": {
               "default": "asc",
-              "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+              "description": "Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
               "enum": [
                 "asc",
                 "desc"

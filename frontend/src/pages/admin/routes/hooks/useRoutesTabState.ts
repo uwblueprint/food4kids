@@ -2,26 +2,39 @@ import { useMemo, useState } from 'react';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
-import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import type {
+  UsePaginationReturn,
+  UseSearchReturn,
+  UseTableSortReturn,
+} from '@/common/hooks';
 import {
   clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
   useSearch,
+  useTableSort,
 } from '@/common/hooks';
+import { toNaiveDateString } from '@/common/utils';
 
 import type { UseRouteFiltersReturn } from './useRouteFilters';
 import { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
 
+const SORT_KEYS = {
+  group_name: 'group_name',
+  drive_date: 'drive_date',
+  delivery_type: 'delivery_type',
+  status: 'status',
+} as const;
+
 export interface RoutesTabState
-  extends UseRouteFiltersReturn, UsePaginationReturn {
+  extends UseRouteFiltersReturn, UsePaginationReturn, UseTableSortReturn {
   rows: RouteWithDateRead[];
   totalPages: number;
   search: UseSearchReturn;
   /** Debounced search term the rows were filtered by, for highlighting. */
   searchTerm: string;
-  /** Routes with no driver, across the filters but ignoring the search box. */
+  /** Upcoming routes with no driver, across the filters but not the search. */
   unassignedCount: number;
   bannerDismissed: boolean;
   dismissBanner: () => void;
@@ -37,8 +50,16 @@ export function useRoutesTabState(): RoutesTabState {
   // server-side too.
   const searchTerm = useDebouncedValue(search.value).trim();
 
+  // Server-side so the sort spans all pages.
+  const { sort, toggleSort } = useTableSort();
+  const sortKey = SORT_KEYS[sort?.key as keyof typeof SORT_KEYS];
+
   const filterQuery = routeFiltersToQuery(filters.appliedFilters);
-  const query = { search: searchTerm || undefined, ...filterQuery };
+  const query = {
+    search: searchTerm || undefined,
+    ...filterQuery,
+    ...(sortKey && { sort_by: sortKey, order: sort?.dir }),
+  };
   const { page: requestedPage, setPage } = usePagination(JSON.stringify(query));
   const { data } = useRoutes({
     ...query,
@@ -55,15 +76,19 @@ export function useRoutesTabState(): RoutesTabState {
   // banner answers "how many routes still need a driver", and a search that
   // matches a driver's name can never match an unassigned route, so carrying
   // it through would zero the banner out for reasons unrelated to the answer.
+  // Past routes are left out, matching the homepage's Unassigned card.
   const { data: unassigned } = useRoutes({
     ...filterQuery,
     driver_assignment_status: ['Unassigned'],
+    start_date: toNaiveDateString(new Date()),
     page_size: 1,
   });
 
   return {
     ...filters,
     rows,
+    sort,
+    toggleSort,
     page: clampPage(requestedPage, totalPages, setPage),
     setPage,
     totalPages,

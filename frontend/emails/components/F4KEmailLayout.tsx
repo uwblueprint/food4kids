@@ -91,12 +91,20 @@ export default function F4KEmailLayout({
 
             {/* Footer */}
             <Section className="mt-[32px] text-center">
-              {/* Social Media Icons Row */}
+              {/* Social Media Icons Row.
+
+                  Every value below comes from Settings > Contact Information,
+                  substituted by Jinja2 at send time. The `{% if %}` wrappers
+                  are emitted as literal text so a social link the org has not
+                  configured drops its icon entirely rather than rendering a
+                  dead `href=""`.
+
+                  Spacing is per-icon (11px each side = the original 22px gap)
+                  rather than on the middle one, so the row still spaces
+                  correctly when any single link is unconfigured. */}
               <Section className="mb-[19px]">
-                <Link
-                  href="https://facebook.com/Food4KidsWR"
-                  className="inline-block"
-                >
+                {"{% if Org_Facebook_URL %}"}
+                <Link href="{{ Org_Facebook_URL }}" className="inline-block mx-[11px]">
                   <Img
                     src="/static/facebook.png"
                     width="30"
@@ -104,9 +112,11 @@ export default function F4KEmailLayout({
                     alt="Facebook"
                   />
                 </Link>
+                {"{% endif %}"}
+                {"{% if Org_Instagram_URL %}"}
                 <Link
-                  href="https://instagram.com/food4kidswr"
-                  className="inline-block mx-[22px]"
+                  href="{{ Org_Instagram_URL }}"
+                  className="inline-block mx-[11px]"
                 >
                   <Img
                     src="/static/instagram.png"
@@ -115,10 +125,9 @@ export default function F4KEmailLayout({
                     alt="Instagram"
                   />
                 </Link>
-                <Link
-                  href="https://twitter.com/food4kidsWR"
-                  className="inline-block"
-                >
+                {"{% endif %}"}
+                {"{% if Org_Twitter_URL %}"}
+                <Link href="{{ Org_Twitter_URL }}" className="inline-block mx-[11px]">
                   <Img
                     src="/static/x-logo.png"
                     width="30"
@@ -126,15 +135,20 @@ export default function F4KEmailLayout({
                     alt="X"
                   />
                 </Link>
+                {"{% endif %}"}
               </Section>
 
               {/* Address and Website URL */}
+              {"{% if Org_Website %}"}
               <Text className="font-nunito-sans text-grey-400 font-normal m-0 mb-[22px] text-[14px] leading-[18px]">
-                food4kidswr.ca
+                {"{{ Org_Website }}"}
               </Text>
+              {"{% endif %}"}
+              {"{% if Org_Address %}"}
               <Text className="font-nunito-sans text-grey-400 font-normal m-0 mb-[30px] text-[14px] leading-[18px]">
-                330 Trillium Dr, Unit B Kitchener ON N2E 3J2
+                {"{{ Org_Address }}"}
               </Text>
+              {"{% endif %}"}
 
               {/* Small Footer Logo */}
               <Section className="mt-[24px]">

@@ -2,6 +2,8 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import case, col, func, select, update
 
@@ -11,10 +13,15 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note import Note, NoteCreate, NoteFeedItem, NoteUpdate
 from app.models.note_chain import NoteChain, NoteChainCreate
+from app.models.note_read_receipt import NoteReadReceipt
 from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_stop import RouteStop
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.datetime_utils import now_utc
 from app.utilities.pagination import paginate_query
+from app.utilities.search import text_match
 
 
 class NoteChainService:
@@ -217,10 +224,36 @@ class NoteChainService:
         session: AsyncSession,
         pagination: PaginationParams,
         sort: str = "recent",
+        user_id: UUID | None = None,
+        search: str | None = None,
     ) -> PaginatedResponse[NoteFeedItem]:
         """Get location notes across all location note chains."""
         try:
+            # Locations can occur on multiple dated routes. Use the latest drive
+            # date, with stable tie breakers, without duplicating feed rows.
+            route_id_expr = (
+                select(Route.route_id)
+                .join(RouteStop, col(RouteStop.route_id) == col(Route.route_id))
+                .join(
+                    RouteGroup,
+                    col(RouteGroup.route_group_id) == col(Route.route_group_id),
+                )
+                .where(RouteStop.location_id == Location.location_id)
+                .order_by(
+                    col(RouteGroup.drive_date).desc(),
+                    col(Route.created_at).desc(),
+                    col(Route.route_id),
+                )
+                .limit(1)
+                .correlate(Location)
+                .scalar_subquery()
+            )
             author_name_expr = self._author_name_expr()
+            is_read = and_(
+                col(NoteReadReceipt.read_at).is_not(None),
+                col(NoteReadReceipt.read_at)
+                >= func.coalesce(Note.updated_at, Note.created_at),
+            )
             statement = (
                 select(  # type: ignore[call-overload]
                     Note,
@@ -230,16 +263,42 @@ class NoteChainService:
                     col(LocationGroup.name).label("location_group_name"),
                     author_name_expr.label("author_name"),
                     col(User.role).label("author_role"),
+                    col(User.email).label("author_email"),
+                    is_read.label("is_read"),
+                    route_id_expr.label("route_id"),
                 )
-                .join(Location, Location.note_chain_id == Note.note_chain_id)
+                .join(Location, col(Location.note_chain_id) == col(Note.note_chain_id))
                 .join(
                     LocationGroup,
                     LocationGroup.location_group_id == Location.location_group_id,
                 )
                 .outerjoin(User, User.user_id == Note.user_id)
+                .outerjoin(
+                    NoteReadReceipt,
+                    and_(
+                        col(NoteReadReceipt.note_id) == col(Note.note_id),
+                        col(NoteReadReceipt.user_id) == user_id,
+                    ),
+                )
             )
 
-            if sort == "oldest":
+            if search and search.strip():
+                statement = statement.where(
+                    text_match(
+                        search.strip(),
+                        col(Note.message),
+                        author_name_expr,
+                        col(Location.name),
+                        col(Location.address),
+                        col(LocationGroup.name),
+                    )
+                )
+
+            if sort == "unread":
+                statement = statement.order_by(
+                    is_read.asc(), col(Note.created_at).desc()
+                )
+            elif sort == "oldest":
                 statement = statement.order_by(col(Note.created_at).asc())
             elif sort == "driver":
                 statement = statement.order_by(
@@ -255,6 +314,7 @@ class NoteChainService:
             else:
                 statement = statement.order_by(col(Note.created_at).desc())
 
+            statement = statement.order_by(col(Note.note_id))
             result, total = await paginate_query(session, statement, pagination)
             items = [
                 NoteFeedItem(
@@ -265,6 +325,9 @@ class NoteChainService:
                     location_group_name=location_group_name,
                     author_name=author_name,
                     author_role=author_role,
+                    author_email=author_email,
+                    is_read=is_read_value,
+                    route_id=route_id,
                 )
                 for (
                     note,
@@ -274,6 +337,9 @@ class NoteChainService:
                     location_group_name,
                     author_name,
                     author_role,
+                    author_email,
+                    is_read_value,
+                    route_id,
                 ) in result.all()
             ]
             return PaginatedResponse.create(
@@ -285,6 +351,29 @@ class NoteChainService:
         except Exception as e:
             self.logger.error(f"Failed to get location notes feed: {e!s}")
             raise e
+
+    async def mark_location_note_read(
+        self, session: AsyncSession, note_id: UUID, user_id: UUID
+    ) -> bool:
+        # Driver-profile/admin-private chains are outside this feed.
+        result = await session.execute(
+            select(Note.note_id)
+            .join(Location, col(Location.note_chain_id) == col(Note.note_chain_id))
+            .where(Note.note_id == note_id)
+        )
+        if result.scalar_one_or_none() is None:
+            return False
+        statement = insert(NoteReadReceipt).values(
+            note_id=note_id, user_id=user_id, read_at=now_utc()
+        )
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=["user_id", "note_id"],
+                set_={"read_at": statement.excluded.read_at},
+            )
+        )
+        await session.commit()
+        return True
 
     async def create_note(
         self,

@@ -82,7 +82,7 @@ export function UnassignedRoutePreviewCard({
             </div>
             <div className="flex items-center gap-4 self-stretch">
               <Button variant="secondary" asChild className="min-w-0 flex-1">
-                <Link to="/admin/routes?tab=routes">View route</Link>
+                <Link to={`/admin/routes/${route.route_id}`}>View route</Link>
               </Button>
               <Button
                 variant="primary"

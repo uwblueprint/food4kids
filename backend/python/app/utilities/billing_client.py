@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
 # The export table is partitioned on _PARTITIONTIME, which can lag a row's usage
-# time. Floor the partition scan this far before the month start so the filter
+# time. Floor the partition scan this far before the year start so the filter
 # only trims cost, never rows.
 PARTITION_LOOKBACK_DAYS = 2
 
@@ -105,7 +105,7 @@ class BudgetInfo:
 
 @dataclass
 class CostInfo:
-    """Month-to-date cost for a single project, as of the export's last refresh."""
+    """Monthly invoice and calendar-year usage costs for a single project."""
 
     gross_cost: float
     credits: float
@@ -113,6 +113,7 @@ class CostInfo:
     # USD to ``currency``; None until the month has export rows.
     usd_conversion_rate: float | None
     last_export_time: datetime | None
+    year_to_date_cost: float = 0.0
 
     @property
     def net_cost(self) -> float:
@@ -275,7 +276,12 @@ class BillingClient:
         )
 
     def fetch_month_to_date_cost(self, now: datetime) -> CostInfo:
-        """Query the billing export for spend so far in ``now``'s invoice month."""
+        """Query monthly invoice spend and calendar-year usage spend together.
+
+        The yearly total follows usage timestamps rather than invoice months:
+        a late invoice adjustment for last year's usage must not count toward
+        this calendar year's route generation cost.
+        """
         for name, value in (
             ("BILLING_EXPORT_DATASET", settings.billing_export_dataset),
             ("BILLING_EXPORT_TABLE", settings.billing_export_table),
@@ -294,20 +300,28 @@ class BillingClient:
         # Stays timezone-aware: BigQuery reads a naive TIMESTAMP parameter as
         # UTC, so stripping the offset here would shift the floor by it.
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        year_start = month_start.replace(month=1)
 
         # Dataset/table come from settings, never from the request, so they are
         # safe to interpolate; the filters are bound parameters.
         query = f"""
             SELECT
-              SUM(cost) AS gross_cost,
-              SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))
+              SUM(IF(invoice.month = @invoice_month, cost, 0)) AS gross_cost,
+              SUM(IF(invoice.month = @invoice_month,
+                IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0), 0))
                 AS credit_amount,
+              SUM(IF(usage_start_time >= @year_start AND usage_start_time < @now,
+                cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0),
+                0)) AS year_to_date_cost,
               ANY_VALUE(currency) AS currency,
-              MAX(currency_conversion_rate) AS usd_conversion_rate,
-              MAX(export_time) AS last_export_time
+              MAX(IF(invoice.month = @invoice_month,
+                currency_conversion_rate, NULL)) AS usd_conversion_rate,
+              MAX(IF(invoice.month = @invoice_month,
+                export_time, NULL)) AS last_export_time
             FROM `{settings.billing_target_project_id}.{settings.billing_export_dataset}.{settings.billing_export_table}`
             WHERE project.id = @project_id
-              AND invoice.month = @invoice_month
+              AND (invoice.month = @invoice_month
+                OR (usage_start_time >= @year_start AND usage_start_time < @now))
               AND _PARTITIONTIME >= TIMESTAMP(@partition_floor)
         """
 
@@ -318,10 +332,12 @@ class BillingClient:
                     "project_id", "STRING", settings.billing_target_project_id
                 ),
                 bigquery.ScalarQueryParameter("invoice_month", "STRING", invoice_month),
+                bigquery.ScalarQueryParameter("year_start", "TIMESTAMP", year_start),
+                bigquery.ScalarQueryParameter("now", "TIMESTAMP", now),
                 bigquery.ScalarQueryParameter(
                     "partition_floor",
                     "TIMESTAMP",
-                    month_start - timedelta(days=PARTITION_LOOKBACK_DAYS),
+                    year_start - timedelta(days=PARTITION_LOOKBACK_DAYS),
                 ),
             ],
         )
@@ -372,4 +388,5 @@ class BillingClient:
             currency=str(_get("currency") or ""),
             usd_conversion_rate=_get("usd_conversion_rate"),  # type: ignore[arg-type]
             last_export_time=_get("last_export_time"),  # type: ignore[arg-type]
+            year_to_date_cost=float(_get("year_to_date_cost") or 0.0),  # type: ignore[arg-type]
         )

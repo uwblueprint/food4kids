@@ -1,15 +1,17 @@
 import SearchIcon from '@/assets/icons/search.svg?react';
-import { Account, Button, Card, CardContent } from '@/common/components';
+import { Account, Button } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
+import { CalendarWidget } from '@/features/calendar';
 import { StatisticsWidget } from '@/features/statistics';
 
-import { UnassignedRoutesCard } from './components';
+import {
+  RecentNotesCard,
+  RouteGenerationCostCard,
+  UnassignedRoutesCard,
+} from './components';
 
 const today = formatDisplayDate(new Date());
-
-/** Every bento tile: 28px corners and the soft admin-page shadow. */
-const TILE = 'shadow-admin-bento rounded-4xl';
 
 export const AdminHomePage = () => {
   return (
@@ -33,19 +35,13 @@ export const AdminHomePage = () => {
           tiles taking the rest, on 468px and 380px rows. Only the right rail is
           fixed — the left tiles grow with the viewport. */}
       <div className="grid grid-cols-[1fr_363px] grid-rows-[468px_380px] gap-5">
-        <Card className={TILE}>
-          <CardContent>TODO: Calendar</CardContent>
-        </Card>
+        <CalendarWidget />
         <div className="grid grid-rows-[121px_1fr] gap-5">
-          <Card className={TILE}>
-            <CardContent>TODO: Route Generation Cost</CardContent>
-          </Card>
+          <RouteGenerationCostCard />
           <StatisticsWidget />
         </div>
         <UnassignedRoutesCard />
-        <Card className={TILE}>
-          <CardContent>TODO: Recent Notes</CardContent>
-        </Card>
+        <RecentNotesCard />
       </div>
     </div>
   );

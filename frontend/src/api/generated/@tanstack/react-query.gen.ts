@@ -62,6 +62,7 @@ import {
   login,
   logout,
   markAnnouncementsAsRead,
+  markNoteRead,
   type Options,
   patchSystemSettings,
   previewLocationImport,
@@ -226,6 +227,9 @@ import type {
   LogoutResponse,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponse,
+  MarkNoteReadData,
+  MarkNoteReadError,
+  MarkNoteReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
@@ -586,7 +590,11 @@ export const loginMutation = (
 /**
  * Logout
  *
- * Revokes refresh tokens and clears cookies
+ * Ends this browser's session by clearing its auth cookies.
+ *
+ * Deliberately does not revoke with Firebase: `revoke_refresh_tokens` ends
+ * every session the user has, so logging out (or idling out) on one device
+ * would sign them out everywhere. Password reset still revokes everything.
  */
 export const logoutMutation = (
   options?: Partial<Options<LogoutData>>
@@ -806,7 +814,7 @@ export const getBillingCostsQueryKey = (
 /**
  * Get Billing Costs
  *
- * Return month-to-date spend for the configured project, against its budget.
+ * Return monthly invoice and year-to-date usage spend for the project.
  *
  * Figures come from the Cloud Billing export and typically lag by several
  * hours — see ``data_as_of``. Responses are cached for
@@ -1983,6 +1991,35 @@ export const getNotesFeedInfiniteOptions = (
       queryKey: getNotesFeedInfiniteQueryKey(options),
     }
   );
+
+/**
+ * Mark Note Read
+ *
+ * Mark a location note as viewed for the current admin only.
+ */
+export const markNoteReadMutation = (
+  options?: Partial<Options<MarkNoteReadData>>
+): UseMutationOptions<
+  MarkNoteReadResponse,
+  AxiosError<MarkNoteReadError>,
+  Options<MarkNoteReadData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarkNoteReadResponse,
+    AxiosError<MarkNoteReadError>,
+    Options<MarkNoteReadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await markNoteRead({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getMonthlySeriesQueryKey = (
   options?: Options<GetMonthlySeriesData>
