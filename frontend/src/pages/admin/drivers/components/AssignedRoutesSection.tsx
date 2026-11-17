@@ -70,7 +70,7 @@ export function AssignedRoutesSection({
       >
         Assigned Routes
       </h3>
-      <p className="text-p3 text-grey-400 mb-3">Upcoming this week</p>
+      <p className="text-p3 text-grey-400 mb-3">Upcoming routes</p>
       <p
         role="status"
         aria-atomic="true"
