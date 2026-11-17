@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useUpdateRoute } from '@/api/routes';
 import EditIcon from '@/assets/icons/edit.svg?react';
@@ -31,8 +31,20 @@ function EditRouteNameForm({
   update: ReturnType<typeof useUpdateRoute>;
 }) {
   const [draft, setDraft] = useState(name);
+  const [limitAttempted, setLimitAttempted] = useState(false);
+  const limitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  useEffect(() => () => clearTimeout(limitTimer.current), []);
+  const showLimitError = () => {
+    clearTimeout(limitTimer.current);
+    setLimitAttempted(true);
+    limitTimer.current = setTimeout(() => setLimitAttempted(false), 3000);
+  };
   const trimmed = draft.trim();
   const invalid = !trimmed || trimmed.length > 255;
+
+  const showValidation = invalid || limitAttempted;
 
   return (
     <ModalContent className="w-[calc(100%-2rem)]">
@@ -59,14 +71,45 @@ function EditRouteNameForm({
             value={draft}
             maxLength={255}
             disabled={update.isPending}
+            onKeyDown={(event) => {
+              const input = event.currentTarget;
+              const selectionLength =
+                (input.selectionEnd ?? 0) - (input.selectionStart ?? 0);
+              if (
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.altKey &&
+                event.key.length === 1 &&
+                input.value.length - selectionLength + event.key.length > 255
+              )
+                showLimitError();
+            }}
+            onPaste={(event) => {
+              const input = event.currentTarget;
+              const selectionLength =
+                (input.selectionEnd ?? 0) - (input.selectionStart ?? 0);
+              if (
+                input.value.length -
+                  selectionLength +
+                  event.clipboardData.getData('text').length >
+                255
+              )
+                showLimitError();
+            }}
             onChange={(event) => {
+              if (event.target.value.length < 255) {
+                clearTimeout(limitTimer.current);
+                setLimitAttempted(false);
+              }
               setDraft(event.target.value);
               update.reset();
             }}
-            aria-invalid={invalid}
-            aria-describedby={invalid ? 'route-name-validation' : undefined}
+            aria-invalid={showValidation}
+            aria-describedby={
+              showValidation ? 'route-name-validation' : undefined
+            }
           />
-          {invalid && (
+          {showValidation && (
             <FieldDescription id="route-name-validation" error>
               Enter a route name between 1 and 255 characters.
             </FieldDescription>

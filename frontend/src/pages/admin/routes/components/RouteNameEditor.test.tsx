@@ -135,6 +135,42 @@ describe('Rename an individual admin route', () => {
     ).toBe(true);
   });
 
+  it('briefly explains blocked typing and paste at the limit without blocking selection replacement', async () => {
+    renderEditor();
+    const input = (await openEditor()) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'a'.repeat(255) } });
+    input.setSelectionRange(255, 255);
+    vi.useFakeTimers();
+    try {
+      fireEvent.keyDown(input, { key: 'b' });
+      expect(
+        screen.getByText('Enter a route name between 1 and 255 characters.')
+      ).toBeDefined();
+      expect(input.value).toHaveLength(255);
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(
+        screen.queryByText('Enter a route name between 1 and 255 characters.')
+      ).toBeNull();
+      input.setSelectionRange(254, 255);
+      fireEvent.keyDown(input, { key: 'b' });
+      expect(
+        screen.queryByText('Enter a route name between 1 and 255 characters.')
+      ).toBeNull();
+      fireEvent.paste(input, {
+        clipboardData: { getData: () => 'long paste' },
+      });
+      expect(
+        screen.getByText('Enter a route name between 1 and 255 characters.')
+      ).toBeDefined();
+      fireEvent.change(input, { target: { value: 'Shorter name' } });
+      expect(
+        screen.queryByText('Enter a route name between 1 and 255 characters.')
+      ).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('retains a failed edit and allows retry', async () => {
     renderEditor();
     const input = await openEditor();
