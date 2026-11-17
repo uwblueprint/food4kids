@@ -745,9 +745,7 @@ class TestOneRoutePerFamilyPerDay:
         group = await _add_group(test_session)
         booked = await _add_location(test_session, group, "Family A")
         await _add_warehouse(test_session)
-        await _book_on_existing_route(
-            test_session, booked, datetime(2026, 6, 2, 8, 0)
-        )
+        await _book_on_existing_route(test_session, booked, datetime(2026, 6, 2, 8, 0))
         job = await _queue_running_job(test_session, group, num_routes=1)
 
         await run_generation_job(

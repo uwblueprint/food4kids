@@ -176,15 +176,19 @@ async def count_group_families_already_routed(
     route on drive_date. Returns 0 if the group can't be found, so the job
     itself reports that problem as before."""
     group_id = (
-        await session.execute(
-            select(LocationGroup.location_group_id).where(
-                or_(
-                    LocationGroup.location_group_id == requested.location_group_id,
-                    LocationGroup.name == requested.name,
+        (
+            await session.execute(
+                select(LocationGroup.location_group_id).where(
+                    or_(
+                        LocationGroup.location_group_id == requested.location_group_id,
+                        LocationGroup.name == requested.name,
+                    )
                 )
             )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if group_id is None:
         return 0
     families = select(Location.location_id).where(
@@ -434,7 +438,11 @@ async def _save_or_discard(
     # families on this day while the routing engine was running.
     await _ensure_no_double_booking(
         session,
-        [stop.location_id for route in route_group.routes for stop in route.route_stops],
+        [
+            stop.location_id
+            for route in route_group.routes
+            for stop in route.route_stops
+        ],
         route_group.drive_date,
     )
     session.add(route_group)
