@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useDriver, useDriverSummary } from '@/api/drivers';
@@ -12,26 +12,13 @@ import TrashIcon from '@/assets/icons/trash.svg?react';
 import boyIllustration from '@/assets/illustrations/boy.png';
 import girlIllustration from '@/assets/illustrations/girl-catching.png';
 import { Button } from '@/common/components';
-import { formatPhone, toNaiveDateString } from '@/common/utils';
+import { formatPhone } from '@/common/utils';
 
 import { DeleteDriverModal } from './DeleteDriverModal';
 import { DriverNotesModal } from './DriverNotesModal';
 import { EditDriverModal } from './EditDriverModal';
 
 const DAYS = ['M', 'Tu', 'W', 'Th', 'F'];
-
-function currentWeek() {
-  const now = new Date();
-  const monday = new Date(now);
-  const day = now.getDay() || 7;
-  monday.setDate(now.getDate() - day + 1);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return {
-    start: toNaiveDateString(monday),
-    end: toNaiveDateString(sunday),
-  };
-}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return '—';
@@ -80,11 +67,8 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
   const { data: fetched } = useDriver(selected.driver_id);
   const driver = fetched ?? selected;
   const { data: summary } = useDriverSummary(selected.driver_id);
-  const week = useMemo(() => currentWeek(), []);
   const { data: assigned } = useRoutes({
     driver_id: selected.driver_id,
-    start_date: week.start,
-    end_date: week.end,
     route_status: ['Upcoming'],
     order: 'asc',
     page_size: 20,
