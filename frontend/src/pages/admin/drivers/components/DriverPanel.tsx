@@ -14,6 +14,7 @@ import girlIllustration from '@/assets/illustrations/girl-catching.png';
 import { Button } from '@/common/components';
 import { formatPhone } from '@/common/utils';
 
+import { AssignedRoutesSection } from './AssignedRoutesSection';
 import { DeleteDriverModal } from './DeleteDriverModal';
 import { DriverNotesModal } from './DriverNotesModal';
 import { EditDriverModal } from './EditDriverModal';
@@ -67,12 +68,6 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
   const { data: fetched } = useDriver(selected.driver_id);
   const driver = fetched ?? selected;
   const { data: summary } = useDriverSummary(selected.driver_id);
-  const { data: assigned } = useRoutes({
-    driver_id: selected.driver_id,
-    route_status: ['Upcoming'],
-    order: 'asc',
-    page_size: 20,
-  });
   const { data: past } = useRoutes({
     driver_id: selected.driver_id,
     route_status: ['Completed'],
@@ -236,40 +231,10 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
           </div>
         </section>
 
-        <section className="border-grey-200 rounded-xl border bg-white p-4">
-          <h3 className="text-h3 text-grey-500 mb-3 font-bold">
-            Assigned Routes
-          </h3>
-          {assigned?.items.length ? (
-            <div className="divide-grey-200 flex flex-col divide-y">
-              {assigned.items.map((route) => (
-                <Link
-                  key={route.route_id}
-                  to={`/driver/route/${route.route_id}`}
-                  className="text-p3 grid grid-cols-[1fr_auto_auto] items-start gap-3 py-2 hover:text-blue-300"
-                >
-                  <span>{route.name}</span>
-                  <span>{formatDate(route.drive_date)}</span>
-                  <span className="text-grey-400">{route.num_stops} stops</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-p3 text-grey-400 py-3 text-center">
-              No Assigned Routes
-            </p>
-          )}
-          {assigned?.items.length ? (
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <Button variant="tertiary">Edit</Button>
-              <Button variant="primary">Assign</Button>
-            </div>
-          ) : (
-            <Button variant="primary" className="mt-3 w-full">
-              Assign
-            </Button>
-          )}
-        </section>
+        <AssignedRoutesSection
+          driverId={selected.driver_id}
+          driverName={driver.full_name}
+        />
 
         <section className="border-grey-200 rounded-xl border bg-white p-4">
           <h3 className="text-h3 text-grey-500 mb-3 font-bold">Past Routes</h3>
