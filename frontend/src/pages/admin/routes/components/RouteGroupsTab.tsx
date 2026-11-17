@@ -10,7 +10,7 @@ import {
   Pagination,
   TableToolbar,
 } from '@/common/components';
-import { useRowHighlight, useTableSort } from '@/common/hooks';
+import { useRowHighlight } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
 import type { GroupsTabState } from '../hooks';
@@ -22,14 +22,14 @@ import { RouteGroupPanel } from './RouteGroupPanel';
 import { RowActionCell } from './RowActionCell';
 import { StatusHeader } from './StatusHeader';
 
+// No sortValue: sorting is server-side (useGroupsTabState).
 const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
-  routeGroupDriveDateColumn(),
+  { ...routeGroupDriveDateColumn(), sortValue: undefined },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
     sortable: true,
-    sortValue: (row) => row.delivery_type,
     // Null until the group has stops — its delivery type is whatever they are.
     render: (row) => orDash(row.delivery_type),
   },
@@ -54,7 +54,6 @@ const COLUMNS: Column<RouteGroupRead>[] = [
   {
     key: 'status',
     sortable: true,
-    sortValue: (row) => row.status,
     header: (
       <StatusHeader>
         <p>
@@ -75,6 +74,8 @@ type RouteGroupsTabProps = GroupsTabState;
 
 export function RouteGroupsTab({
   rows,
+  sort,
+  toggleSort,
   page,
   setPage,
   totalPages,
@@ -91,7 +92,6 @@ export function RouteGroupsTab({
   clearDraft,
   handleApply,
 }: RouteGroupsTabProps) {
-  const { sort, toggleSort } = useTableSort();
   // Highlight + scroll for a row that was just added, duplicated, or re-dated.
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
   // Held by id and looked up in `rows` so the panel picks up refetched
@@ -116,7 +116,10 @@ export function RouteGroupsTab({
           };
         }
         if (col.key === 'drive_date') {
-          const dateCol = routeGroupDriveDateColumn(highlightRow);
+          const dateCol = {
+            ...routeGroupDriveDateColumn(highlightRow),
+            sortValue: undefined,
+          };
           return {
             ...dateCol,
             render: (row: RouteGroupRead) => (

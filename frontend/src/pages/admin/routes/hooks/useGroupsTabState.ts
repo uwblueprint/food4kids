@@ -1,19 +1,30 @@
 import type { RouteGroupRead } from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
-import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import type {
+  UsePaginationReturn,
+  UseSearchReturn,
+  UseTableSortReturn,
+} from '@/common/hooks';
 import {
   clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
   useSearch,
+  useTableSort,
 } from '@/common/hooks';
 
 import type { UseRouteFiltersReturn } from './useRouteFilters';
 import { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
 
+const SORT_KEYS = {
+  drive_date: 'drive_date',
+  delivery_type: 'delivery_type',
+  status: 'status',
+} as const;
+
 export interface GroupsTabState
-  extends UseRouteFiltersReturn, UsePaginationReturn {
+  extends UseRouteFiltersReturn, UsePaginationReturn, UseTableSortReturn {
   rows: RouteGroupRead[];
   isLoading: boolean;
   totalPages: number;
@@ -30,9 +41,14 @@ export function useGroupsTabState(): GroupsTabState {
   // group name (GET /route-groups?search); the chips narrow server-side too.
   const debouncedSearch = useDebouncedValue(search.value);
 
+  // Server-side so the sort spans all pages.
+  const { sort, toggleSort } = useTableSort();
+  const sortKey = SORT_KEYS[sort?.key as keyof typeof SORT_KEYS];
+
   const query = {
     search: debouncedSearch.trim() || undefined,
     ...routeFiltersToQuery(filters.appliedFilters),
+    ...(sortKey && { sort_by: sortKey, order: sort?.dir }),
   };
   const { page, setPage } = usePagination(JSON.stringify(query));
 
@@ -47,6 +63,8 @@ export function useGroupsTabState(): GroupsTabState {
   return {
     ...filters,
     rows: data?.items ?? [],
+    sort,
+    toggleSort,
     isLoading,
     page: clampPage(page, totalPages, setPage),
     setPage,
