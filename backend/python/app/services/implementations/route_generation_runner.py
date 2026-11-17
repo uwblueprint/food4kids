@@ -180,8 +180,9 @@ async def count_group_families_already_routed(
             await session.execute(
                 select(LocationGroup.location_group_id).where(
                     or_(
-                        LocationGroup.location_group_id == requested.location_group_id,
-                        LocationGroup.name == requested.name,
+                        col(LocationGroup.location_group_id)
+                        == requested.location_group_id,
+                        col(LocationGroup.name) == requested.name,
                     )
                 )
             )
