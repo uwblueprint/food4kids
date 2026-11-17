@@ -375,11 +375,6 @@ export function ConfigureStep() {
               />
               <EditIcon className="text-grey-400 pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
             </div>
-            {invalid && (
-              <p className="text-p3 text-red mt-1 whitespace-nowrap">
-                1–{row.stops}
-              </p>
-            )}
           </div>
         );
       },
