@@ -15,10 +15,17 @@ import {
   TimePicker,
   Toggle,
 } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
 import { routeCapacity } from './routeCapacity';
+
+const isValidRouteCount = (count: number | undefined, stops: number) =>
+  count !== undefined &&
+  Number.isInteger(count) &&
+  count >= 1 &&
+  count <= stops;
 
 interface RouteFormEntry {
   name: string;
@@ -201,9 +208,7 @@ export function ConfigureStep() {
         row.form.name.trim().length > 0 &&
         row.form.routeDate &&
         row.form.startTime &&
-        row.form.routeCount !== undefined &&
-        row.form.routeCount > 0 &&
-        row.form.routeCount <= row.stops
+        isValidRouteCount(row.form.routeCount, row.stops)
     );
 
   const handleConfirm = () => {
@@ -337,28 +342,42 @@ export function ConfigureStep() {
     {
       key: 'route_count',
       header: 'Routes',
-      render: (row) => (
-        <div className="relative w-20">
-          <Input
-            type="number"
-            min={1}
-            max={row.stops}
-            value={row.form.routeCount ?? ''}
-            disabled={deselectedGroups.has(row.deliveryGroup)}
-            aria-label={`Route count for ${row.deliveryGroup}`}
-            onChange={(event) =>
-              updateEntry(row.deliveryGroup, {
-                routeCount:
-                  event.target.value === ''
-                    ? undefined
-                    : Number(event.target.value),
-              })
-            }
-            className="py-2 pr-8"
-          />
-          <EditIcon className="text-grey-400 pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
-        </div>
-      ),
+      render: (row) => {
+        const disabled = deselectedGroups.has(row.deliveryGroup);
+        const invalid =
+          !disabled &&
+          row.form.routeCount !== undefined &&
+          !isValidRouteCount(row.form.routeCount, row.stops);
+        return (
+          <div className="w-20">
+            <div className="relative">
+              <Input
+                type="number"
+                min={1}
+                max={row.stops}
+                step={1}
+                aria-invalid={invalid}
+                value={row.form.routeCount ?? ''}
+                disabled={disabled}
+                aria-label={`Route count for ${row.deliveryGroup}`}
+                onChange={(event) =>
+                  updateEntry(row.deliveryGroup, {
+                    routeCount:
+                      event.target.value === ''
+                        ? undefined
+                        : Number(event.target.value),
+                  })
+                }
+                className={cn(
+                  'py-2 pr-8',
+                  invalid && 'outline-red focus:outline-red'
+                )}
+              />
+              <EditIcon className="text-grey-400 pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: 'return_to_warehouse',

@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 from uuid import UUID
 
 from fastapi import (
@@ -53,6 +54,12 @@ async def get_locations(
             "and phone numbers"
         ),
     ),
+    sort_by: Literal["last_delivery", "status"] | None = Query(
+        None,
+        description="Column to sort by, applied before pagination. Omit for "
+        "newest locations first.",
+    ),
+    order: Literal["asc", "desc"] = Query("asc", description="Direction for sort_by"),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
@@ -74,6 +81,8 @@ async def get_locations(
             status_filter,
             location_group_id,
             search,
+            sort_by,
+            order,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
