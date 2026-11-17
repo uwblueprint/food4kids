@@ -77,7 +77,9 @@ class RouteService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         route_group_id: UUID | None = None,
-        sort_by: Literal["drive_date", "delivery_type", "status"] = "drive_date",
+        sort_by: Literal[
+            "group_name", "drive_date", "delivery_type", "status"
+        ] = "drive_date",
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes, filtered and paginated. Powers both the admin Routes tab
@@ -258,6 +260,7 @@ class RouteService:
 
         # NULL delivery types (routes with no stops) go last either way.
         sort_expr: Any = {
+            "group_name": col(RouteGroup.name),
             "drive_date": col(RouteGroup.drive_date),
             "delivery_type": delivery_type_expr,
             "status": status_expr,

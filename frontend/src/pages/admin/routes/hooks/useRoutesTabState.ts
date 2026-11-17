@@ -21,6 +21,7 @@ import type { UseRouteFiltersReturn } from './useRouteFilters';
 import { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
 
 const SORT_KEYS = {
+  group_name: 'group_name',
   drive_date: 'drive_date',
   delivery_type: 'delivery_type',
   status: 'status',

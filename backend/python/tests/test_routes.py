@@ -1708,29 +1708,35 @@ class TestLocationRoutes:
         # reverse of the status order.
         inactive = Location(
             location_group_id=test_location_group.location_group_id,
+            name="Inactive",
             contact_name="Inactive",
             address="1 Inactive St",
             phone_primary="tel:+1-519-576-0001",
             num_children=1,
+            delivery_type="Family",
             in_roster=False,
         )
         test_session.add(inactive)
         await test_session.commit()
         unscheduled = Location(
             location_group_id=test_location_group.location_group_id,
+            name="Unscheduled",
             contact_name="Unscheduled",
             address="2 Unscheduled St",
             phone_primary="tel:+1-519-576-0002",
             num_children=1,
+            delivery_type="Family",
         )
         test_session.add(unscheduled)
         await test_session.commit()
         active = Location(
             location_group_id=test_location_group.location_group_id,
+            name="Active",
             contact_name="Active",
             address="3 Active St",
             phone_primary="tel:+1-519-576-0003",
             num_children=1,
+            delivery_type="Family",
         )
         test_session.add(active)
         group = RouteGroup(name="Future", drive_date=date(2099, 1, 1))
@@ -1778,10 +1784,12 @@ class TestLocationRoutes:
         locs = [
             Location(
                 location_group_id=test_location_group.location_group_id,
+                name=name,
                 contact_name=name,
                 address=f"{i} {name} St",
                 phone_primary=f"tel:+1-519-576-000{i}",
                 num_children=1,
+                delivery_type="Family",
             )
             for i, name in enumerate(["Early", "Never", "Late"], start=1)
         ]
@@ -3868,6 +3876,45 @@ class TestRouteRoutes:
             )
             dates = [r["drive_date"] for r in res.json()["items"]]
             assert dates == ["2099-01-01", "2099-01-02", "2099-01-03"]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_by_group_name_spans_pages(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """Group name sorts before pagination; date order would be the reverse."""
+        groups = [
+            RouteGroup(name="Beta", drive_date=date(2099, 1, 1)),
+            RouteGroup(name="Alpha", drive_date=date(2099, 1, 2)),
+        ]
+        test_session.add_all(groups)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                Route(name="R", length=1.0, route_group_id=g.route_group_id)
+                for g in groups
+            ]
+        )
+        await test_session.commit()
+
+        async def names(order: str) -> list[str]:
+            pages = [
+                await async_client.get(
+                    "/routes",
+                    params={
+                        "sort_by": "group_name",
+                        "order": order,
+                        "page": n,
+                        "page_size": 1,
+                    },
+                )
+                for n in (1, 2)
+            ]
+            return [p.json()["items"][0]["group_name"] for p in pages]
+
+        assert await names("asc") == ["Alpha", "Beta"]
+        assert await names("desc") == ["Beta", "Alpha"]
 
     @pytest.mark.asyncio
     async def test_get_routes_rejects_unknown_sort_by(
