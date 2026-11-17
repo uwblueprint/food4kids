@@ -153,6 +153,9 @@ import type {
   LogoutResponses,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponses,
+  MarkNoteReadData,
+  MarkNoteReadErrors,
+  MarkNoteReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
@@ -1226,6 +1229,24 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/notes',
+    ...options,
+  });
+
+/**
+ * Mark Note Read
+ *
+ * Mark a location note as viewed for the current admin only.
+ */
+export const markNoteRead = <ThrowOnError extends boolean = false>(
+  options: Options<MarkNoteReadData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    MarkNoteReadResponses,
+    MarkNoteReadErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/notes/{note_id}/read',
     ...options,
   });
 
