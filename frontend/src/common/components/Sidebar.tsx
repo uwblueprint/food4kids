@@ -125,9 +125,14 @@ function SidebarMenuItem({
 // Inset (main content area)
 // ---------------------------------------------------------------------------
 
-function SidebarInset({ className, children }: React.ComponentProps<'main'>) {
+function SidebarInset({
+  className,
+  children,
+  ref,
+}: React.ComponentProps<'main'>) {
   return (
     <main
+      ref={ref}
       className={cn('bg-grey-200 relative flex-1 overflow-y-auto', className)}
     >
       {children}

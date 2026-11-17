@@ -66,9 +66,6 @@ class StubAuthService:
     async def revoke_tokens(self, *_args: Any, **_kwargs: Any) -> None:
         raise self.error
 
-    async def revoke_tokens_by_refresh_token(self, *_args: Any, **_kwargs: Any) -> None:
-        raise self.error
-
 
 class StubTokenService:
     """Returns a valid, unused, unexpired reset token so the handler's guards
@@ -393,16 +390,24 @@ class TestRenewTokenSessionExpiry:
 
 class TestLogout:
     @pytest.mark.asyncio
-    async def test_logout_always_returns_204(self, client_with_overrides: Any) -> None:
-        """Logout swallows service errors and always returns 204 No Content."""
-        stub = StubAuthService(RuntimeError("database on fire"))
+    async def test_logout_clears_cookies_without_revoking(
+        self, client_with_overrides: Any
+    ) -> None:
+        """Logout only clears this browser's cookies; it never revokes with
+        Firebase, which would sign the user out on every device."""
+        stub = StubAuthService(RuntimeError("should not be called"))
         client = await client_with_overrides({get_auth_service: lambda: stub})
 
-        response = await client.post(
-            "/auth/logout", headers={"Cookie": "refreshToken=stub-refresh-token"}
-        )
+        with patch("firebase_admin.auth.revoke_refresh_tokens") as revoke:
+            response = await client.post(
+                "/auth/logout", headers={"Cookie": "refreshToken=stub-refresh-token"}
+            )
 
         assert response.status_code == 204
+        revoke.assert_not_called()
+        cleared = response.headers.get_list("set-cookie")
+        assert any(c.startswith("refreshToken=") for c in cleared)
+        assert any(c.startswith("rememberMe=") for c in cleared)
 
 
 class TestResendOnboardingEmail:

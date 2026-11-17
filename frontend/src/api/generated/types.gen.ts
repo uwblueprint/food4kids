@@ -3993,6 +3993,18 @@ export type GetLocationsData = {
      */
     search?: string | null;
     /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination. Omit for newest locations first.
+     */
+    sort_by?: 'last_delivery' | 'status' | null;
+    /**
+     * Order
+     *
+     * Direction for sort_by
+     */
+    order?: 'asc' | 'desc';
+    /**
      * Page
      *
      * Page number (1-indexed)
@@ -4624,6 +4636,18 @@ export type GetRouteGroupsData = {
      */
     search?: string | null;
     /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination
+     */
+    sort_by?: 'drive_date' | 'delivery_type' | 'status';
+    /**
+     * Order
+     *
+     * Direction for sort_by
+     */
+    order?: 'asc' | 'desc';
+    /**
      * Page
      *
      * Page number (1-indexed)
@@ -4808,9 +4832,15 @@ export type GetRoutesData = {
      */
     end_date?: string | null;
     /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination
+     */
+    sort_by?: 'group_name' | 'drive_date' | 'delivery_type' | 'status';
+    /**
      * Order
      *
-     * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
+     * Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
      */
     order?: 'asc' | 'desc';
     /**

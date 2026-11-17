@@ -4975,7 +4975,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "description": "Revokes refresh tokens and clears cookies",
+        "description": "Ends this browser's session by clearing its auth cookies.\n\nDeliberately does not revoke with Firebase: `revoke_refresh_tokens` ends\nevery session the user has, so logging out (or idling out) on one device\nwould sign them out everywhere. Password reset still revokes everything.",
         "operationId": "logout",
         "responses": {
           "204": {
@@ -6259,6 +6259,44 @@
             }
           },
           {
+            "description": "Column to sort by, applied before pagination. Omit for newest locations first.",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "last_delivery",
+                    "status"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Column to sort by, applied before pagination. Omit for newest locations first.",
+              "title": "Sort By"
+            }
+          },
+          {
+            "description": "Direction for sort_by",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "Direction for sort_by",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -7411,6 +7449,39 @@
             }
           },
           {
+            "description": "Column to sort by, applied before pagination",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "drive_date",
+              "description": "Column to sort by, applied before pagination",
+              "enum": [
+                "drive_date",
+                "delivery_type",
+                "status"
+              ],
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Direction for sort_by",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "Direction for sort_by",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -7737,13 +7808,31 @@
             }
           },
           {
-            "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+            "description": "Column to sort by, applied before pagination",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "drive_date",
+              "description": "Column to sort by, applied before pagination",
+              "enum": [
+                "group_name",
+                "drive_date",
+                "delivery_type",
+                "status"
+              ],
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
             "in": "query",
             "name": "order",
             "required": false,
             "schema": {
               "default": "asc",
-              "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+              "description": "Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
               "enum": [
                 "asc",
                 "desc"
