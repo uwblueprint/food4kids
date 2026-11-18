@@ -20,7 +20,6 @@ import {
   Pagination,
   TableToolbar,
 } from '@/common/components';
-import { useTableSort } from '@/common/hooks';
 import { formatPhone, formatShortDate, orDash } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
@@ -30,6 +29,7 @@ import { StatusHeader } from './StatusHeader';
 
 const STATUSES: LocationStatusEnum[] = ['Active', 'Unscheduled', 'Inactive'];
 
+// No sortValue: sorting is server-side (useAddressesTabState).
 const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'contact_name',
@@ -57,9 +57,7 @@ const COLUMNS: Column<LocationRead>[] = [
     key: 'last_delivery',
     header: 'Last Delivery',
     sortable: true,
-    // Nullish (never delivered) sorts to the end via DataTable's comparator.
-    sortValue: (row) =>
-      row.last_delivery_date ? new Date(row.last_delivery_date) : null,
+    // Never-delivered rows sort to the end; the server handles that.
     render: (row) =>
       orDash(row.last_delivery_date && formatShortDate(row.last_delivery_date)),
   },
@@ -87,7 +85,6 @@ const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'status',
     sortable: true,
-    sortValue: (row) => row.status,
     header: (
       <StatusHeader>
         <p>
@@ -124,6 +121,8 @@ type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
   rows,
+  sort,
+  toggleSort,
   page,
   setPage,
   totalPages,
@@ -140,8 +139,6 @@ export function RouteAddressesTab({
   clearDraft,
   handleApply,
 }: RouteAddressesTabProps) {
-  const { sort, toggleSort } = useTableSort();
-
   const columns = useMemo<Column<LocationRead>[]>(
     () =>
       COLUMNS.map((col) => {

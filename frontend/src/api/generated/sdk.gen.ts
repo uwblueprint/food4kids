@@ -153,6 +153,9 @@ import type {
   LogoutResponses,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponses,
+  MarkNoteReadData,
+  MarkNoteReadErrors,
+  MarkNoteReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
@@ -413,7 +416,11 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes refresh tokens and clears cookies
+ * Ends this browser's session by clearing its auth cookies.
+ *
+ * Deliberately does not revoke with Firebase: `revoke_refresh_tokens` ends
+ * every session the user has, so logging out (or idling out) on one device
+ * would sign them out everywhere. Password reset still revokes everything.
  */
 export const logout = <ThrowOnError extends boolean = false>(
   options?: Options<LogoutData, ThrowOnError>
@@ -1226,6 +1233,24 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/notes',
+    ...options,
+  });
+
+/**
+ * Mark Note Read
+ *
+ * Mark a location note as viewed for the current admin only.
+ */
+export const markNoteRead = <ThrowOnError extends boolean = false>(
+  options: Options<MarkNoteReadData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    MarkNoteReadResponses,
+    MarkNoteReadErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/notes/{note_id}/read',
     ...options,
   });
 

@@ -1696,6 +1696,147 @@ class TestLocationRoutes:
         )
         assert row["assigned_route"] == "Route 2"
 
+    @pytest.mark.asyncio
+    async def test_get_locations_sort_by_status_spans_pages(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """sort_by applies before pagination, so page 1 holds the first row overall."""
+        # Created in this order so the default newest-first order is the
+        # reverse of the status order.
+        inactive = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Inactive",
+            contact_name="Inactive",
+            address="1 Inactive St",
+            phone_primary="tel:+1-519-576-0001",
+            num_children=1,
+            delivery_type="Family",
+            in_roster=False,
+        )
+        test_session.add(inactive)
+        await test_session.commit()
+        unscheduled = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Unscheduled",
+            contact_name="Unscheduled",
+            address="2 Unscheduled St",
+            phone_primary="tel:+1-519-576-0002",
+            num_children=1,
+            delivery_type="Family",
+        )
+        test_session.add(unscheduled)
+        await test_session.commit()
+        active = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Active",
+            contact_name="Active",
+            address="3 Active St",
+            phone_primary="tel:+1-519-576-0003",
+            num_children=1,
+            delivery_type="Family",
+        )
+        test_session.add(active)
+        group = RouteGroup(name="Future", drive_date=date(2099, 1, 1))
+        test_session.add(group)
+        await test_session.flush()
+        route = Route(name="R", length=1.0, route_group_id=group.route_group_id)
+        test_session.add(route)
+        await test_session.flush()
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id,
+                location_id=active.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+
+        async def statuses(order: str) -> list[str]:
+            pages = [
+                await async_client.get(
+                    "/locations/",
+                    params={
+                        "sort_by": "status",
+                        "order": order,
+                        "page": n,
+                        "page_size": 1,
+                    },
+                )
+                for n in (1, 2, 3)
+            ]
+            return [p.json()["items"][0]["status"] for p in pages]
+
+        assert await statuses("asc") == ["Active", "Inactive", "Unscheduled"]
+        assert await statuses("desc") == ["Unscheduled", "Inactive", "Active"]
+
+    @pytest.mark.asyncio
+    async def test_get_locations_sort_by_last_delivery_puts_never_delivered_last(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """Last delivery counts completed (snapshotted) stops only; locations
+        never delivered to sort last both ways."""
+        locs = [
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name=name,
+                contact_name=name,
+                address=f"{i} {name} St",
+                phone_primary=f"tel:+1-519-576-000{i}",
+                num_children=1,
+                delivery_type="Family",
+            )
+            for i, name in enumerate(["Early", "Never", "Late"], start=1)
+        ]
+        test_session.add_all(locs)
+        await test_session.flush()
+        for loc, day in ((locs[0], 1), (locs[2], 5)):
+            group = RouteGroup(name=f"G{day}", drive_date=date(2020, 1, day))
+            test_session.add(group)
+            await test_session.flush()
+            route = Route(name="R", length=1.0, route_group_id=group.route_group_id)
+            test_session.add(route)
+            await test_session.flush()
+            stop = RouteStop(
+                route_id=route.route_id, location_id=loc.location_id, stop_number=1
+            )
+            test_session.add(stop)
+            await test_session.flush()
+            test_session.add(
+                RouteStopSnapshot(
+                    route_stop_id=stop.route_stop_id,
+                    address=loc.address,
+                    contact_name=loc.contact_name,
+                    phone_primary=loc.phone_primary,
+                    num_children=loc.num_children,
+                    latitude=43.0,
+                    longitude=-80.0,
+                )
+            )
+        await test_session.commit()
+
+        async def names(order: str) -> list[str]:
+            res = await async_client.get(
+                "/locations/", params={"sort_by": "last_delivery", "order": order}
+            )
+            assert res.status_code == 200
+            return [r["contact_name"] for r in res.json()["items"]]
+
+        assert await names("asc") == ["Early", "Late", "Never"]
+        assert await names("desc") == ["Late", "Early", "Never"]
+
+    @pytest.mark.asyncio
+    async def test_get_locations_rejects_unknown_sort_by(
+        self, async_client: AsyncClient
+    ) -> None:
+        res = await async_client.get("/locations/", params={"sort_by": "address"})
+        assert res.status_code == 422
+
 
 class TestLocationImportRoutes:
     """Test suite for location import validation, review, and ingest."""
@@ -3611,6 +3752,176 @@ class TestRouteRoutes:
         fam_ids = {r["route_id"] for r in fam.json()["items"]}
         assert str(fam_route.route_id) in fam_ids
         assert str(sch_route.route_id) not in fam_ids
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_by_status_spans_pages(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """sort_by applies before pagination, so page 1 holds the first row overall."""
+        future_group = RouteGroup(name="Future", drive_date=date(2099, 1, 1))
+        past_group = RouteGroup(name="Past", drive_date=date(2020, 1, 1))
+        test_session.add_all([future_group, past_group])
+        await test_session.flush()
+        # Upcoming first by date, so a page-only sort would leave it on page 1.
+        test_session.add_all(
+            [
+                Route(
+                    name="Up", length=1.0, route_group_id=future_group.route_group_id
+                ),
+                Route(
+                    name="Done", length=1.0, route_group_id=past_group.route_group_id
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        async def statuses(order: str) -> list[str]:
+            pages = [
+                await async_client.get(
+                    "/routes",
+                    params={
+                        "sort_by": "status",
+                        "order": order,
+                        "page": n,
+                        "page_size": 1,
+                    },
+                )
+                for n in (1, 2)
+            ]
+            return [p.json()["items"][0]["status"] for p in pages]
+
+        assert await statuses("asc") == ["Completed", "Upcoming"]
+        assert await statuses("desc") == ["Upcoming", "Completed"]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_by_delivery_type_puts_nulls_last(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+    ) -> None:
+        """A route with no stops has no delivery type and sorts last both ways."""
+        locs = [
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name=dt,
+                contact_name=dt,
+                address=f"{i} {dt} St",
+                phone_primary=f"tel:+1-519-576-000{i}",
+                delivery_type=dt,
+                num_children=2,
+            )
+            for i, dt in enumerate(["Family", "School"], start=1)
+        ]
+        test_session.add_all(locs)
+        await test_session.flush()
+        routes = [
+            Route(name=n, length=1.0, route_group_id=test_route_group.route_group_id)
+            for n in ("SchRoute", "EmptyRoute", "FamRoute")
+        ]
+        test_session.add_all(routes)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=routes[0].route_id,
+                    location_id=locs[1].location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=routes[2].route_id,
+                    location_id=locs[0].location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        async def types(order: str) -> list[str | None]:
+            res = await async_client.get(
+                "/routes", params={"sort_by": "delivery_type", "order": order}
+            )
+            assert res.status_code == 200
+            return [r["delivery_type"] for r in res.json()["items"]]
+
+        assert await types("asc") == ["Family", "School", None]
+        assert await types("desc") == ["School", "Family", None]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_ties_fall_back_to_drive_date(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """Rows with the same status come back oldest drive date first."""
+        groups = [
+            RouteGroup(name=f"G{d}", drive_date=date(2099, 1, d)) for d in (3, 1, 2)
+        ]
+        test_session.add_all(groups)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                Route(name="R", length=1.0, route_group_id=g.route_group_id)
+                for g in groups
+            ]
+        )
+        await test_session.commit()
+
+        for order in ("asc", "desc"):
+            res = await async_client.get(
+                "/routes", params={"sort_by": "status", "order": order}
+            )
+            dates = [r["drive_date"] for r in res.json()["items"]]
+            assert dates == ["2099-01-01", "2099-01-02", "2099-01-03"]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_sort_by_group_name_spans_pages(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """Group name sorts before pagination; date order would be the reverse."""
+        groups = [
+            RouteGroup(name="Beta", drive_date=date(2099, 1, 1)),
+            RouteGroup(name="Alpha", drive_date=date(2099, 1, 2)),
+        ]
+        test_session.add_all(groups)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                Route(name="R", length=1.0, route_group_id=g.route_group_id)
+                for g in groups
+            ]
+        )
+        await test_session.commit()
+
+        async def names(order: str) -> list[str]:
+            pages = [
+                await async_client.get(
+                    "/routes",
+                    params={
+                        "sort_by": "group_name",
+                        "order": order,
+                        "page": n,
+                        "page_size": 1,
+                    },
+                )
+                for n in (1, 2)
+            ]
+            return [p.json()["items"][0]["group_name"] for p in pages]
+
+        assert await names("asc") == ["Alpha", "Beta"]
+        assert await names("desc") == ["Beta", "Alpha"]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_rejects_unknown_sort_by(
+        self, async_client: AsyncClient
+    ) -> None:
+        res = await async_client.get("/routes", params={"sort_by": "length"})
+        assert res.status_code == 422
 
     @pytest.mark.asyncio
     async def test_get_routes_uses_snapshotted_box_totals_for_frozen_routes(
@@ -5576,6 +5887,105 @@ class TestRouteGroupRoutes:
         )
         assert group["status"] == "Upcoming"
 
+    @pytest.mark.asyncio
+    async def test_get_route_groups_sort_by_status_spans_pages(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """sort_by applies before pagination, so page 1 holds the first row overall."""
+        # Past first by date, so a page-only sort would leave it on page 1.
+        test_session.add_all(
+            [
+                RouteGroup(name="Past", drive_date=date(2020, 1, 1)),
+                RouteGroup(name="Future", drive_date=date(2099, 1, 1)),
+            ]
+        )
+        await test_session.commit()
+
+        async def statuses(order: str) -> list[str]:
+            pages = [
+                await async_client.get(
+                    "/route-groups",
+                    params={
+                        "sort_by": "status",
+                        "order": order,
+                        "page": n,
+                        "page_size": 1,
+                    },
+                )
+                for n in (1, 2)
+            ]
+            return [p.json()["items"][0]["status"] for p in pages]
+
+        assert await statuses("asc") == ["Completed", "Upcoming"]
+        assert await statuses("desc") == ["Upcoming", "Completed"]
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_sort_by_delivery_type_puts_nulls_last(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A group with no stops has no delivery type and sorts last both ways."""
+        locs = [
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name=dt,
+                contact_name=dt,
+                address=f"{i} {dt} St",
+                phone_primary=f"tel:+1-519-576-000{i}",
+                delivery_type=dt,
+                num_children=2,
+            )
+            for i, dt in enumerate(["Family", "School"], start=1)
+        ]
+        groups = [
+            RouteGroup(name=n, drive_date=date(2099, 1, 1))
+            for n in ("SchGroup", "EmptyGroup", "FamGroup")
+        ]
+        test_session.add_all([*locs, *groups])
+        await test_session.flush()
+        routes = [
+            Route(name="R", length=1.0, route_group_id=g.route_group_id)
+            for g in (groups[0], groups[2])
+        ]
+        test_session.add_all(routes)
+        await test_session.flush()
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=routes[0].route_id,
+                    location_id=locs[1].location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=routes[1].route_id,
+                    location_id=locs[0].location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        async def types(order: str) -> list[str | None]:
+            res = await async_client.get(
+                "/route-groups", params={"sort_by": "delivery_type", "order": order}
+            )
+            assert res.status_code == 200
+            return [r["delivery_type"] for r in res.json()["items"]]
+
+        assert await types("asc") == ["Family", "School", None]
+        assert await types("desc") == ["School", "Family", None]
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_rejects_unknown_sort_by(
+        self, async_client: AsyncClient
+    ) -> None:
+        res = await async_client.get("/route-groups", params={"sort_by": "name"})
+        assert res.status_code == 422
+
 
 class TestNoteChainRoutes:
     """Test suite for note chain API routes."""
@@ -5762,7 +6172,7 @@ class TestNoteFeedRoutes:
     @pytest.mark.asyncio
     async def test_get_notes_feed_recent_page_size(
         self,
-        async_client: AsyncClient,
+        authed_async_client: AsyncClient,
         test_session: AsyncSession,
         test_admin_user: Any,
     ) -> None:
@@ -5781,7 +6191,7 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
 
-        response = await async_client.get("/notes?page_size=1&sort=recent")
+        response = await authed_async_client.get("/notes?page_size=1&sort=recent")
 
         assert response.status_code == 200
         body = response.json()
@@ -5794,16 +6204,16 @@ class TestNoteFeedRoutes:
 
     @pytest.mark.asyncio
     async def test_get_notes_feed_rejects_invalid_sort(
-        self, async_client: AsyncClient
+        self, authed_async_client: AsyncClient
     ) -> None:
-        response = await async_client.get("/notes?sort=not-a-sort")
+        response = await authed_async_client.get("/notes?sort=not-a-sort")
 
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_get_notes_feed_authorless_note_has_null_author_name(
         self,
-        async_client: AsyncClient,
+        authed_async_client: AsyncClient,
         test_session: AsyncSession,
     ) -> None:
         # System notes have no author (user_id is None). The feed's outer join
@@ -5817,7 +6227,7 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
-        response = await async_client.get("/notes?sort=recent")
+        response = await authed_async_client.get("/notes?sort=recent")
 
         assert response.status_code == 200
         body = response.json()
@@ -5830,7 +6240,7 @@ class TestNoteFeedRoutes:
     @pytest.mark.asyncio
     async def test_get_notes_feed_supports_sorting_and_pagination(
         self,
-        async_client: AsyncClient,
+        authed_async_client: AsyncClient,
         test_session: AsyncSession,
         test_admin_user: Any,
     ) -> None:
@@ -5869,10 +6279,12 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
-        oldest_response = await async_client.get("/notes?sort=oldest")
-        location_response = await async_client.get("/notes?sort=location")
-        driver_response = await async_client.get("/notes?sort=driver")
-        page_response = await async_client.get("/notes?page=2&page_size=1&sort=recent")
+        oldest_response = await authed_async_client.get("/notes?sort=oldest")
+        location_response = await authed_async_client.get("/notes?sort=location")
+        driver_response = await authed_async_client.get("/notes?sort=driver")
+        page_response = await authed_async_client.get(
+            "/notes?page=2&page_size=1&sort=recent"
+        )
 
         assert oldest_response.status_code == 200
         assert [item["message"] for item in oldest_response.json()["items"]] == [
@@ -5903,6 +6315,156 @@ class TestNoteFeedRoutes:
         assert page_body["page"] == 2
         assert page_body["page_size"] == 1
         assert page_body["items"][0]["message"] == "Admin middle"
+
+    @pytest.mark.asyncio
+    async def test_search_applies_before_pagination(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        await self._seed_location_note(
+            test_session,
+            location_name="Waterloo School",
+            message="Use the SIDE DOOR",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Other School",
+            message="Call reception",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        )
+        for search in [
+            "side door",
+            "waterloo",
+            "Waterloo School Group",
+            "Waterloo School Address",
+        ]:
+            response = await authed_async_client.get(
+                "/notes", params={"search": search, "page_size": 1}
+            )
+            assert response.status_code == 200
+            assert response.json()["total"] == 1
+            assert response.json()["items"][0]["location_name"] == "Waterloo School"
+        response = await authed_async_client.get(
+            "/notes", params={"search": "Admin User"}
+        )
+        assert response.json()["total"] == 2
+
+    @pytest.mark.asyncio
+    async def test_unread_is_per_admin_and_edited_notes_become_unread(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+        client_with_overrides: Any,
+    ) -> None:
+        from sqlmodel import select
+
+        from app.dependencies.auth import get_current_database_user_id
+        from app.models.note import Note
+        from app.models.note_read_receipt import NoteReadReceipt
+        from app.models.user import User
+
+        await self._seed_location_note(
+            test_session,
+            location_name="Older",
+            message="First",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Newer",
+            message="Second",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        )
+        response = await authed_async_client.get("/notes?sort=unread")
+        newest = response.json()["items"][0]
+        assert newest["author_email"] == test_admin_user.email
+        assert all(not item["is_read"] for item in response.json()["items"])
+        for _ in range(2):
+            assert (
+                await authed_async_client.post(f"/notes/{newest['note_id']}/read")
+            ).status_code == 204
+        response = await authed_async_client.get("/notes?sort=unread")
+        assert [item["is_read"] for item in response.json()["items"]] == [False, True]
+        receipts = (await test_session.execute(select(NoteReadReceipt))).scalars().all()
+        assert len(receipts) == 1
+        other = User(
+            first_name="Other",
+            last_name="Admin",
+            email="other-admin@example.com",
+            auth_id=None,
+            role="admin",
+        )
+        test_session.add(other)
+        await test_session.commit()
+        other_client = await client_with_overrides(
+            {get_current_database_user_id: lambda: other.user_id}
+        )
+        assert all(
+            not item["is_read"]
+            for item in (await other_client.get("/notes?sort=unread")).json()["items"]
+        )
+        note = await test_session.get(Note, UUID(newest["note_id"]))
+        assert note is not None
+        note.updated_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+        await test_session.commit()
+        assert all(
+            not item["is_read"]
+            for item in (await authed_async_client.get("/notes?sort=unread")).json()[
+                "items"
+            ]
+        )
+
+    @pytest.mark.asyncio
+    async def test_mark_read_rejects_non_location_notes(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        from app.models.note import Note
+        from app.models.note_chain import NoteChain
+
+        chain = NoteChain()
+        test_session.add(chain)
+        await test_session.flush()
+        note = Note(
+            note_chain_id=chain.note_chain_id,
+            user_id=test_admin_user.user_id,
+            message="Private driver note",
+        )
+        test_session.add(note)
+        await test_session.commit()
+        assert (
+            await authed_async_client.post(f"/notes/{note.note_id}/read")
+        ).status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_feed_and_read_receipts_require_admin(
+        self, client_with_overrides: Any, test_admin_user: Any
+    ) -> None:
+        from fastapi import HTTPException
+
+        from app.dependencies.auth import get_current_database_user_id, require_admin
+
+        def deny() -> None:
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        client = await client_with_overrides(
+            {
+                require_admin: deny,
+                get_current_database_user_id: lambda: test_admin_user.user_id,
+            }
+        )
+        assert (await client.get("/notes")).status_code == 403
+        assert (await client.post(f"/notes/{uuid4()}/read")).status_code == 403
 
 
 class TestValidationErrors:

@@ -5,12 +5,12 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeGuard, TypeVar
 from uuid import UUID
 
 import pandas as pd
 from fastapi import UploadFile
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -212,6 +212,8 @@ class LocationService:
         status_filter: list[LocationStatusEnum] | None = None,
         location_group_id: list[UUID] | None = None,
         search: str | None = None,
+        sort_by: Literal["last_delivery", "status"] | None = None,
+        order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
@@ -226,12 +228,34 @@ class LocationService:
         the Addresses table shows — address/postal code, location and contact
         and guardian names, food restrictions, and delivery group — plus the
         phone numbers by digits. Applied before pagination.
+
+        ``sort_by``/``order`` sort before pagination, so a sort spans every
+        page. Without ``sort_by``, newest locations come first.
         """
         try:
-            statement = (
-                select(Location)
-                .options(selectinload(Location.location_group))  # type: ignore[arg-type]
-                .order_by(Location.created_at.desc())  # type: ignore[union-attr]
+            statement = select(Location).options(
+                selectinload(Location.location_group)  # type: ignore[arg-type]
+            )
+            today = today_local()
+            # This location has a stop in a route whose group's drive_date is
+            # today/future AND the route isn't yet frozen — the same rule as
+            # load_has_future_route_set, which drives LocationRead.status.
+            is_scheduled = (
+                select(1)
+                .select_from(RouteStop)
+                .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .join(
+                    RouteGroup,
+                    RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                )
+                .outerjoin(
+                    RouteSnapshot,
+                    RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
+                )
+                .where(RouteStop.location_id == Location.location_id)
+                .where(RouteGroup.drive_date >= today)
+                .where(col(RouteSnapshot.route_id).is_(None))
+                .exists()
             )
 
             if delivery_type:
@@ -276,26 +300,6 @@ class LocationService:
                 statement = statement.where(or_(*predicates))
 
             if status_filter:
-                today = today_local()
-                # Subquery: this location has a stop in a route whose group's
-                # drive_date is today/future AND the route isn't yet frozen.
-                is_scheduled = (
-                    select(1)
-                    .select_from(RouteStop)
-                    .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                    .join(
-                        RouteGroup,
-                        RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
-                    )
-                    .outerjoin(
-                        RouteSnapshot,
-                        RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
-                    )
-                    .where(RouteStop.location_id == Location.location_id)
-                    .where(RouteGroup.drive_date >= today)
-                    .where(col(RouteSnapshot.route_id).is_(None))
-                    .exists()
-                )
                 status_conditions: list[Any] = []
                 if LocationStatusEnum.ACTIVE in status_filter:
                     status_conditions.append(is_scheduled)
@@ -309,6 +313,50 @@ class LocationService:
                     )
                 if status_conditions:
                     statement = statement.where(or_(*status_conditions))
+
+            if sort_by is None:
+                statement = statement.order_by(
+                    col(Location.created_at).desc(), col(Location.location_id)
+                )
+            else:
+                sort_expr: Any
+                if sort_by == "status":
+                    # Mirrors LocationRead.status.
+                    sort_expr = case(
+                        (is_scheduled, LocationStatusEnum.ACTIVE.value),
+                        (
+                            col(Location.in_roster).is_(True),
+                            LocationStatusEnum.UNSCHEDULED.value,
+                        ),
+                        else_=LocationStatusEnum.INACTIVE.value,
+                    )
+                else:
+                    # Same definition as load_delivery_aggregates: the latest
+                    # drive date among this location's completed stops.
+                    sort_expr = (
+                        select(func.max(RouteGroup.drive_date))
+                        .select_from(RouteStop)
+                        .join(
+                            RouteStopSnapshot,
+                            RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+                        )
+                        .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                        .join(
+                            RouteGroup,
+                            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                        )
+                        .where(RouteStop.location_id == Location.location_id)
+                        .scalar_subquery()
+                    )
+                # Never-delivered locations go last either way; created_at and
+                # id make the order total so rows can't shuffle between pages.
+                statement = statement.order_by(
+                    (
+                        sort_expr.desc() if order == "desc" else sort_expr.asc()
+                    ).nulls_last(),
+                    col(Location.created_at).desc(),
+                    col(Location.location_id),
+                )
 
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())

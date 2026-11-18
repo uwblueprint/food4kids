@@ -6,6 +6,7 @@ import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
 import { AnnouncementsBoard } from '@/features/announcements';
 
+import { RouteNameEditor } from './components/RouteNameEditor';
 import { RouteOverviewCard } from './components/RouteOverviewCard';
 import { StopsTable } from './components/StopsTable';
 
@@ -23,8 +24,8 @@ export function AdminIndividualRoutePage() {
   return (
     <div className="flex flex-col gap-8">
       {/* Header: breadcrumb + account */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
           <Link
             to="/admin/routes?tab=routes"
             className="text-h1 text-grey-400 cursor-pointer font-bold"
@@ -32,9 +33,15 @@ export function AdminIndividualRoutePage() {
             Routes
           </Link>
           <ChevronRightIcon className="text-grey-400 size-8 shrink-0" />
-          <span className="text-h1 text-grey-500 font-bold">
-            {route?.name || 'Route'}
-          </span>
+          {route && !isError ? (
+            <RouteNameEditor
+              key={route.route_id}
+              routeId={route.route_id}
+              name={route.name ?? ''}
+            />
+          ) : (
+            <span className="text-h1 text-grey-500 font-bold">Route</span>
+          )}
         </div>
         <div className="flex items-center gap-6">
           <AnnouncementsBoard />

@@ -1479,6 +1479,10 @@ export type NoteFeedItem = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Email
+   */
+  author_email?: string | null;
+  /**
    * Author Name
    */
   author_name?: string | null;
@@ -1490,6 +1494,10 @@ export type NoteFeedItem = {
    * Created At
    */
   created_at?: string | null;
+  /**
+   * Is Read
+   */
+  is_read?: boolean;
   /**
    * Is System
    */
@@ -1523,6 +1531,10 @@ export type NoteFeedItem = {
    */
   note_id: string;
   /**
+   * Route Id
+   */
+  route_id?: string | null;
+  /**
    * Updated At
    */
   updated_at?: string | null;
@@ -1535,7 +1547,12 @@ export type NoteFeedItem = {
 /**
  * NoteFeedSort
  */
-export type NoteFeedSort = 'recent' | 'oldest' | 'driver' | 'location';
+export type NoteFeedSort =
+  | 'unread'
+  | 'recent'
+  | 'oldest'
+  | 'driver'
+  | 'location';
 
 /**
  * NotePermission
@@ -3976,6 +3993,18 @@ export type GetLocationsData = {
      */
     search?: string | null;
     /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination. Omit for newest locations first.
+     */
+    sort_by?: 'last_delivery' | 'status' | null;
+    /**
+     * Order
+     *
+     * Direction for sort_by
+     */
+    order?: 'asc' | 'desc';
+    /**
      * Page
      *
      * Page number (1-indexed)
@@ -4361,9 +4390,13 @@ export type GetNotesFeedData = {
   path?: never;
   query?: {
     /**
-     * Sort by recent, oldest, driver, or location
+     * Sort by unread first, recent, oldest, driver, or location
      */
     sort?: NoteFeedSort;
+    /**
+     * Search
+     */
+    search?: string | null;
     /**
      * Page
      */
@@ -4394,6 +4427,37 @@ export type GetNotesFeedResponses = {
 
 export type GetNotesFeedResponse =
   GetNotesFeedResponses[keyof GetNotesFeedResponses];
+
+export type MarkNoteReadData = {
+  body?: never;
+  path: {
+    /**
+     * Note Id
+     */
+    note_id: string;
+  };
+  query?: never;
+  url: '/api/notes/{note_id}/read';
+};
+
+export type MarkNoteReadErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type MarkNoteReadError = MarkNoteReadErrors[keyof MarkNoteReadErrors];
+
+export type MarkNoteReadResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type MarkNoteReadResponse =
+  MarkNoteReadResponses[keyof MarkNoteReadResponses];
 
 export type GetMonthlySeriesData = {
   body?: never;
@@ -4571,6 +4635,18 @@ export type GetRouteGroupsData = {
      * Case-insensitive filter on the route group name
      */
     search?: string | null;
+    /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination
+     */
+    sort_by?: 'drive_date' | 'delivery_type' | 'status';
+    /**
+     * Order
+     *
+     * Direction for sort_by
+     */
+    order?: 'asc' | 'desc';
     /**
      * Page
      *
@@ -4756,9 +4832,15 @@ export type GetRoutesData = {
      */
     end_date?: string | null;
     /**
+     * Sort By
+     *
+     * Column to sort by, applied before pagination
+     */
+    sort_by?: 'group_name' | 'drive_date' | 'delivery_type' | 'status';
+    /**
      * Order
      *
-     * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
+     * Direction for sort_by. For drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
      */
     order?: 'asc' | 'desc';
     /**
