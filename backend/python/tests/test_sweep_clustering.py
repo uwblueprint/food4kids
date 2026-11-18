@@ -145,33 +145,6 @@ async def test_each_cluster_respects_box_cap() -> None:
 
 
 @pytest.mark.asyncio
-async def test_far_address_limits_stops_per_route() -> None:
-    algo = _algo()
-    near = [
-        _location(lat=43.46, lon=-80.49, num_children=2, address="1 King St, Kitchener")
-        for _ in range(6)
-    ]
-    far = [
-        _location(
-            lat=43.60,
-            lon=-80.70,
-            num_children=2,
-            address="10 Main St, Elmira, ON",
-        )
-        for _ in range(4)
-    ]
-    clusters = await algo.cluster_locations(
-        locations=near + far,
-        num_clusters=3,
-        max_boxes_per_cluster=MAX_BOXES,
-    )
-    for cluster in clusters:
-        has_far = any("elmira" in loc.address.lower() for loc in cluster)
-        if has_far:
-            assert len(cluster) <= FAR_MAX_STOPS_PER_CLUSTER
-
-
-@pytest.mark.asyncio
 async def test_load_spread_across_drivers() -> None:
     algo = _algo()
     locations = [
@@ -184,28 +157,6 @@ async def test_load_spread_across_drivers() -> None:
     )
     sizes = [len(c) for c in clusters]
     assert max(sizes) - min(sizes) <= 1
-
-
-@pytest.mark.asyncio
-async def test_far_route_caps_at_five_stops_when_max_stops_omitted() -> None:
-    """Far routes are capped at FAR_MAX_STOPS_PER_CLUSTER stops."""
-    algo = _algo()
-    far = [
-        _location(
-            lat=43.60,
-            lon=-80.70,
-            num_children=2,
-            address="10 Main St, Elmira, ON",
-        )
-        for _ in range(6)
-    ]
-    clusters = await algo.cluster_locations(
-        locations=far,
-        num_clusters=2,
-        max_boxes_per_cluster=MAX_BOXES,
-    )
-    for cluster in clusters:
-        assert len(cluster) <= FAR_MAX_STOPS_PER_CLUSTER
 
 
 @pytest.mark.asyncio
@@ -616,7 +567,7 @@ def _far_stop(boxes: int, name: str = "Far") -> Location:
 async def test_far_route_fills_with_big_stops_to_fit_everything() -> None:
     """A far route holds at most five stops, so at an exact fit it needs a
     2-box far stop and four 2-box near stops, not whatever the sweep
-    reaches first."""
+    reaches first. Sectors top it up without the fallback."""
     algo = _algo()
     num_routes, max_boxes = 4, 10
     far = _far_stop(2)
@@ -624,8 +575,9 @@ async def test_far_route_fills_with_big_stops_to_fit_everything() -> None:
     assert near_sizes.count(2) >= 4
     stops = [far, *_sized_ring(near_sizes, seed=3)]
 
-    routes = await algo.cluster_locations(stops, num_routes, max_boxes)
+    routes = _sectors_of(algo, stops, num_routes, max_boxes)
 
+    assert routes is not None
     _assert_valid_routes(routes, stops, num_routes, max_boxes, algo)
     (far_route,) = [r for r in routes if far in r]
     assert [effective_boxes(s, CHILDREN_PER_BOX) for s in far_route] == [2] * 5
@@ -901,3 +853,41 @@ async def test_falls_back_to_spreading_when_no_sectoring_fits() -> None:
     routes = await algo.cluster_locations(stops, 3, 5)
 
     _assert_valid_routes(routes, stops, 3, 5, algo)
+
+
+async def test_a_far_stop_does_not_cost_the_near_stops_their_sectors() -> None:
+    """Halving the boxes would give the far stop's sector more than a far
+    route's five stops. It gets a route of its own, and the near stops stay
+    one sector."""
+    algo = _algo()
+    near = _ordered_ring([1] * 14)
+    stops = [_far_stop(1), *near]
+
+    sectors = _sectors_of(algo, stops, 2, 20)
+
+    assert sectors is not None
+    _assert_valid_routes(sectors, stops, 2, 20, algo)
+    (near_route,) = [r for r in sectors if stops[0] not in r]
+    (arc,) = _arcs([near_route], near)
+    assert _is_contiguous(arc, len(near))
+
+
+async def test_far_stops_share_a_route_when_the_caps_allow() -> None:
+    algo = _algo()
+    far = [_far_stop(1, f"Far {i}") for i in range(3)]
+    stops = far + _ordered_ring([1] * 12)
+
+    sectors = _sectors_of(algo, stops, 4, 10)
+
+    assert sectors is not None
+    _assert_valid_routes(sectors, stops, 4, 10, algo)
+    assert any(all(s in r for s in far) for r in sectors)
+
+
+async def test_a_far_stop_too_far_for_any_route_is_rejected() -> None:
+    algo = _algo()
+    stop = _location(lat=WAREHOUSE_LAT + 1.2, lon=WAREHOUSE_LON, num_children=2)
+    assert algo._location_metrics(stop).stop_minutes > algo._far_route_minutes_cap()
+
+    with pytest.raises(ValueError, match="too far for a route of its own"):
+        await algo.cluster_locations([stop], 1, 10)
