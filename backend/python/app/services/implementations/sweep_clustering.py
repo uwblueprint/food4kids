@@ -31,11 +31,11 @@ FAR_DISTANCE_KM_THRESHOLD = 35.0
 # Max stops on a route that includes any far delivery.
 FAR_MAX_STOPS_PER_CLUSTER = 5
 
-# Rough drive-time model for balancing.
+# Rough drive-time model for far routes.
 AVERAGE_SPEED_KMH = 40.0
 
-# Extra minutes on far routes: approximate warehouse round-trip drive allowance.
-FAR_ROUND_TRIP_DRIVE_MINUTES = 90.0
+# Driving a far route may add beyond the round trip to its farthest stop.
+FAR_DETOUR_MINUTES = 30.0
 
 
 class LocationLatitudeError(Exception):
@@ -80,7 +80,6 @@ class _ClusterState:
     locations: list[Location] = field(default_factory=list)
     box_count: int = 0
     has_far_stop: bool = False
-    estimated_minutes: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -89,7 +88,6 @@ class _LocationMetrics:
 
     distance_km: float
     is_far: bool
-    stop_minutes: float
 
 
 class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
@@ -97,7 +95,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
     Capacity is measured in boxes (``max_boxes_per_cluster``). The only stop
     count limit is ``FAR_MAX_STOPS_PER_CLUSTER``, which applies solely to routes
-    containing a far delivery and stands in for drive time rather than capacity.
+    containing a far delivery, along with ``FAR_DETOUR_MINUTES``.
     """
 
     def __init__(
@@ -105,12 +103,10 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         warehouse_lat: float,
         warehouse_lon: float,
         children_per_box: int,
-        service_minutes_per_stop: int,
     ) -> None:
         self._warehouse_lat = warehouse_lat
         self._warehouse_lon = warehouse_lon
         self._children_per_box = children_per_box
-        self._service_minutes_per_stop = service_minutes_per_stop
 
     async def cluster_locations(
         self,
@@ -186,13 +182,13 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         check_timeout: Callable[[], None],
     ) -> list[list[Location]]:
         """Greedy least-loaded assignment."""
-        # Quickest first among equals: far routes take the earliest near stops.
+        # Nearest first among equals: far routes take the earliest near stops.
         placement_order = sorted(
             sorted_locations,
             key=lambda location: (
                 not metrics_by_id[location.location_id].is_far,
                 -self._boxes(location),
-                metrics_by_id[location.location_id].stop_minutes,
+                metrics_by_id[location.location_id].distance_km,
             ),
         )
         # Spreading far stops keeps each far route's box room; grouping them
@@ -282,7 +278,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         group: bool,
     ) -> list[_ClusterState]:
         """Far stops in sweep order, each sharing the previous one's route if
-        ``group`` and it fits. Raises if a far stop doesn't fit a route alone."""
+        ``group`` and it fits."""
         routes: list[_ClusterState] = []
         for stop in far:
             metrics = metrics_by_id[stop.location_id]
@@ -292,11 +288,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 and self._can_add_to_cluster(routes[-1], stop, max_boxes, metrics)
             ):
                 routes.append(_ClusterState())
-                if not self._can_add_to_cluster(routes[-1], stop, max_boxes, metrics):
-                    raise ValueError(
-                        f"'{stop.name}' is too far for a route of its own within "
-                        f"the {self._far_route_minutes_cap():.0f}-minute far-route cap."
-                    )
             self._add_to_cluster(routes[-1], stop, metrics)
         return routes
 
@@ -309,15 +300,15 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         metrics_by_id: dict[UUID, _LocationMetrics],
     ) -> list[Location]:
         """Move near stops onto far routes until the rest fit in ``room``
-        boxes, and return the rest. Far routes are short on stops and minutes,
-        so the biggest, quickest stops go first."""
+        boxes, and return the rest. Far routes are short on stops, so the
+        biggest stops go first, then those least out of a far route's way."""
         excess = sum(self._boxes(s) for s in near) - room
         moved: set[UUID] = set()
         for stop in sorted(
             near,
             key=lambda s: (
                 -self._boxes(s),
-                metrics_by_id[s.location_id].stop_minutes,
+                min((self._detour_with(s, r) for r in far_routes), default=0.0),
             ),
         ):
             if excess <= 0:
@@ -330,7 +321,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             ]
             if fits:
                 self._add_to_cluster(
-                    min(fits, key=lambda r: r.box_count), stop, metrics
+                    min(fits, key=functools.partial(self._detour_with, stop)),
+                    stop,
+                    metrics,
                 )
                 moved.add(stop.location_id)
                 excess -= self._boxes(stop)
@@ -459,7 +452,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 return location
 
             # Far routes are stop-capped, so near stops fill them first, while
-            # the stops are still big. Then even headcount, boxes and minutes.
+            # the stops are still big. Then even headcount and boxes.
             best_index = min(
                 feasible_indices,
                 key=lambda index: (
@@ -467,7 +460,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     and not cluster_states[index].has_far_stop,
                     len(cluster_states[index].locations),
                     cluster_states[index].box_count,
-                    cluster_states[index].estimated_minutes,
                 ),
             )
             self._add_to_cluster(cluster_states[best_index], location, metrics)
@@ -490,13 +482,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         is_far = self._is_far_by_address(location) or (
             distance_km >= FAR_DISTANCE_KM_THRESHOLD
         )
-        drive_minutes = (distance_km / AVERAGE_SPEED_KMH) * 60.0
-        stop_minutes = self._service_minutes_per_stop + drive_minutes
-        return _LocationMetrics(
-            distance_km=distance_km,
-            is_far=is_far,
-            stop_minutes=stop_minutes,
-        )
+        return _LocationMetrics(distance_km=distance_km, is_far=is_far)
 
     def _can_add_to_cluster(
         self,
@@ -509,13 +495,11 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         if cluster.box_count + boxes > max_boxes:
             return False
 
-        # Only routes with a far delivery are capped on stops and time.
+        # Only routes with a far delivery are capped on stops and detour.
         if not (cluster.has_far_stop or metrics.is_far):
             return True
-        return (
-            len(cluster.locations) < FAR_MAX_STOPS_PER_CLUSTER
-            and cluster.estimated_minutes + metrics.stop_minutes
-            <= self._far_route_minutes_cap()
+        return len(cluster.locations) < FAR_MAX_STOPS_PER_CLUSTER and (
+            self._detour_minutes([*cluster.locations, location]) <= FAR_DETOUR_MINUTES
         )
 
     def _add_to_cluster(
@@ -528,19 +512,20 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         cluster.box_count += self._boxes(location)
         if metrics.is_far:
             cluster.has_far_stop = True
-        cluster.estimated_minutes += metrics.stop_minutes
 
-    def _far_route_minutes_cap(self) -> float:
-        """Soft time budget for routes that include far deliveries.
+    def _detour_minutes(self, stops: list[Location]) -> float:
+        """Minutes the stops, visited nearest the warehouse first, add to the
+        round trip to the farthest one."""
+        order = sorted(stops, key=self._warehouse_km)
+        hops = sum(self._km(a, b) for a, b in itertools.pairwise(order))
+        detour = self._warehouse_km(order[0]) + hops - self._warehouse_km(order[-1])
+        return detour / AVERAGE_SPEED_KMH * 60.0
 
-        Only ever applied to far routes, whose stop cap is always
-        FAR_MAX_STOPS_PER_CLUSTER, so this is a full far route's dwell time
-        plus a round-trip drive allowance.
-        """
-        return (
-            FAR_MAX_STOPS_PER_CLUSTER * self._service_minutes_per_stop
-            + FAR_ROUND_TRIP_DRIVE_MINUTES
-        )
+    def _detour_with(self, stop: Location, route: _ClusterState) -> float:
+        return self._detour_minutes([*route.locations, stop])
+
+    def _warehouse_km(self, location: Location) -> float:
+        return self._haversine_km(self._warehouse_lat, self._warehouse_lon, location)
 
     def _is_far_by_address(self, location: Location) -> bool:
         address_lower = location.address.lower()
@@ -605,13 +590,13 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     def _boxes(self, location: Location) -> int:
         return effective_boxes(location, self._children_per_box)
 
-    def _km_to_route(self, stop: Location, route: _ClusterState) -> float:
+    def _km(self, a: Location, b: Location) -> float:
         # Coordinates were checked when the stops were sorted.
-        assert stop.latitude is not None and stop.longitude is not None
-        return min(
-            self._haversine_km(stop.latitude, stop.longitude, other)
-            for other in route.locations
-        )
+        assert a.latitude is not None and a.longitude is not None
+        return self._haversine_km(a.latitude, a.longitude, b)
+
+    def _km_to_route(self, stop: Location, route: _ClusterState) -> float:
+        return min(self._km(stop, other) for other in route.locations)
 
 
 class SweepRoutingAlgorithm:
@@ -633,7 +618,6 @@ class SweepRoutingAlgorithm:
             warehouse_lat=warehouse_lat,
             warehouse_lon=warehouse_lon,
             children_per_box=settings.children_per_box,
-            service_minutes_per_stop=settings.service_time_minutes,
         )
         clusters = await clustering.cluster_locations(
             locations=locations,

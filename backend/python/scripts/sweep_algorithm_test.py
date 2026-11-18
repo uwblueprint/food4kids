@@ -55,9 +55,9 @@ OUTPUT_DIR = "./app/data"
 def _num_clusters_for_exact(
     total_boxes: int, max_boxes_per_cluster: int, far_count: int = 0
 ) -> int:
-    """Enough drivers for the box cap; extra headroom when far routes hit time budget."""
+    """Enough drivers for the box cap; extra headroom when far routes hit their caps."""
     box_floor = math.ceil(total_boxes / max_boxes_per_cluster)
-    # Distant far stops can fill the soft time cap before the box cap binds.
+    # Far routes can fill their stop or detour cap before the box cap binds.
     return max(MIN_CLUSTERS, box_floor + 2 * far_count)
 
 
@@ -392,7 +392,6 @@ async def main() -> None:
 
         children_per_box = system_settings.children_per_box
         max_boxes_per_cluster = system_settings.boxes_per_car
-        service_minutes_per_stop = system_settings.dropoff_minutes
 
         print(
             f"Using warehouse from system settings: ({warehouse_lat}, {warehouse_lon})\n"
@@ -402,7 +401,6 @@ async def main() -> None:
             warehouse_lat=warehouse_lat,
             warehouse_lon=warehouse_lon,
             children_per_box=children_per_box,
-            service_minutes_per_stop=service_minutes_per_stop,
         )
 
         _print_far_summary(locations, clustering_algo)
