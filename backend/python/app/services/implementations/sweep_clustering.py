@@ -102,9 +102,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         Cluster into exactly ``num_clusters`` routes (one per driver).
 
         Far stops get routes of their own and the rest are cut into contiguous
-        sectors of the sweep around the warehouse (see ``_sectors``). If that
-        can't fit every box, the rest are spread largest-first instead, so
-        small stops fill the gaps big ones leave. That always packs 1- and
+        sectors of the sweep around the warehouse (see ``_routes``). If that
+        can't fit every box, the rest are spread most-boxes-first instead, so
+        stops with few boxes fill the gaps the others leave. That always packs 1- and
         2-box stops without far routes when they fit; otherwise it is a
         heuristic and can miss a packing.
         """
@@ -163,7 +163,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     ) -> list[list[Location]] | None:
         """Far stops in sweep order, each on the previous one's route if
         ``share_far`` and it fits, else on a new one. Then the near stops, cut
-        into ``sectors`` or else spread largest-first. None if they don't fit.
+        into ``sectors`` or else spread most-boxes-first. None if they don't fit.
         """
         routes: list[list[Location]] = []
         for stop in filter(self._is_far, stops):
@@ -174,8 +174,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         num_near_routes = num_clusters - len(routes)
 
         if not sectors:
-            # Far routes are short on stops, so they fill first, while the
-            # stops are still big. Then even headcount and boxes.
+            # Far routes are short on stops, so they fill first, with the
+            # stops that have the most boxes. Then even headcount and boxes.
             routes += [[] for _ in range(num_near_routes)]
             near.sort(key=self._boxes, reverse=True)
             placed = num_near_routes >= 0 and self._place(
@@ -232,7 +232,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     ) -> list[Location]:
         """Move near stops onto far routes until the rest fit in ``room``
         boxes, and return the rest. Far routes are short on stops, so the
-        biggest stops go first, then those least out of a far route's way."""
+        stops with the most boxes go first, then those least out of a far
+        route's way."""
         excess = self._box_count(near) - room
         if excess <= 0:
             return near
