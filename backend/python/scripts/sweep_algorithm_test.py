@@ -13,7 +13,6 @@ Configure the parameters below before running.
 Outputs:
     sweep_clustering_far_deliveries.png — all stops: near vs far (+ warehouse, 35 km ring)
     sweep_clustering_test_exact.png       — exact-N clusters (far stops marked with X)
-    sweep_clustering_test.png             — packed clusters (far stops marked with X)
 """
 
 from __future__ import annotations
@@ -95,8 +94,7 @@ def _group_color_palette(groups: list[object]) -> dict[object, str]:
 
 def _far_reason_label(algo: SweepClusteringAlgorithm, location: Location) -> str:
     """Human-readable label matching sweep_clustering far detection."""
-    metrics = algo._location_metrics(location)
-    if not metrics.is_far:
+    if not algo._is_far(location):
         return "near"
     if algo._is_far_by_address(location):
         return "far (address keyword)"
@@ -133,12 +131,11 @@ def _print_far_summary(
     for loc in locations:
         label = _far_reason_label(algo, loc)
         name = loc.name
-        metrics = algo._location_metrics(loc)
         if label != "near":
             far_count += 1
             print(f"  [{label}] {name}")
             print(f"         {loc.address}")
-            print(f"         {metrics.distance_km:.1f} km from warehouse")
+            print(f"         {algo._warehouse_km(loc):.1f} km from warehouse")
     near_count = len(locations) - far_count
     print(f"\n  Total far: {far_count} / {len(locations)}")
     print(f"  Total near: {near_count} (omitted from listing)")
@@ -409,9 +406,7 @@ async def main() -> None:
             locations, clustering_algo, warehouse_lat, warehouse_lon
         )
 
-        far_count = sum(
-            1 for loc in locations if clustering_algo._location_metrics(loc).is_far
-        )
+        far_count = sum(1 for loc in locations if clustering_algo._is_far(loc))
         total_boxes = sum(effective_boxes(loc, children_per_box) for loc in locations)
 
         num_clusters_exact = _num_clusters_for_exact(
@@ -461,50 +456,6 @@ async def main() -> None:
             print(f"Clustering failed (EXACT num_clusters): {e}")
         except Exception as e:
             print(f"Unexpected error (EXACT num_clusters): {e}")
-            import traceback
-
-            traceback.print_exc()
-
-        print("\nRunning Sweep clustering (PACK until constraints hit):")
-        print(f"  - Max boxes per cluster: {max_boxes_per_cluster}")
-        print("-" * 60)
-
-        try:
-            clusters_packed = await clustering_algo.cluster_locations_by_constraints(
-                locations=locations,
-                max_boxes_per_cluster=max_boxes_per_cluster,
-                timeout_seconds=120.0,
-            )
-
-            print("\nClustering Results (PACKED):")
-            print("=" * 60)
-            rows_packed = _print_and_collect_rows(
-                clusters_packed, clustering_algo, children_per_box
-            )
-
-            _save_cluster_plot(
-                rows_packed,
-                title=(
-                    f"Sweep clustering (packed) — "
-                    f"{len(locations)} locations, {len(clusters_packed)} clusters"
-                ),
-                filename="sweep_clustering_test.png",
-                warehouse_lat=warehouse_lat,
-                warehouse_lon=warehouse_lon,
-            )
-
-            print("\n" + "=" * 60)
-            print("Summary (PACKED):")
-            print(f"  Total clusters: {len(clusters_packed)}")
-            print(f"  Locations per cluster: {[len(c) for c in clusters_packed]}")
-            print(
-                f"  Total locations clustered: {sum(len(c) for c in clusters_packed)}"
-            )
-
-        except ValueError as e:
-            print(f"Clustering failed (PACKED): {e}")
-        except Exception as e:
-            print(f"Unexpected error (PACKED): {e}")
             import traceback
 
             traceback.print_exc()

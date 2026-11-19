@@ -172,9 +172,8 @@ async def test_far_by_haversine_distance_limits_stops() -> None:
         )
         for _ in range(4)
     ]
-    metrics = algo._location_metrics(distant[0])
-    assert metrics.distance_km >= FAR_DISTANCE_KM_THRESHOLD
-    assert metrics.is_far
+    assert algo._warehouse_km(distant[0]) >= FAR_DISTANCE_KM_THRESHOLD
+    assert algo._is_far(distant[0])
 
     # Long drive time limits how many far stops fit per route; use one driver per stop.
     clusters = await algo.cluster_locations(
@@ -184,33 +183,6 @@ async def test_far_by_haversine_distance_limits_stops() -> None:
     )
     for cluster in clusters:
         assert len(cluster) <= FAR_MAX_STOPS_PER_CLUSTER
-
-
-@pytest.mark.asyncio
-async def test_cluster_locations_by_constraints_flushes_on_box_cap() -> None:
-    algo = _algo()
-    # 4 boxes each (8 children); cap 14 -> at most 3 stops per cluster -> multiple clusters.
-    locations = [
-        _location(lat=43.46 + i * 0.005, lon=-80.49, num_children=8) for i in range(7)
-    ]
-    clusters = await algo.cluster_locations_by_constraints(
-        locations=locations,
-        max_boxes_per_cluster=MAX_BOXES,
-    )
-    assert len(clusters) >= 2
-    assert sum(len(c) for c in clusters) == len(locations)
-    for cluster in clusters:
-        assert sum(effective_boxes(loc, CHILDREN_PER_BOX) for loc in cluster) <= 14
-
-
-@pytest.mark.asyncio
-async def test_cluster_locations_by_constraints_rejects_oversized_location() -> None:
-    algo = _algo()
-    locations = [_location(lat=43.46, lon=-80.49, num_children=29)]
-    with pytest.raises(ValueError, match="Cannot pack location"):
-        await algo.cluster_locations_by_constraints(
-            locations=locations, max_boxes_per_cluster=MAX_BOXES
-        )
 
 
 @pytest.mark.asyncio
@@ -440,8 +412,7 @@ def _assert_valid_routes(
     )
     for route in routes:
         assert sum(effective_boxes(s, CHILDREN_PER_BOX) for s in route) <= max_boxes
-        metrics = [algo._location_metrics(s) for s in route]
-        if any(m.is_far for m in metrics):
+        if any(map(algo._is_far, route)):
             assert len(route) <= FAR_MAX_STOPS_PER_CLUSTER
             assert algo._detour_minutes(route) <= FAR_DETOUR_MINUTES
 
@@ -598,9 +569,9 @@ def _spread_of(
     algo: SweepClusteringAlgorithm, stops: list[Location], num_routes: int, cap: int
 ) -> list[list[Location]]:
     """The fallback's plan, for cases sectors already handle."""
-    order = algo._sorted_locations(stops, lambda: None)
-    metrics = algo._metrics_for_locations(order)
-    return algo._spread(order, num_routes, cap, metrics, lambda: None)
+    plan = _sectors_of(algo, stops, num_routes, cap, sectors=False)
+    assert plan is not None
+    return plan
 
 
 def _toward(far: Location, fraction: float, boxes: int, name: str) -> Location:
@@ -619,7 +590,7 @@ async def test_far_stops_in_opposite_directions_never_share_a_route() -> None:
     algo = _algo()
     north = _far_stop(1, "North")
     far = [north, _toward(north, -2.0, 1, "South")]
-    assert algo._location_metrics(far[1]).is_far
+    assert algo._is_far(far[1])
     stops = far + _sized_ring([1] * 12)
 
     routes = await algo.cluster_locations(stops, 3, 10)
@@ -720,8 +691,8 @@ async def test_far_stop_last_in_the_sweep_still_gets_a_short_route() -> None:
     )
     near = _sized_ring([1] * 24, seed=4)
     stops = [far, *near]
-    assert algo._sorted_locations(stops, lambda: None)[-1] is far
-    assert algo._location_metrics(far).is_far
+    assert algo._sorted_locations(stops)[-1] is far
+    assert algo._is_far(far)
 
     routes = await algo.cluster_locations(stops, 4, 10)
 
@@ -774,11 +745,18 @@ async def test_sectors_are_contiguous_and_even(
 
 
 def _sectors_of(
-    algo: SweepClusteringAlgorithm, stops: list[Location], num_routes: int, cap: int
+    algo: SweepClusteringAlgorithm,
+    stops: list[Location],
+    num_routes: int,
+    cap: int,
+    sectors: bool = True,
 ) -> list[list[Location]] | None:
-    order = algo._sorted_locations(stops, lambda: None)
-    metrics = algo._metrics_for_locations(order)
-    return algo._sectors(order, num_routes, cap, metrics, lambda: None)
+    order = algo._sorted_locations(stops)
+    for share_far in (True, False):
+        plan = algo._routes(order, num_routes, cap, sectors, share_far)
+        if plan:
+            return plan
+    return None
 
 
 async def test_sectors_cut_anywhere_around_the_circle() -> None:
