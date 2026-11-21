@@ -26,6 +26,7 @@ import {
   toNaiveDateString,
 } from '@/common/utils';
 import { cn } from '@/lib/utils';
+import { RowActionCell } from '@/pages/admin/routes/components/RowActionCell';
 
 function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
   const isSingle = isFirst && isLast;
@@ -134,10 +135,15 @@ export function CalendarWidget() {
       {
         key: 'driver_name',
         header: 'Driver',
+        // The assign pill is its own control, so keep its clicks (and the
+        // modal it opens) from also triggering the row's click, which opens
+        // the route page.
         render: (row) =>
           row.driver_name ?? (
             <div className="flex h-lh items-center">
-              <AssignDriverCell row={row} />
+              <RowActionCell>
+                <AssignDriverCell row={row} />
+              </RowActionCell>
             </div>
           ),
         headerClassName: HEADER_CLASS,
@@ -225,6 +231,13 @@ export function CalendarWidget() {
             columns={columns}
             rows={selectedRoutes}
             getRowKey={(row) => row.route_id}
+            onRowClick={(row) =>
+              window.open(
+                `/admin/routes/${row.route_id}`,
+                '_blank',
+                'noopener,noreferrer'
+              )
+            }
             bodyClassName="divide-none"
             emptyState={
               <div className="text-grey-400 pt-8 pb-5 text-center">
