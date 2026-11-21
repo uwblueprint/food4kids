@@ -1,4 +1,3 @@
-import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
@@ -24,9 +23,6 @@ export const AdminHomePage = () => {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
             <AnnouncementsBoard />
-            <Button variant="tertiary" shape="circularLarge">
-              <SearchIcon className="size-[22px] text-blue-300" />
-            </Button>
           </div>
           <Account />
         </div>
