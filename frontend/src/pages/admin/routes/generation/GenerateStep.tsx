@@ -181,6 +181,7 @@ export function GenerateStep() {
   const { file, routeGenerationInputs } = context;
   const [jobIds, setJobIds] = useState<string[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [jobCreationError, setJobCreationError] = useState<unknown>(null);
   const generationStarted = useRef(false);
   const startGeneration = useStartGenerationJobs();
   const cancelGeneration = useCancelGenerationJobs();
@@ -192,8 +193,9 @@ export function GenerateStep() {
     void startGeneration
       .mutateAsync(routeGenerationInputs)
       .then(setJobIds)
-      .catch(() => undefined);
+      .catch(setJobCreationError);
   }, [routeGenerationInputs, startGeneration]);
+  const isCreatingJobs = jobIds.length === 0 && jobCreationError === null;
 
   const jobs = useMemo(
     () =>
@@ -219,8 +221,8 @@ export function GenerateStep() {
     setCurrentStepComplete(allCompleted);
     return () => setCurrentStepComplete(false);
   }, [allCompleted, setCurrentStepComplete]);
-  const errorMessage = startGeneration.error
-    ? (describeApiFailure(startGeneration.error) ??
+  const errorMessage = jobCreationError
+    ? (describeApiFailure(jobCreationError) ??
       'Route generation could not be started. Please review your route settings and try again.')
     : pollingError
       ? (describeApiFailure(pollingError) ??
@@ -311,7 +313,7 @@ export function GenerateStep() {
         {!allCompleted && (
           <Button
             variant="tertiary"
-            disabled={startGeneration.isPending}
+            disabled={isCreatingJobs}
             onClick={() =>
               jobIds.length > 0
                 ? setCancelOpen(true)
