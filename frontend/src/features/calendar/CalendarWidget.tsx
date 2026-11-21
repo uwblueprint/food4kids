@@ -9,13 +9,22 @@ import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 import {
   AssignDriverCell,
   Button,
+  Calendar,
   Card,
   CardContent,
   CardHeader,
   type Column,
   DataTable,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
 } from '@/common/components';
-import { formatStartTime, toNaiveDateString } from '@/common/utils';
+import {
+  formatStartTime,
+  parseDateOnly,
+  toNaiveDateString,
+} from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
@@ -66,6 +75,13 @@ export function CalendarWidget() {
 
   const handlePrevWeek = () => goToWeek(-7);
   const handleNextWeek = () => goToWeek(7);
+
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  const handleGoToDate = (date: Date) => {
+    setCurrentWeekStart(startOfWeek(date, { weekStartsOn: 1 }));
+    setSelectedDateKey(toNaiveDateString(date));
+  };
 
   const { data } = useRoutes({
     start_date: toNaiveDateString(weekDays[0].dayDate),
@@ -145,7 +161,7 @@ export function CalendarWidget() {
 
   return (
     <Card className="shadow-admin-bento gap-6 rounded-4xl">
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader className="flex-row items-center justify-between -mt-1">
         <h2 className="font-nunito text-h2 text-grey-500 font-bold">
           Calendar
         </h2>
@@ -157,8 +173,7 @@ export function CalendarWidget() {
           <button
             type="button"
             aria-label="Open calendar"
-            // TODO: open calendar modal
-            onClick={() => {}}
+            onClick={() => setIsDatePickerOpen(true)}
             className={cn(ICON_BUTTON_CLASS, '-mt-1')}
           >
             <CalendarIcon className="size-5" />
@@ -219,6 +234,39 @@ export function CalendarWidget() {
           />
         </div>
       </CardContent>
+      <Modal open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+        <ModalContent className="h-[450px] max-w-[600px]">
+          <ModalHeader>
+            <ModalTitle variant="confirmation">Go to date</ModalTitle>
+          </ModalHeader>
+          <Calendar
+            mode="single"
+            selected={parseDateOnly(selectedDateKey)}
+            defaultMonth={parseDateOnly(selectedDateKey)}
+            disabled={{ dayOfWeek: [0, 6] }}
+            onSelect={(date) => {
+              if (!date) return;
+              handleGoToDate(date);
+              setIsDatePickerOpen(false);
+            }}
+            weekStartsOn={0}
+            // Fill the modal: each level stretches into the space left over,
+            // the week rows split it evenly, and each day is a circle as tall
+            // as its row. Resizing the modal resizes the whole grid.
+            classNames={{
+              root: 'flex min-h-0 w-full flex-1 flex-col',
+              months: 'relative flex min-h-0 flex-1 flex-col',
+              month: 'flex min-h-0 w-full flex-1 flex-col gap-4',
+              month_grid: 'flex min-h-0 w-full flex-1 flex-col',
+              weeks: 'flex min-h-0 flex-1 flex-col',
+              week: 'mt-1 flex min-h-0 w-full flex-1',
+              day: 'relative flex min-h-0 flex-1 items-center justify-center p-0 select-none',
+              day_button: 'h-full! w-auto! aspect-square max-w-full min-w-0',
+            }}
+            className="p-0"
+          />
+        </ModalContent>
+      </Modal>
     </Card>
   );
 }
