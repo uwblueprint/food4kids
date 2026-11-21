@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
+import CalendarIcon from '@/assets/icons/calendar.svg?react';
 import ChevronLeftIcon from '@/assets/icons/chevron-left.svg?react';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 import {
@@ -27,6 +28,9 @@ function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
 }
 
 const HEADER_CLASS = 'font-medium h-auto pt-0 pb-2';
+
+const ICON_BUTTON_CLASS =
+  'text-grey-400 hover:bg-grey-200 cursor-pointer rounded-full p-1 transition-colors focus-visible:outline-2 focus-visible:outline-blue-300';
 
 export function CalendarWidget() {
   const today = new Date();
@@ -136,56 +140,65 @@ export function CalendarWidget() {
   }, [selectedRoutes]);
 
   return (
-    <Card className="shadow-admin-bento gap-4 rounded-4xl">
-      <CardHeader className="flex-row items-start justify-between">
-        <div>
-          <h2 className="font-nunito text-h2 text-grey-500 font-bold">
-            Calendar
-          </h2>
+    <Card className="shadow-admin-bento gap-6 rounded-4xl">
+      <CardHeader className="flex-row items-center justify-between">
+        <h2 className="font-nunito text-h2 text-grey-500 font-bold">
+          Calendar
+        </h2>
+        <div className="flex items-center gap-2">
           <p className="text-p1 text-grey-400">
             {format(weekDays[0].dayDate, 'MMM d, yyyy')} -{' '}
             {format(weekDays[4].dayDate, 'MMM d, yyyy')}
           </p>
-        </div>
-        <div className="flex items-center">
           <button
             type="button"
-            aria-label="Previous week"
-            onClick={handlePrevWeek}
-            className="text-grey-400 hover:bg-grey-200 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-blue-300"
+            aria-label="Open calendar"
+            // TODO: open calendar modal
+            onClick={() => {}}
+            className={cn(ICON_BUTTON_CLASS, '-mt-1')}
           >
-            <ChevronLeftIcon className="size-6" />
-          </button>
-          <button
-            type="button"
-            aria-label="Next week"
-            onClick={handleNextWeek}
-            className="text-grey-400 hover:bg-grey-200 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-blue-300"
-          >
-            <ChevronRightIcon className="size-6" />
+            <CalendarIcon className="size-5" />
           </button>
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-col gap-4">
-        <div className="border-grey-200 flex justify-between gap-3 rounded-full border p-1">
-          {weekDays.map(({ dayName, dayNumber, dateKey }) => {
-            const isSelected = selectedDateKey === dateKey;
-            return (
-              <Button
-                key={dateKey}
-                variant="secondary"
-                onClick={() => setSelectedDateKey(dateKey)}
-                className={cn(
-                  `flex-1 border-none bg-white ${
-                    isSelected &&
-                    'border-blue-200 bg-blue-50 font-bold text-blue-300 hover:bg-blue-100'
-                  }`
-                )}
-              >
-                {`${dayName} ${dayNumber}`}
-              </Button>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Previous week"
+            onClick={handlePrevWeek}
+            className={ICON_BUTTON_CLASS}
+          >
+            <ChevronLeftIcon className="size-6" />
+          </button>
+          <div className="border-grey-200 flex flex-1 justify-between gap-3 rounded-full border p-1">
+            {weekDays.map(({ dayName, dayNumber, dateKey }) => {
+              const isSelected = selectedDateKey === dateKey;
+              return (
+                <Button
+                  key={dateKey}
+                  variant="secondary"
+                  onClick={() => setSelectedDateKey(dateKey)}
+                  className={cn(
+                    `flex-1 border-none bg-white ${
+                      isSelected &&
+                      'border-blue-200 bg-blue-50 font-bold text-blue-300 hover:bg-blue-100'
+                    }`
+                  )}
+                >
+                  {`${dayName} ${dayNumber}`}
+                </Button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            aria-label="Next week"
+            onClick={handleNextWeek}
+            className={ICON_BUTTON_CLASS}
+          >
+            <ChevronRightIcon className="size-6" />
+          </button>
         </div>
         <div className="flex min-h-0">
           <DataTable
