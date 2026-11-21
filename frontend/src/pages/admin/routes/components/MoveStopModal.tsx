@@ -123,7 +123,7 @@ export function MoveStopModal({
             <DropdownTrigger className="rounded-lg px-3">
               <DropdownValue placeholder="Select a route" />
             </DropdownTrigger>
-            <DropdownContent>
+            <DropdownContent side="bottom" avoidCollisions={false}>
               {siblings.map((route) => (
                 <DropdownItem key={route.route_id} value={route.route_id}>
                   {route.name ?? 'Route'} — {route.driver_name ?? 'Unassigned'}
