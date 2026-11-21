@@ -134,11 +134,12 @@ export function CalendarWidget() {
       {
         key: 'driver_name',
         header: 'Driver',
-        render: (row) => row.driver_name ?? (
-          <div className="flex h-[.9lh] items-center">
-            <AssignDriverCell row={row} />
-          </div>
-        ),
+        render: (row) =>
+          row.driver_name ?? (
+            <div className="flex h-lh items-center">
+              <AssignDriverCell row={row} />
+            </div>
+          ),
         headerClassName: HEADER_CLASS,
         getCellClassName,
       },
@@ -160,8 +161,8 @@ export function CalendarWidget() {
   }, [selectedRoutes]);
 
   return (
-    <Card className="shadow-admin-bento gap-6 rounded-4xl">
-      <CardHeader className="flex-row items-center justify-between -mt-1">
+    <Card className="shadow-admin-bento gap-2 rounded-4xl pt-5">
+      <CardHeader className="flex-row items-center justify-between">
         <h2 className="font-nunito text-h2 text-grey-500 font-bold">
           Calendar
         </h2>
@@ -174,13 +175,13 @@ export function CalendarWidget() {
             type="button"
             aria-label="Open calendar"
             onClick={() => setIsDatePickerOpen(true)}
-            className={cn(ICON_BUTTON_CLASS, '-mt-1')}
+            className={ICON_BUTTON_CLASS}
           >
             <CalendarIcon className="size-5" />
           </button>
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-col gap-4">
+      <CardContent className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -188,9 +189,9 @@ export function CalendarWidget() {
             onClick={handlePrevWeek}
             className={ICON_BUTTON_CLASS}
           >
-            <ChevronLeftIcon className="size-6 -mt-3" />
+            <ChevronLeftIcon className="size-6" />
           </button>
-          <div className="border-grey-200 flex flex-1 justify-between gap-3 rounded-full border p-.5 -mt-4">
+          <div className="border-grey-200 flex flex-1 justify-between gap-3 rounded-full border">
             {weekDays.map(({ dayName, dayNumber, dateKey }) => {
               const isSelected = selectedDateKey === dateKey;
               return (
@@ -216,10 +217,10 @@ export function CalendarWidget() {
             onClick={handleNextWeek}
             className={ICON_BUTTON_CLASS}
           >
-            <ChevronRightIcon className="size-6 -mt-3" />
+            <ChevronRightIcon className="size-6" />
           </button>
         </div>
-        <div className="flex min-h-0 -mt-2">
+        <div className="flex min-h-0">
           <DataTable
             columns={columns}
             rows={selectedRoutes}
@@ -235,7 +236,9 @@ export function CalendarWidget() {
         </div>
       </CardContent>
       <Modal open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-        <ModalContent className="h-[450px] max-w-[600px]">
+        {/* 450x600 on desktop; on small screens it shrinks to the viewport
+            (with a 1rem margin each side) and the calendar scales with it. */}
+        <ModalContent className="h-[min(450px,90vh)] max-w-[min(600px,calc(100vw-2rem))]">
           <ModalHeader>
             <ModalTitle variant="confirmation">Go to date</ModalTitle>
           </ModalHeader>
@@ -250,9 +253,6 @@ export function CalendarWidget() {
               setIsDatePickerOpen(false);
             }}
             weekStartsOn={0}
-            // Fill the modal: each level stretches into the space left over,
-            // the week rows split it evenly, and each day is a circle as tall
-            // as its row. Resizing the modal resizes the whole grid.
             classNames={{
               root: 'flex min-h-0 w-full flex-1 flex-col',
               months: 'relative flex min-h-0 flex-1 flex-col',
@@ -260,8 +260,8 @@ export function CalendarWidget() {
               month_grid: 'flex min-h-0 w-full flex-1 flex-col',
               weeks: 'flex min-h-0 flex-1 flex-col',
               week: 'mt-1 flex min-h-0 w-full flex-1',
-              day: 'relative flex min-h-0 flex-1 items-center justify-center p-0 select-none',
-              day_button: 'h-full! w-auto! aspect-square max-w-full min-w-0',
+              day: 'relative flex min-h-0 min-w-0 flex-1 items-center justify-center p-0 select-none [container-type:size]',
+              day_button: 'size-[min(100cqw,100cqh)]! min-w-0',
             }}
             className="p-0"
           />
