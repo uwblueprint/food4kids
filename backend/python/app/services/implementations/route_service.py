@@ -538,13 +538,19 @@ class RouteService:
                 warehouse_lat = system_settings.warehouse_latitude
                 warehouse_lon = system_settings.warehouse_longitude
 
-                # Call fetch route polyline for new polyline + distance
-                encoded_polyline, distance_km = await fetch_route_polyline(
-                    locations=ordered_locations,
-                    warehouse_lat=warehouse_lat,
-                    warehouse_lon=warehouse_lon,
-                    ends_at_warehouse=route.ends_at_warehouse,
-                )
+                # Call fetch route polyline for new polyline + distance. An
+                # empty route (all stops removed) has no geometry, so skip the
+                # Routes API call entirely.
+                encoded_polyline: str | None
+                if ordered_locations:
+                    encoded_polyline, distance_km = await fetch_route_polyline(
+                        locations=ordered_locations,
+                        warehouse_lat=warehouse_lat,
+                        warehouse_lon=warehouse_lon,
+                        ends_at_warehouse=route.ends_at_warehouse,
+                    )
+                else:
+                    encoded_polyline, distance_km = None, 0.0
 
                 # Delete existing route stops
                 existing_stops_result = await session.execute(

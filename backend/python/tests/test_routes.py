@@ -4402,6 +4402,76 @@ class TestRouteRoutes:
         assert response.status_code == 503
 
     @pytest.mark.asyncio
+    async def test_update_route_remove_all_stops(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """PATCH /routes/{id} with location_ids=[] deletes every stop and
+        clears the geometry without calling the Routes API."""
+        from unittest.mock import AsyncMock, patch
+
+        from sqlmodel import select
+
+        from app.models.route_stop import RouteStop
+        from app.models.system_settings import SystemSettings
+
+        settings = (
+            (await test_session.execute(select(SystemSettings).limit(1)))
+            .scalars()
+            .one()
+        )
+        settings.warehouse_latitude = 43.65
+        settings.warehouse_longitude = -79.38
+        location_id = (
+            await async_client.post(
+                "/locations/",
+                json={
+                    **sample_location_data,
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+        ).json()["location_id"]
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=UUID(location_id),
+                stop_number=1,
+            )
+        )
+        test_route.encoded_polyline = "abc"
+        test_route.length = 12.5
+        test_session.add(test_route)
+        await test_session.commit()
+
+        with patch(
+            "app.services.implementations.route_service.fetch_route_polyline",
+            new=AsyncMock(),
+        ) as fetch:
+            response = await async_client.patch(
+                f"/routes/{test_route.route_id}", json={"location_ids": []}
+            )
+
+        assert response.status_code == 200
+        fetch.assert_not_called()
+        body = response.json()
+        assert body["encoded_polyline"] is None
+        assert body["length"] == 0
+        remaining = (
+            (
+                await test_session.execute(
+                    select(RouteStop).where(RouteStop.route_id == test_route.route_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert remaining == []
+
+    @pytest.mark.asyncio
     async def test_google_maps_link_route_not_found(
         self, async_client: AsyncClient
     ) -> None:
