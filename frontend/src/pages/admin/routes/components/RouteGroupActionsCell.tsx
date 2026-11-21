@@ -94,7 +94,7 @@ export function RouteGroupActionsCell({
                 <span>{deleteItem}</span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Remove all stops to delete
+                Remove all routes to delete
               </TooltipContent>
             </Tooltip>
           )}
