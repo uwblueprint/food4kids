@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
@@ -11,18 +11,10 @@ import {
   PopoverTrigger,
   Spinner,
 } from '@/common/components';
-import { parseDateOnly, toNaiveDateString } from '@/common/utils';
+import { parseDateOnly } from '@/common/utils';
 
 import { ReassignDriverModal } from '../../routes/components/ReassignDriverModal';
 import { AssignRouteModal } from './AssignRouteModal';
-
-function currentWeek() {
-  const monday = new Date();
-  monday.setDate(monday.getDate() - (monday.getDay() || 7) + 1);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return { start: toNaiveDateString(monday), end: toNaiveDateString(sunday) };
-}
 
 function routeLabel(route: RouteWithDateRead) {
   return (
@@ -55,12 +47,10 @@ export function AssignedRoutesSection({
   );
   const [message, setMessage] = useState('');
   const [page, setPage] = useState(1);
-  const week = useMemo(() => currentWeek(), []);
   const { data, isPending, isError, isFetching, isPlaceholderData, refetch } =
     useRoutes({
       driver_id: driverId,
-      start_date: week.start,
-      end_date: week.end,
+      route_status: ['Upcoming'],
       order: 'asc',
       page,
       page_size: 20,
@@ -80,7 +70,7 @@ export function AssignedRoutesSection({
       >
         Assigned Routes
       </h3>
-      <p className="text-p3 text-grey-400 mb-3">This week</p>
+      <p className="text-p3 text-grey-400 mb-3">Upcoming routes</p>
       <p
         role="status"
         aria-atomic="true"
@@ -177,6 +167,8 @@ export function AssignedRoutesSection({
               <Link
                 key={route.route_id}
                 to={`/admin/routes/${route.route_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={rowClass}
               >
                 {routeLabel(route)}
