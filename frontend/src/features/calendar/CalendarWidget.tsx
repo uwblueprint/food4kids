@@ -1,6 +1,5 @@
 import { addDays, format, startOfWeek } from 'date-fns';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
@@ -31,7 +30,6 @@ function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
 const HEADER_CLASS = 'font-medium h-auto pt-0 pb-2';
 
 export function CalendarWidget() {
-  const navigate = useNavigate();
   const today = new Date();
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() =>
     startOfWeek(today, { weekStartsOn: 1 })
@@ -202,7 +200,13 @@ export function CalendarWidget() {
             columns={columns}
             rows={selectedRoutes}
             getRowKey={(row) => row.route_id}
-            onRowClick={(row) => navigate(`/admin/routes/${row.route_id}`)}
+            onRowClick={(row) =>
+              window.open(
+                `/admin/routes/${row.route_id}`,
+                '_blank',
+                'noopener,noreferrer'
+              )
+            }
             bodyClassName="divide-none"
             emptyState={
               <div className="text-grey-400 pt-8 pb-5 text-center">
