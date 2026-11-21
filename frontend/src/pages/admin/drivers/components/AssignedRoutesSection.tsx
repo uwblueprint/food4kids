@@ -167,6 +167,8 @@ export function AssignedRoutesSection({
               <Link
                 key={route.route_id}
                 to={`/admin/routes/${route.route_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={rowClass}
               >
                 {routeLabel(route)}
