@@ -21,10 +21,10 @@ import { cn } from '@/lib/utils';
 function getRouteCellClassName(isFirst: boolean, isLast: boolean) {
   const isSingle = isFirst && isLast;
 
-  if (isSingle) return 'text-p1 font-normal py-3';
-  if (isFirst) return 'text-p1 font-normal pt-4.5 pb-4';
-  if (isLast) return 'text-p1 font-normal pt-4 pb-3';
-  return 'text-p1 font-normal py-4';
+  if (isSingle) return 'text-p1 font-normal py-2';
+  if (isFirst) return 'text-p1 font-normal pt-3.5 pb-3';
+  if (isLast) return 'text-p1 font-normal pt-3 pb-2';
+  return 'text-p1 font-normal py-3';
 }
 
 const HEADER_CLASS = 'font-medium h-auto pt-0 pb-2';
@@ -118,7 +118,11 @@ export function CalendarWidget() {
       {
         key: 'driver_name',
         header: 'Driver',
-        render: (row) => row.driver_name ?? <AssignDriverCell row={row} />,
+        render: (row) => row.driver_name ?? (
+          <div className="flex h-[.9lh] items-center">
+            <AssignDriverCell row={row} />
+          </div>
+        ),
         headerClassName: HEADER_CLASS,
         getCellClassName,
       },
@@ -169,9 +173,9 @@ export function CalendarWidget() {
             onClick={handlePrevWeek}
             className={ICON_BUTTON_CLASS}
           >
-            <ChevronLeftIcon className="size-6" />
+            <ChevronLeftIcon className="size-6 -mt-3" />
           </button>
-          <div className="border-grey-200 flex flex-1 justify-between gap-3 rounded-full border p-1">
+          <div className="border-grey-200 flex flex-1 justify-between gap-3 rounded-full border p-.5 -mt-4">
             {weekDays.map(({ dayName, dayNumber, dateKey }) => {
               const isSelected = selectedDateKey === dateKey;
               return (
@@ -197,10 +201,10 @@ export function CalendarWidget() {
             onClick={handleNextWeek}
             className={ICON_BUTTON_CLASS}
           >
-            <ChevronRightIcon className="size-6" />
+            <ChevronRightIcon className="size-6 -mt-3" />
           </button>
         </div>
-        <div className="flex min-h-0">
+        <div className="flex min-h-0 -mt-2">
           <DataTable
             columns={columns}
             rows={selectedRoutes}
@@ -211,7 +215,7 @@ export function CalendarWidget() {
                 No routes scheduled for this day.
               </div>
             }
-            className="flex-1 overflow-y-auto px-5 pt-4"
+            className="flex-1 overflow-y-auto px-5 pt-3"
           />
         </div>
       </CardContent>
