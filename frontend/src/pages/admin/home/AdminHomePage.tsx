@@ -1,4 +1,4 @@
-import { Account, Button } from '@/common/components';
+import { Account } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
 import { CalendarWidget } from '@/features/calendar';
