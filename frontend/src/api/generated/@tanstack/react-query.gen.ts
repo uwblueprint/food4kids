@@ -53,6 +53,8 @@ import {
   getNotesFeed,
   getOrgContact,
   getRoute,
+  getRouteDeleteImpact,
+  getRouteGroupDeleteImpact,
   getRouteGroups,
   getRoutes,
   getSuggestedDriver,
@@ -201,7 +203,13 @@ import type {
   GetOrgContactData,
   GetOrgContactResponse,
   GetRouteData,
+  GetRouteDeleteImpactData,
+  GetRouteDeleteImpactError,
+  GetRouteDeleteImpactResponse,
   GetRouteError,
+  GetRouteGroupDeleteImpactData,
+  GetRouteGroupDeleteImpactError,
+  GetRouteGroupDeleteImpactResponse,
   GetRouteGroupsData,
   GetRouteGroupsError,
   GetRouteGroupsResponse,
@@ -2344,6 +2352,34 @@ export const updateRouteGroupMutation = (
   return mutationOptions;
 };
 
+export const getRouteGroupDeleteImpactQueryKey = (
+  options: Options<GetRouteGroupDeleteImpactData>
+) => createQueryKey('getRouteGroupDeleteImpact', options);
+
+/**
+ * Get Route Group Delete Impact
+ */
+export const getRouteGroupDeleteImpactOptions = (
+  options: Options<GetRouteGroupDeleteImpactData>
+) =>
+  queryOptions<
+    GetRouteGroupDeleteImpactResponse,
+    AxiosError<GetRouteGroupDeleteImpactError>,
+    GetRouteGroupDeleteImpactResponse,
+    ReturnType<typeof getRouteGroupDeleteImpactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getRouteGroupDeleteImpact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getRouteGroupDeleteImpactQueryKey(options),
+  });
+
 /**
  * Duplicate Route Group
  *
@@ -2578,6 +2614,34 @@ export const updateRouteMutation = (
   };
   return mutationOptions;
 };
+
+export const getRouteDeleteImpactQueryKey = (
+  options: Options<GetRouteDeleteImpactData>
+) => createQueryKey('getRouteDeleteImpact', options);
+
+/**
+ * Get Route Delete Impact
+ */
+export const getRouteDeleteImpactOptions = (
+  options: Options<GetRouteDeleteImpactData>
+) =>
+  queryOptions<
+    GetRouteDeleteImpactResponse,
+    AxiosError<GetRouteDeleteImpactError>,
+    GetRouteDeleteImpactResponse,
+    ReturnType<typeof getRouteDeleteImpactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getRouteDeleteImpact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getRouteDeleteImpactQueryKey(options),
+  });
 
 export const getGoogleMapsLinkQueryKey = (
   options: Options<GetGoogleMapsLinkData>

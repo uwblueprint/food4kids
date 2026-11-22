@@ -3048,6 +3048,57 @@
         "title": "RoleEnum",
         "type": "string"
       },
+      "RouteDeletionImpact": {
+        "properties": {
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "drive_date": {
+            "format": "date",
+            "title": "Drive Date",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "num_drivers": {
+            "title": "Num Drivers",
+            "type": "integer"
+          },
+          "num_routes": {
+            "title": "Num Routes",
+            "type": "integer"
+          },
+          "num_stops": {
+            "title": "Num Stops",
+            "type": "integer"
+          },
+          "num_unrouted_locations": {
+            "title": "Num Unrouted Locations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "drive_date",
+          "num_routes",
+          "num_stops",
+          "num_drivers",
+          "num_unrouted_locations",
+          "blocked_reason"
+        ],
+        "title": "RouteDeletionImpact",
+        "type": "object"
+      },
       "RouteDetailRead": {
         "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
@@ -7686,6 +7737,54 @@
         ]
       }
     },
+    "/api/route-groups/{route_group_id}/deletion-impact": {
+      "get": {
+        "operationId": "get_route_group_delete_impact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteDeletionImpact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Route Group Delete Impact",
+        "tags": [
+          "route-groups"
+        ]
+      }
+    },
     "/api/route-groups/{route_group_id}/duplicate": {
       "post": {
         "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date.",
@@ -8183,6 +8282,54 @@
           }
         ],
         "summary": "Update Route",
+        "tags": [
+          "routes"
+        ]
+      }
+    },
+    "/api/routes/{route_id}/deletion-impact": {
+      "get": {
+        "operationId": "get_route_delete_impact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteDeletionImpact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Route Delete Impact",
         "tags": [
           "routes"
         ]

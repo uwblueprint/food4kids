@@ -13,7 +13,7 @@ class JobBase(SQLModel):
     """Shared fields between table and API models"""
 
     route_group_id: UUID | None = Field(
-        default=None, foreign_key="route_groups.route_group_id"
+        default=None, foreign_key="route_groups.route_group_id", ondelete="SET NULL"
     )
     progress: ProgressEnum = Field(default=ProgressEnum.PENDING)
 

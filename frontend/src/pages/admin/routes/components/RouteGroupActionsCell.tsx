@@ -2,17 +2,10 @@ import { useState } from 'react';
 
 import type { RouteGroupRead } from '@/api/generated/types.gen';
 import MoreVerticalIcon from '@/assets/icons/more-vertical.svg?react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/common/components';
+import { Popover, PopoverContent, PopoverTrigger } from '@/common/components';
 import { cn } from '@/lib/utils';
 
-import { DeleteRouteGroupModal } from './DeleteRouteGroupModal';
+import { DeleteRouteModal } from './DeleteRouteModal';
 import { DuplicateRouteGroupModal } from './DuplicateRouteGroupModal';
 
 interface RouteGroupActionsCellProps {
@@ -21,10 +14,6 @@ interface RouteGroupActionsCellProps {
   onDuplicated: (routeGroupId: string) => void;
 }
 
-/**
- * Kebab actions cell for the Groups tab: opens a Duplicate/Delete menu on
- * click. Delete stays disabled until the group has no stops left.
- */
 export function RouteGroupActionsCell({
   row,
   onDuplicated,
@@ -32,28 +21,6 @@ export function RouteGroupActionsCell({
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
-
-  // Delete only once every stop has been removed from the group's routes.
-  const canDelete = row.num_locations === 0;
-
-  const deleteItem = (
-    <button
-      type="button"
-      disabled={!canDelete}
-      className={cn(
-        'text-p2 flex w-full items-center rounded-lg px-3 py-2',
-        canDelete
-          ? 'text-red hover:bg-light-red cursor-pointer'
-          : 'text-grey-400 cursor-not-allowed'
-      )}
-      onClick={() => {
-        setMenuOpen(false);
-        setDeleteOpen(true);
-      }}
-    >
-      Delete
-    </button>
-  );
 
   return (
     <>
@@ -85,27 +52,27 @@ export function RouteGroupActionsCell({
           >
             Duplicate
           </button>
-          {canDelete ? (
-            deleteItem
-          ) : (
-            <Tooltip>
-              {/* span wrapper so the tooltip still fires on the disabled button */}
-              <TooltipTrigger asChild>
-                <span>{deleteItem}</span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Remove all routes to delete
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <button
+            type="button"
+            className="text-p2 text-red hover:bg-light-red flex w-full cursor-pointer items-center rounded-lg px-3 py-2"
+            onClick={() => {
+              setMenuOpen(false);
+              setDeleteOpen(true);
+            }}
+          >
+            Delete
+          </button>
         </PopoverContent>
       </Popover>
 
-      <DeleteRouteGroupModal
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        routeGroup={row}
-      />
+      {deleteOpen && (
+        <DeleteRouteModal
+          onClose={() => setDeleteOpen(false)}
+          kind="route group"
+          id={row.route_group_id}
+          name={row.name}
+        />
+      )}
       <DuplicateRouteGroupModal
         open={duplicateOpen}
         onOpenChange={setDuplicateOpen}

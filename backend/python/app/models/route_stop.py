@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class RouteStopBase(SQLModel):
     """Shared fields between table and API models"""
 
-    route_id: UUID = Field(foreign_key="routes.route_id")
+    route_id: UUID = Field(foreign_key="routes.route_id", ondelete="CASCADE")
     location_id: UUID = Field(foreign_key="locations.location_id")
     stop_number: int = Field(ge=1)  # Stop number in the route sequence
 
