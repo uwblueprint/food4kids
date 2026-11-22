@@ -227,48 +227,50 @@ export function AllNotesModal() {
           </>
         )}
       </div>
-      {!isError && data && data.total_pages > 1 && (
-        <fieldset
-          disabled={listBusy}
-          aria-label="Notes pagination"
-          className="min-w-0"
-        >
-          <Pagination
-            page={page}
-            totalPages={data.total_pages}
-            onPageChange={(next) => {
-              setPage(next);
-              setSelected(null);
-              markRead.reset();
-            }}
-            className="mt-0 flex-wrap gap-3"
-          />
-        </fieldset>
-      )}
-      <ModalFooter className="flex-wrap justify-end">
-        {hasRoute ? (
-          <Button variant="secondary" asChild>
-            <Link to={`/admin/routes/${selectedNote?.route_id}`}>
+      <ModalFooter className="tablet:grid tablet:grid-cols-[1.3fr_1fr] tablet:gap-4 flex-wrap items-center justify-end">
+        {!isError && data && data.total_pages > 1 && (
+          <fieldset
+            disabled={listBusy}
+            aria-label="Notes pagination"
+            className="tablet:justify-self-center min-w-0"
+          >
+            <Pagination
+              page={page}
+              totalPages={data.total_pages}
+              onPageChange={(next) => {
+                setPage(next);
+                setSelected(null);
+                markRead.reset();
+              }}
+              className="mt-0 flex-wrap gap-3"
+            />
+          </fieldset>
+        )}
+        <div className="tablet:col-start-2 flex flex-wrap items-center justify-end gap-3">
+          {hasRoute ? (
+            <Button variant="secondary" asChild>
+              <Link to={`/admin/routes/${selectedNote?.route_id}`}>
+                View route
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled>
               View route
-            </Link>
-          </Button>
-        ) : (
-          <Button variant="secondary" disabled>
-            View route
-          </Button>
-        )}
-        {email ? (
-          <Button variant="secondary" asChild>
-            <a href={`mailto:${encodeURIComponent(email)}`}>Email driver</a>
-          </Button>
-        ) : (
-          <Button variant="secondary" disabled>
-            Email driver
-          </Button>
-        )}
-        <ModalClose asChild>
-          <Button>Close</Button>
-        </ModalClose>
+            </Button>
+          )}
+          {email ? (
+            <Button variant="secondary" asChild>
+              <a href={`mailto:${encodeURIComponent(email)}`}>Email driver</a>
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled>
+              Email driver
+            </Button>
+          )}
+          <ModalClose asChild>
+            <Button>Close</Button>
+          </ModalClose>
+        </div>
       </ModalFooter>
     </ModalContent>
   );
