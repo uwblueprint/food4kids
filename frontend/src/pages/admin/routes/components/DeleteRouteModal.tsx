@@ -35,7 +35,6 @@ export function DeleteRouteModal({
     typeof detail === 'string'
       ? detail
       : `Could not delete this ${kind}. Please try again.`;
-  const blocked = !!impact?.blocked_code;
 
   const handleDelete = () => {
     const options = {
@@ -76,17 +75,18 @@ export function DeleteRouteModal({
         </button>
       </>
     );
-  } else if (blocked) {
-    description =
-      typeof detail === 'string'
-        ? detail
-        : (impact.blocked_reason ?? 'This deletion is blocked.');
   } else {
     description = (
       <>
         This permanently deletes{' '}
         <strong>{countLabel(impact.num_routes, 'route')}</strong> and{' '}
         <strong>{countLabel(impact.num_stops, 'stop')}</strong>.
+        {impact.includes_delivery_history && (
+          <strong className="mt-2 block">
+            This also removes delivery history and any recorded driver mileage
+            for the deleted {kind === 'route' ? 'route' : 'routes'}.
+          </strong>
+        )}
         {kind === 'route' &&
           ' The route group will remain, even if this is its last route.'}
         {impact.num_drivers > 0 && (
@@ -119,15 +119,9 @@ export function DeleteRouteModal({
       description={description}
       confirmLabel="Delete"
       confirmVariant="destructive"
-      confirmDisabled={
-        preview.isFetching || preview.isError || !impact || blocked
-      }
+      confirmDisabled={preview.isFetching || preview.isError || !impact}
       isLoading={mutation.isPending}
-      error={
-        mutation.isError && (!blocked || preview.isFetching || preview.isError)
-          ? deleteError
-          : null
-      }
+      error={mutation.isError ? deleteError : null}
       onConfirm={handleDelete}
     />
   );

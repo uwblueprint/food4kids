@@ -430,7 +430,6 @@ export type {
   ResendOnboardingEmailResponse,
   ResendOnboardingEmailResponses,
   RoleEnum,
-  RouteDeletionBlockCode,
   RouteDeletionImpact,
   RouteDetailRead,
   RouteGenerationGroupInput,
