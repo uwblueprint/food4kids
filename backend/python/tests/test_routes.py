@@ -5338,7 +5338,8 @@ class TestRouteGroupRoutes:
             "num_stops": 2,
             "num_drivers": 1,
             "num_unrouted_locations": 1,
-            "includes_delivery_history": False,
+            "blocked_reason": None,
+            "blocked_code": None,
         }
         response = await async_client.delete(url)
         assert response.status_code == 204
@@ -5377,7 +5378,7 @@ class TestRouteGroupRoutes:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("individual", [True, False])
     @pytest.mark.parametrize("frozen", [True, False])
-    async def test_delete_route_history(
+    async def test_cannot_delete_route_history(
         self,
         async_client: AsyncClient,
         test_route: Route,
@@ -5408,14 +5409,20 @@ class TestRouteGroupRoutes:
 
         preview = await async_client.get(f"{url}/deletion-impact")
         assert preview.status_code == 200
-        assert preview.json()["includes_delivery_history"] is True
-        response = await async_client.delete(url)
-        assert response.status_code == 204
-        assert await test_session.get(Route, route_id, populate_existing=True) is None
-        assert (
-            await test_session.get(RouteSnapshot, route_id, populate_existing=True)
-            is None
+        assert preview.json()["blocked_code"] == (
+            "completed_route" if frozen else "past_date"
         )
+        response = await async_client.delete(url)
+        assert response.status_code == 409
+        assert response.json()["detail"] == preview.json()["blocked_reason"]
+        assert (
+            await test_session.get(Route, route_id, populate_existing=True) is not None
+        )
+        if frozen:
+            assert (
+                await test_session.get(RouteSnapshot, route_id, populate_existing=True)
+                is not None
+            )
 
     @pytest.mark.asyncio
     async def test_get_route_groups_with_date_filter(
