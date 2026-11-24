@@ -31,6 +31,7 @@ def _summary() -> BillingSummary:
         invoice_month="2026-07",
         currency="CAD",
         month_to_date_cost=75.0,
+        year_to_date_cost=250.0,
         gross_cost=100.0,
         credits=-25.0,
         budget_amount=500.0,
@@ -72,6 +73,7 @@ class TestGetBillingCosts:
         assert body["project_id"] == "food4kids-473501"
         assert body["invoice_month"] == "2026-07"
         assert body["month_to_date_cost"] == 75.0
+        assert body["year_to_date_cost"] == 250.0
         assert body["gross_cost"] == 100.0
         assert body["credits"] == -25.0
         assert body["budget_amount"] == 500.0

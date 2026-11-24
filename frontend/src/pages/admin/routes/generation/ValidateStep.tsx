@@ -6,6 +6,7 @@ import {
   useOutletContext,
 } from 'react-router-dom';
 
+import { useSystemSettings } from '@/api';
 import type {
   AlertCode,
   DuplicateMatchField,
@@ -90,6 +91,7 @@ function getCellClass(
 export function ValidateStep() {
   const navigate = useNavigate();
   const { file, reviewResult } = useOutletContext<GenerationOutletContext>();
+  const { data: systemSettings } = useSystemSettings();
   const duplicateFieldsByRow = useMemo(() => {
     const byRow = new Map<number, Set<DuplicateMatchField>>();
     for (const group of reviewResult?.duplicate_groups ?? []) {
@@ -146,6 +148,10 @@ export function ValidateStep() {
       );
     },
   });
+
+  const customFields = (systemSettings?.import_fields ?? []).filter(
+    (field) => !field.builtin
+  );
 
   // Each table highlights only the cells it is about: the invalid/missing
   // table marks the fields that failed validation, the duplicate table marks
@@ -227,6 +233,16 @@ export function ValidateStep() {
         getCellClassName: (row) =>
           getCellClass(invalid && hasSecondaryPhoneAlert(row.alerts)),
       },
+      /* Admin-defined columns, in configured order. They carry no alert codes
+       * of their own -- the importer only checks that a required one is
+       * present -- so they render as plain values. */
+      ...customFields.map(
+        (field): Column<LocationImportRow> => ({
+          key: field.key ?? '',
+          header: field.label ?? '',
+          render: (row) => row.location.custom_fields?.[field.key ?? ''] ?? '',
+        })
+      ),
     ];
   };
 

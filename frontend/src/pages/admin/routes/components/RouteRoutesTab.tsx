@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
+  AssignDriverCell,
   Banner,
   Button,
   DataTable,
@@ -11,11 +12,10 @@ import {
   Pagination,
   TableToolbar,
 } from '@/common/components';
-import { useRowHighlight, useTableSort } from '@/common/hooks';
-import { orDash } from '@/common/utils';
+import { useRowHighlight } from '@/common/hooks';
+import { orDash, toNaiveDateString } from '@/common/utils';
 
 import type { RoutesTabState } from '../hooks';
-import { AssignDriverCell } from './AssignDriverCell';
 import { routeDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
@@ -23,13 +23,19 @@ import { RouteFilterModal } from './RouteFilterModal';
 import { RowActionCell } from './RowActionCell';
 import { StatusHeader } from './StatusHeader';
 
+// No sortValue: sorting is server-side (useRoutesTabState).
 const COLUMNS: Column<RouteWithDateRead>[] = [
-  routeDriveDateColumn,
+  {
+    key: 'group_name',
+    header: 'Route Group',
+    sortable: true,
+    render: (row) => row.group_name,
+  },
+  { ...routeDriveDateColumn, sortValue: undefined },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
     sortable: true,
-    sortValue: (row) => row.delivery_type,
     render: (row) => orDash(row.delivery_type),
   },
   { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
@@ -49,7 +55,6 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'status',
     sortable: true,
-    sortValue: (row) => row.status,
     header: (
       <StatusHeader>
         <p>
@@ -70,6 +75,8 @@ type RouteRoutesTabProps = RoutesTabState;
 
 export function RouteRoutesTab({
   rows,
+  sort,
+  toggleSort,
   page,
   setPage,
   totalPages,
@@ -90,7 +97,6 @@ export function RouteRoutesTab({
   handleApply,
 }: RouteRoutesTabProps) {
   const navigate = useNavigate();
-  const { sort, toggleSort } = useTableSort();
   // Highlight + scroll a row after a driver reassignment updates it in place.
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
   const handleRowChanged = useCallback(
@@ -101,12 +107,23 @@ export function RouteRoutesTab({
   const columns = useMemo<Column<RouteWithDateRead>[]>(
     () =>
       COLUMNS.map((col) => {
+        if (col.key === 'group_name') {
+          return {
+            ...col,
+            // Search also matches the group name, so highlight it here
+            render: (row: RouteWithDateRead) => (
+              <HighlightText text={row.group_name} query={searchTerm} />
+            ),
+          };
+        }
         if (col.key === 'driver_name') {
           return {
             ...col,
             render: (row: RouteWithDateRead) =>
               row.driver_name ? (
                 <HighlightText text={row.driver_name} query={searchTerm} />
+              ) : row.drive_date < toNaiveDateString(new Date()) ? (
+                orDash(null)
               ) : (
                 <RowActionCell>
                   <AssignDriverCell

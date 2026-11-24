@@ -2,6 +2,7 @@ export {
   formatDisplayDate,
   formatDriveDate,
   formatShortDate,
+  formatStartTime,
   isPastDate,
   parseDateOnly,
   toNaiveDateString,

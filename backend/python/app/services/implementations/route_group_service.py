@@ -1,6 +1,6 @@
 import logging
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import and_, case, distinct, exists, func, or_
@@ -362,6 +362,8 @@ class RouteGroupService:
         include_routes: bool = False,
         search: str | None = None,
         pagination: PaginationParams | None = None,
+        sort_by: Literal["drive_date", "delivery_type", "status"] = "drive_date",
+        order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[RouteGroupRead]:
         """Get route groups with optional date filtering and aggregate stats.
 
@@ -369,7 +371,8 @@ class RouteGroupService:
 
         Paginated like the routes and locations lists: filters and search are
         applied first, so a page is drawn from the matches rather than being
-        filtered after slicing.
+        filtered after slicing. ``sort_by``/``order`` are applied before
+        pagination too, so a sort spans every page.
         """
 
         children_per_box = await resolve_children_per_box(session)
@@ -461,13 +464,28 @@ class RouteGroupService:
                 statement = statement.where(or_(*assignment_conditions))
 
         statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
-        # Groups routinely share a drive date, and paginate_query runs the count
-        # and the page as separate statements — so ordering by the date alone
+        # NULL delivery types (groups with no stops) go last either way.
+        sort_expr: Any = {
+            "drive_date": col(RouteGroup.drive_date),
+            "delivery_type": statement.selected_columns.delivery_type,
+            "status": statement.selected_columns.status,
+        }[sort_by]
+        primary_order = (
+            sort_expr.desc() if order == "desc" else sort_expr.asc()
+        ).nulls_last()
+        # Groups routinely share a sort value, and paginate_query runs the count
+        # and the page as separate statements — so ordering by one column alone
         # lets the database break ties differently between them and a row can be
-        # skipped or repeated across page boundaries. Name then id makes the
-        # order total, so every page is cut from the same sequence.
+        # skipped or repeated across page boundaries. Date, name then id make
+        # the order total, so every page is cut from the same sequence.
+        tie_breakers = (
+            [] if sort_by == "drive_date" else [col(RouteGroup.drive_date).asc()]
+        )
         statement = statement.order_by(
-            RouteGroup.drive_date, RouteGroup.name, RouteGroup.route_group_id
+            primary_order,
+            *tie_breakers,
+            col(RouteGroup.name),
+            col(RouteGroup.route_group_id),
         )
 
         if pagination is None:

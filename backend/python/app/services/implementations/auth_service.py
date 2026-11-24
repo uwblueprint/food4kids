@@ -127,24 +127,6 @@ class AuthService:
             self.logger.error(" ".join(error_message))
             raise e
 
-    async def revoke_tokens_by_refresh_token(self, refresh_token: str) -> None:
-        try:
-            token_response = self.firebase_rest_client.refresh_token(refresh_token)
-            new_access_token = token_response.access_token
-            payload = jwt.decode(
-                new_access_token,
-                options={"verify_signature": False},
-                algorithms=["RS256"],
-            )
-            auth_id = payload.get("sub", "")
-            if auth_id:
-                await self.revoke_tokens(auth_id)
-        except Exception as e:
-            self.logger.error(
-                f"Failed to revoke refresh tokens by refresh token: {e!s}"
-            )
-            raise e
-
     async def renew_token(
         self, session: AsyncSession, refresh_token: str, remember_me: bool
     ) -> tuple[AuthResponse, str]:

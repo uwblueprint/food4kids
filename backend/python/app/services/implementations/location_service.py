@@ -1,16 +1,16 @@
 import asyncio
 import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeGuard, TypeVar
 from uuid import UUID
 
 import pandas as pd
 from fastapi import UploadFile
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -46,6 +46,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.system_settings import ImportField
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
@@ -211,6 +212,8 @@ class LocationService:
         status_filter: list[LocationStatusEnum] | None = None,
         location_group_id: list[UUID] | None = None,
         search: str | None = None,
+        sort_by: Literal["last_delivery", "status"] | None = None,
+        order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
@@ -225,12 +228,34 @@ class LocationService:
         the Addresses table shows — address/postal code, location and contact
         and guardian names, food restrictions, and delivery group — plus the
         phone numbers by digits. Applied before pagination.
+
+        ``sort_by``/``order`` sort before pagination, so a sort spans every
+        page. Without ``sort_by``, newest locations come first.
         """
         try:
-            statement = (
-                select(Location)
-                .options(selectinload(Location.location_group))  # type: ignore[arg-type]
-                .order_by(Location.created_at.desc())  # type: ignore[union-attr]
+            statement = select(Location).options(
+                selectinload(Location.location_group)  # type: ignore[arg-type]
+            )
+            today = today_local()
+            # This location has a stop in a route whose group's drive_date is
+            # today/future AND the route isn't yet frozen — the same rule as
+            # load_has_future_route_set, which drives LocationRead.status.
+            is_scheduled = (
+                select(1)
+                .select_from(RouteStop)
+                .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .join(
+                    RouteGroup,
+                    RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                )
+                .outerjoin(
+                    RouteSnapshot,
+                    RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
+                )
+                .where(RouteStop.location_id == Location.location_id)
+                .where(RouteGroup.drive_date >= today)
+                .where(col(RouteSnapshot.route_id).is_(None))
+                .exists()
             )
 
             if delivery_type:
@@ -275,26 +300,6 @@ class LocationService:
                 statement = statement.where(or_(*predicates))
 
             if status_filter:
-                today = today_local()
-                # Subquery: this location has a stop in a route whose group's
-                # drive_date is today/future AND the route isn't yet frozen.
-                is_scheduled = (
-                    select(1)
-                    .select_from(RouteStop)
-                    .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                    .join(
-                        RouteGroup,
-                        RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
-                    )
-                    .outerjoin(
-                        RouteSnapshot,
-                        RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
-                    )
-                    .where(RouteStop.location_id == Location.location_id)
-                    .where(RouteGroup.drive_date >= today)
-                    .where(col(RouteSnapshot.route_id).is_(None))
-                    .exists()
-                )
                 status_conditions: list[Any] = []
                 if LocationStatusEnum.ACTIVE in status_filter:
                     status_conditions.append(is_scheduled)
@@ -308,6 +313,50 @@ class LocationService:
                     )
                 if status_conditions:
                     statement = statement.where(or_(*status_conditions))
+
+            if sort_by is None:
+                statement = statement.order_by(
+                    col(Location.created_at).desc(), col(Location.location_id)
+                )
+            else:
+                sort_expr: Any
+                if sort_by == "status":
+                    # Mirrors LocationRead.status.
+                    sort_expr = case(
+                        (is_scheduled, LocationStatusEnum.ACTIVE.value),
+                        (
+                            col(Location.in_roster).is_(True),
+                            LocationStatusEnum.UNSCHEDULED.value,
+                        ),
+                        else_=LocationStatusEnum.INACTIVE.value,
+                    )
+                else:
+                    # Same definition as load_delivery_aggregates: the latest
+                    # drive date among this location's completed stops.
+                    sort_expr = (
+                        select(func.max(RouteGroup.drive_date))
+                        .select_from(RouteStop)
+                        .join(
+                            RouteStopSnapshot,
+                            RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+                        )
+                        .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                        .join(
+                            RouteGroup,
+                            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                        )
+                        .where(RouteStop.location_id == Location.location_id)
+                        .scalar_subquery()
+                    )
+                # Never-delivered locations go last either way; created_at and
+                # id make the order total so rows can't shuffle between pages.
+                statement = statement.order_by(
+                    (
+                        sort_expr.desc() if order == "desc" else sort_expr.asc()
+                    ).nulls_last(),
+                    col(Location.created_at).desc(),
+                    col(Location.location_id),
+                )
 
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
@@ -668,12 +717,26 @@ class LocationService:
                 session, column_map
             )
             await session.commit()
+
+            # Admin-defined columns configured for this delivery type. An empty
+            # delivery_types list means the column applies to every type.
+            settings = await self.system_settings_service.require_settings(session)
+            applicable_fields = [
+                field
+                for field in settings.import_fields
+                if not field.delivery_types or delivery_type in field.delivery_types
+            ]
+            custom_import_fields = [f for f in applicable_fields if not f.builtin]
+            required_keys = [f.key for f in applicable_fields if f.required]
+
             df = await self._read_upload_file(file)
             parsed_rows: list[tuple[int, LocationImportEntry]] = []
 
             for index, row in df.iterrows():
                 row_num = int(index) + 1  # type: ignore[call-overload]
-                parsed_rows.append((row_num, self._parse_row(row, column_map)))
+                parsed_rows.append(
+                    (row_num, self._parse_row(row, column_map, custom_import_fields))
+                )
 
             unique_addresses = {
                 entry.address.strip()
@@ -796,7 +859,8 @@ class LocationService:
             valid_rows = [
                 (row.row, ValidatedLocationImportEntry.model_validate(row.location))
                 for row in rows
-                if not row.alerts and self._has_required_fields(row.location)
+                if not row.alerts
+                and self._has_required_fields(row.location, required_keys)
             ]
             net_new: list[tuple[int, ValidatedLocationImportEntry]] = []
             stale: list[Location] = []
@@ -1113,9 +1177,16 @@ class LocationService:
         )
 
     def _parse_row(
-        self, row: pd.Series, column_map: dict[str, str]
+        self,
+        row: pd.Series,
+        column_map: dict[str, str],
+        custom_import_fields: Sequence[ImportField] = (),
     ) -> LocationImportEntry:
-        """Parse a CSV row into a LocationImportEntry using the column mapping."""
+        """Parse a CSV row into a LocationImportEntry using the column mapping.
+
+        Built-in columns land on their own fields; admin-defined ones are
+        collected into ``custom_fields`` under their configured key.
+        """
 
         def get_value(field: str) -> str | None:
             csv_col = column_map.get(field, "")
@@ -1142,6 +1213,12 @@ class LocationService:
             except (ValueError, TypeError):
                 return None
 
+        custom_fields = {
+            field.key: value
+            for field in custom_import_fields
+            if (value := get_value(field.key)) is not None
+        }
+
         return LocationImportEntry(
             contact_name=get_value("contact_name"),
             guardian_name=get_value("guardian_name"),
@@ -1152,17 +1229,47 @@ class LocationService:
             num_children=parse_int("num_children"),
             halal=parse_bool("halal"),
             dietary_restrictions=get_value("dietary_restrictions"),
+            custom_fields=custom_fields,
         )
 
     @staticmethod
+    def _entry_value(entry: LocationImportEntry, key: str) -> object | None:
+        """A row's value for an import column, built-in or admin-defined."""
+        if key in entry.custom_fields:
+            return entry.custom_fields[key]
+        return getattr(entry, key, None)
+
+    @staticmethod
+    def _is_present(value: object | None) -> bool:
+        """Blank text is absent; ``False`` and ``0`` are values."""
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        return True
+
+    @classmethod
     def _has_required_fields(
+        cls,
         entry: LocationImportEntry,
+        required_keys: Sequence[str] = (),
     ) -> TypeGuard[ValidatedLocationImportEntry]:
+        """Whether a row carries everything the importer needs.
+
+        The four checked outright are structural: ``Location.contact_name`` and
+        ``phone_primary`` are non-nullable, ``address`` is what gets geocoded,
+        and ``delivery_group`` groups the roster. Everything else comes from
+        the configured import columns -- built-in or admin-defined -- already
+        filtered to the delivery type being imported.
+        """
         return (
             entry.contact_name is not None
             and entry.address is not None
             and entry.phone_primary is not None
             and entry.delivery_group is not None
+            and all(
+                cls._is_present(cls._entry_value(entry, key)) for key in required_keys
+            )
         )
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
@@ -1202,6 +1309,7 @@ class LocationService:
             halal=location_data.halal,
             dietary_restrictions=location_data.dietary_restrictions,
             num_children=location_data.num_children,
+            custom_fields=location_data.custom_fields,
             delivery_type=location_data.delivery_type,
             in_roster=location_data.in_roster,
         )
@@ -1264,6 +1372,7 @@ class LocationService:
                         halal=entry.halal or False,
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_children=entry.num_children or 0,
+                        custom_fields=entry.custom_fields,
                         delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain.note_chain_id,
@@ -1322,6 +1431,10 @@ class LocationService:
                         num_children=resolve_optional(
                             entry.num_children, location.num_children
                         ),
+                        custom_fields={
+                            **location.custom_fields,
+                            **entry.custom_fields,
+                        },
                         delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain_id,

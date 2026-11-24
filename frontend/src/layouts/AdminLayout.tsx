@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from '@/common/components/Sidebar';
+import { useRouteScrollReset } from '@/common/hooks';
 
 // Home and Routes are drawn on 20x22 and 24x22 artboards in the design; the
 // other two are square. Sizing them all `size-6` scaled the first two up and
@@ -38,6 +39,8 @@ const NAV_ITEMS = [
 ] as const;
 
 export const AdminLayout = () => {
+  const scrollRef = useRouteScrollReset();
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -54,7 +57,7 @@ export const AdminLayout = () => {
         </SidebarContent>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset ref={scrollRef}>
         <PopupHost>
           <div className="admin-page-margins">
             <Outlet />

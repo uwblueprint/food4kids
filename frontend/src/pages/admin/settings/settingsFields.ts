@@ -27,7 +27,15 @@ export const REQUIRED_SETTING_KEYS = [
   'contact_phone',
   'f4k_wr_website',
   'f4k_wr_address',
+  'support_phone',
+  'warehouse_location',
 ] as const satisfies readonly StringSettingKey[];
+
+export const REQUIRED_NUMERIC_KEYS = [
+  'boxes_per_car',
+  'children_per_box',
+  'dropoff_minutes',
+] as const satisfies readonly (keyof SystemSettingsUpdate)[];
 
 /** Whitespace is not a value -- " " should not satisfy a required field. */
 export function isBlank(value: string | null | undefined): boolean {
