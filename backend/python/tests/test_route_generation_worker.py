@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -122,12 +122,14 @@ async def _seed_routable_group(
 
 
 async def _queue_pending_job(
-    maker: async_sessionmaker[AsyncSession], group: LocationGroup
+    maker: async_sessionmaker[AsyncSession],
+    group: LocationGroup,
+    route_start_time: datetime = DRIVE_DATE,
 ) -> Job:
     request = RouteGenerationGroupInput(
         location_group=group,
         settings=RouteGenerationSettings(
-            route_start_time=DRIVE_DATE,
+            route_start_time=route_start_time,
             num_routes=1,
             # No schema defaults: the request carries what settings configured.
             max_boxes_per_driver=10,
@@ -385,7 +387,9 @@ class TestWorkerLoop:
 
         group, _location = await _seed_routable_group(maker)
         first = await _queue_pending_job(maker, group)
-        second = await _queue_pending_job(maker, group)
+        # A different day: a family may be on only one route per day, so a
+        # second job for the same group and day would be refused.
+        second = await _queue_pending_job(maker, group, DRIVE_DATE + timedelta(days=1))
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
         monkeypatch.setattr(worker, "get_routing_algorithm", lambda _maker: algorithm)
