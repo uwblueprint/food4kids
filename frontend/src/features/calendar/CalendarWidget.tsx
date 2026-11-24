@@ -206,7 +206,7 @@ export function CalendarWidget() {
                   variant="secondary"
                   onClick={() => setSelectedDateKey(dateKey)}
                   className={cn(
-                    `flex-1 border-none bg-white ${
+                    `flex-1 border-none bg-white whitespace-nowrap ${
                       isSelected &&
                       'border-blue-200 bg-blue-50 font-bold text-blue-300 hover:bg-blue-100'
                     }`
@@ -244,7 +244,10 @@ export function CalendarWidget() {
                 No routes scheduled for this day.
               </div>
             }
-            className="flex-1 overflow-y-auto px-5 pt-3"
+            // min-w-max: never narrower than its rows, so the card (and the
+            // homepage grid column) grows to fit and the page scrolls sideways
+            // instead of the table clipping its last column.
+            className="min-w-max flex-1 overflow-y-auto px-5 pt-3"
           />
         </div>
       </CardContent>
