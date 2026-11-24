@@ -1792,9 +1792,15 @@ export type ResendOnboardingEmailRequest = {
 export type RoleEnum = 'driver' | 'admin';
 
 /**
+ * RouteDeletionBlockCode
+ */
+export type RouteDeletionBlockCode = 'past_date' | 'completed_route';
+
+/**
  * RouteDeletionImpact
  */
 export type RouteDeletionImpact = {
+  blocked_code: RouteDeletionBlockCode | null;
   /**
    * Blocked Reason
    */

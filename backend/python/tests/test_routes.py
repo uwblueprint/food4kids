@@ -5339,10 +5339,16 @@ class TestRouteGroupRoutes:
             "num_drivers": 1,
             "num_unrouted_locations": 1,
             "blocked_reason": None,
+            "blocked_code": None,
         }
         response = await async_client.delete(url)
         assert response.status_code == 204
+        assert (await async_client.delete(url)).status_code == 404
         assert (await async_client.get(f"{url}/deletion-impact")).status_code == 404
+        saved_group = await test_session.get(
+            RouteGroup, test_route_group.route_group_id, populate_existing=True
+        )
+        assert (saved_group is not None) == individual
         assert (
             await test_session.get(Route, test_route.route_id, populate_existing=True)
             is None
@@ -5394,26 +5400,27 @@ class TestRouteGroupRoutes:
         else:
             test_route_group.drive_date = today_local() - timedelta(days=1)
         await test_session.commit()
+        route_id = test_route.route_id
         url = (
-            f"/routes/{test_route.route_id}"
+            f"/routes/{route_id}"
             if individual
             else f"/route-groups/{test_route_group.route_group_id}"
         )
 
         preview = await async_client.get(f"{url}/deletion-impact")
         assert preview.status_code == 200
+        assert preview.json()["blocked_code"] == (
+            "completed_route" if frozen else "past_date"
+        )
         response = await async_client.delete(url)
         assert response.status_code == 409
         assert response.json()["detail"] == preview.json()["blocked_reason"]
         assert (
-            await test_session.get(Route, test_route.route_id, populate_existing=True)
-            is not None
+            await test_session.get(Route, route_id, populate_existing=True) is not None
         )
         if frozen:
             assert (
-                await test_session.get(
-                    RouteSnapshot, test_route.route_id, populate_existing=True
-                )
+                await test_session.get(RouteSnapshot, route_id, populate_existing=True)
                 is not None
             )
 

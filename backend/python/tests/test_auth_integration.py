@@ -155,11 +155,13 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("PATCH", "/route-groups/{route_group_id}"): Policy.ADMIN_ONLY,
     ("POST", "/route-groups/{route_group_id}/duplicate"): Policy.ADMIN_ONLY,
     ("DELETE", "/route-groups/{route_group_id}"): Policy.ADMIN_ONLY,
+    ("GET", "/route-groups/{route_group_id}/deletion-impact"): Policy.ADMIN_ONLY,
     # --- routes ---
     ("GET", "/routes"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/routes/{route_id}"): Policy.ROUTE_ASSIGNED_OR_ADMIN,
     ("PATCH", "/routes/{route_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/routes/{route_id}"): Policy.ADMIN_ONLY,
+    ("GET", "/routes/{route_id}/deletion-impact"): Policy.ADMIN_ONLY,
     ("GET", "/routes/{route_id}/google-maps-link"): Policy.ROUTE_ASSIGNED_OR_ADMIN,
     ("GET", "/routes/{route_id}/suggested-driver"): Policy.ADMIN_ONLY,
     # --- announcements ---

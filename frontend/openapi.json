@@ -3048,8 +3048,26 @@
         "title": "RoleEnum",
         "type": "string"
       },
+      "RouteDeletionBlockCode": {
+        "enum": [
+          "past_date",
+          "completed_route"
+        ],
+        "title": "RouteDeletionBlockCode",
+        "type": "string"
+      },
       "RouteDeletionImpact": {
         "properties": {
+          "blocked_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RouteDeletionBlockCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "blocked_reason": {
             "anyOf": [
               {
@@ -3094,7 +3112,8 @@
           "num_stops",
           "num_drivers",
           "num_unrouted_locations",
-          "blocked_reason"
+          "blocked_reason",
+          "blocked_code"
         ],
         "title": "RouteDeletionImpact",
         "type": "object"

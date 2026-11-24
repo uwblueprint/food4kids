@@ -31,9 +31,21 @@ export function DeleteRouteModal({
   const error = mutation.error;
   const conflict = isAxiosError(error) && error.response?.status === 409;
   const detail: unknown = conflict ? error.response?.data?.detail : undefined;
+  const deleteError =
+    typeof detail === 'string'
+      ? detail
+      : `Could not delete this ${kind}. Please try again.`;
+  const blocked = !!impact?.blocked_code;
 
   const handleDelete = () => {
-    const options = { onSuccess: onClose };
+    const options = {
+      onSuccess: onClose,
+      onError: (error: unknown) => {
+        if (isAxiosError(error) && error.response?.status === 409) {
+          void preview.refetch();
+        }
+      },
+    };
     if (kind === 'route') {
       route.mutate({ path: { route_id: id } }, options);
     } else {
@@ -64,14 +76,19 @@ export function DeleteRouteModal({
         </button>
       </>
     );
-  } else if (impact.blocked_reason) {
-    description = impact.blocked_reason;
+  } else if (blocked) {
+    description =
+      typeof detail === 'string'
+        ? detail
+        : (impact.blocked_reason ?? 'This deletion is blocked.');
   } else {
     description = (
       <>
         This permanently deletes{' '}
         <strong>{countLabel(impact.num_routes, 'route')}</strong> and{' '}
         <strong>{countLabel(impact.num_stops, 'stop')}</strong>.
+        {kind === 'route' &&
+          ' The route group will remain, even if this is its last route.'}
         {impact.num_drivers > 0 && (
           <>
             {' '}
@@ -103,19 +120,13 @@ export function DeleteRouteModal({
       confirmLabel="Delete"
       confirmVariant="destructive"
       confirmDisabled={
-        preview.isFetching ||
-        preview.isError ||
-        !impact ||
-        !!impact.blocked_reason ||
-        conflict
+        preview.isFetching || preview.isError || !impact || blocked
       }
       isLoading={mutation.isPending}
       error={
-        typeof detail === 'string'
-          ? detail
-          : mutation.isError
-            ? `Could not delete this ${kind}. Please try again.`
-            : null
+        mutation.isError && (!blocked || preview.isFetching || preview.isError)
+          ? deleteError
+          : null
       }
       onConfirm={handleDelete}
     />

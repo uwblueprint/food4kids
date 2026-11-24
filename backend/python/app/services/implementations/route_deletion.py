@@ -1,9 +1,11 @@
 from datetime import date
+from enum import StrEnum
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from sqlmodel import SQLModel, col, select
 
 from app.models.route import Route
@@ -11,6 +13,19 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.utilities.datetime_utils import today_local
+
+
+class RouteDeletionBlockCode(StrEnum):
+    PAST_DATE = "past_date"
+    COMPLETED_ROUTE = "completed_route"
+
+
+BLOCK_MESSAGES = {
+    RouteDeletionBlockCode.PAST_DATE: "Past routes and route groups cannot be deleted.",
+    RouteDeletionBlockCode.COMPLETED_ROUTE: (
+        "Completed routes and route groups containing them cannot be deleted."
+    ),
+}
 
 
 class RouteDeletionImpact(SQLModel):
@@ -21,6 +36,7 @@ class RouteDeletionImpact(SQLModel):
     num_drivers: int
     num_unrouted_locations: int
     blocked_reason: str | None
+    blocked_code: RouteDeletionBlockCode | None
 
 
 async def get_deletion_scope(
@@ -52,36 +68,40 @@ async def get_deletion_scope(
     return (None, []) if individual and not routes else (group, routes)
 
 
-async def deletion_blocked_reason(
+async def get_deletion_block_code(
     session: AsyncSession, group: RouteGroup, route_ids: list[UUID]
-) -> str | None:
+) -> RouteDeletionBlockCode | None:
     if group.drive_date < today_local():
-        return "Past routes and route groups cannot be deleted."
+        return RouteDeletionBlockCode.PAST_DATE
     snapshot = await session.scalar(
         select(RouteSnapshot.route_id)
         .where(col(RouteSnapshot.route_id).in_(route_ids))
         .limit(1)
     )
     if snapshot is not None:
-        return "Completed routes and route groups containing them cannot be deleted."
+        return RouteDeletionBlockCode.COMPLETED_ROUTE
     return None
 
 
 async def delete_route_scope(
     session: AsyncSession, target_id: UUID, *, individual: bool
 ) -> bool:
-    group, routes = await get_deletion_scope(
-        session, target_id, individual=individual, lock=True
-    )
-    if group is None:
-        return False
-    blocked = await deletion_blocked_reason(
-        session, group, [route.route_id for route in routes]
-    )
-    if blocked:
-        raise HTTPException(status_code=409, detail=blocked)
-    await session.delete(routes[0] if individual else group)
-    await session.commit()
+    try:
+        group, routes = await get_deletion_scope(
+            session, target_id, individual=individual, lock=True
+        )
+        if group is None:
+            return False
+        blocked = await get_deletion_block_code(
+            session, group, [route.route_id for route in routes]
+        )
+        if blocked:
+            raise HTTPException(status_code=409, detail=BLOCK_MESSAGES[blocked])
+        await session.delete(routes[0] if individual else group)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
     return True
 
 
@@ -94,21 +114,27 @@ async def get_route_deletion_impact(
 
     route_ids = [route.route_id for route in routes]
     target_stops = col(RouteStop.route_id).in_(route_ids)
-    remaining_locations = (
-        select(RouteStop.location_id)
-        .join(Route, col(RouteStop.route_id) == col(Route.route_id))
+    remaining_stop = aliased(RouteStop)
+    has_remaining_route = (
+        select(remaining_stop.route_id)
+        .join(Route, col(remaining_stop.route_id) == col(Route.route_id))
         .join(RouteGroup, col(Route.route_group_id) == col(RouteGroup.route_group_id))
-        .where(RouteGroup.drive_date == group.drive_date, ~target_stops)
-        .correlate(None)
+        .where(
+            RouteGroup.drive_date == group.drive_date,
+            col(remaining_stop.route_id).not_in(route_ids),
+            col(remaining_stop.location_id) == col(RouteStop.location_id),
+        )
+        .exists()
     )
     num_stops = await session.scalar(
         select(func.count()).select_from(RouteStop).where(target_stops)
     )
     num_unrouted = await session.scalar(
         select(func.count(col(RouteStop.location_id).distinct())).where(
-            target_stops, col(RouteStop.location_id).not_in(remaining_locations)
+            target_stops, ~has_remaining_route
         )
     )
+    blocked = await get_deletion_block_code(session, group, route_ids)
     return RouteDeletionImpact(
         name=routes[0].name if individual else group.name,
         drive_date=group.drive_date,
@@ -118,5 +144,6 @@ async def get_route_deletion_impact(
             {route.driver_id for route in routes if route.driver_id is not None}
         ),
         num_unrouted_locations=num_unrouted or 0,
-        blocked_reason=await deletion_blocked_reason(session, group, route_ids),
+        blocked_reason=BLOCK_MESSAGES.get(blocked) if blocked else None,
+        blocked_code=blocked,
     )
