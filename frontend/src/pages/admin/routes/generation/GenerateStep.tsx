@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
@@ -221,9 +222,15 @@ export function GenerateStep() {
     setCurrentStepComplete(allCompleted);
     return () => setCurrentStepComplete(false);
   }, [allCompleted, setCurrentStepComplete]);
+  // The generate endpoint's only 400 is the one-route-per-family-per-day
+  // refusal; other rejections (e.g. 422) keep the generic wording.
+  const startRefusedForDoubleBooking =
+    isAxiosError(jobCreationError) && jobCreationError.response?.status === 400;
   const errorMessage = jobCreationError
-    ? (describeApiFailure(jobCreationError) ??
-      'Route generation could not be started. Please review your route settings and try again.')
+    ? startRefusedForDoubleBooking
+      ? 'Some families in this group already have routes on that day. Delete those routes or pick another date.'
+      : (describeApiFailure(jobCreationError) ??
+        'Route generation could not be started. Please review your route settings and try again.')
     : pollingError
       ? (describeApiFailure(pollingError) ??
         'Route generation status could not be loaded. Please try again.')

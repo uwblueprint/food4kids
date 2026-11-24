@@ -25,6 +25,7 @@ import { StatusHeader } from './StatusHeader';
 
 // No sortValue: sorting is server-side (useRoutesTabState).
 const COLUMNS: Column<RouteWithDateRead>[] = [
+  { key: 'name', header: 'Route Name', render: (row) => row.name },
   {
     key: 'group_name',
     header: 'Route Group',
@@ -107,6 +108,14 @@ export function RouteRoutesTab({
   const columns = useMemo<Column<RouteWithDateRead>[]>(
     () =>
       COLUMNS.map((col) => {
+        if (col.key === 'name') {
+          return {
+            ...col,
+            render: (row: RouteWithDateRead) => (
+              <HighlightText text={row.name} query={searchTerm} />
+            ),
+          };
+        }
         if (col.key === 'group_name') {
           return {
             ...col,

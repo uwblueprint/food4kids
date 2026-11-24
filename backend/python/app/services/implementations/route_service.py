@@ -480,6 +480,47 @@ class RouteService:
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:
+                if len(set(patch.location_ids)) != len(patch.location_ids):
+                    raise ValueError("A location can only appear once on a route")
+
+                # A family gets one delivery a day. Only newly added families are
+                # checked, so an existing double-booking can't lock the route.
+                current = set(
+                    (
+                        await session.execute(
+                            select(RouteStop.location_id).where(
+                                RouteStop.route_id == route_id
+                            )
+                        )
+                    ).scalars()
+                )
+                added = [loc for loc in patch.location_ids if loc not in current]
+                drive_date = (
+                    await session.execute(
+                        select(col(RouteGroup.drive_date)).where(
+                            RouteGroup.route_group_id == route.route_group_id
+                        )
+                    )
+                ).scalar_one()
+                taken = (
+                    await session.execute(
+                        select(Route.name, RouteGroup.name)
+                        .join(RouteStop)
+                        .join(RouteGroup)
+                        .where(
+                            RouteGroup.drive_date == drive_date,
+                            Route.route_id != route_id,
+                            col(RouteStop.location_id).in_(added),
+                        )
+                        .distinct()
+                    )
+                ).all()
+                if taken:
+                    raise ValueError(
+                        "Some locations are already on another route that day: "
+                        + ", ".join(sorted(f"{r} ({g})" for r, g in taken))
+                    )
+
                 location_results = await session.execute(
                     select(Location).where(
                         col(Location.location_id).in_(patch.location_ids)
@@ -522,13 +563,19 @@ class RouteService:
                 warehouse_lat = system_settings.warehouse_latitude
                 warehouse_lon = system_settings.warehouse_longitude
 
-                # Call fetch route polyline for new polyline + distance
-                encoded_polyline, distance_km = await fetch_route_polyline(
-                    locations=ordered_locations,
-                    warehouse_lat=warehouse_lat,
-                    warehouse_lon=warehouse_lon,
-                    ends_at_warehouse=route.ends_at_warehouse,
-                )
+                # Call fetch route polyline for new polyline + distance. An
+                # empty route (all stops removed) has no geometry, so skip the
+                # Routes API call entirely.
+                encoded_polyline: str | None
+                if ordered_locations:
+                    encoded_polyline, distance_km = await fetch_route_polyline(
+                        locations=ordered_locations,
+                        warehouse_lat=warehouse_lat,
+                        warehouse_lon=warehouse_lon,
+                        ends_at_warehouse=route.ends_at_warehouse,
+                    )
+                else:
+                    encoded_polyline, distance_km = None, 0.0
 
                 # Delete existing route stops
                 existing_stops_result = await session.execute(

@@ -71,6 +71,8 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
     formatStartTime(route.start_time),
   ].filter(Boolean);
 
+  const hasStops = stops.length > 0;
+
   const handlePrint = () => window.print();
 
   const handleGoogleMaps = async () => {
@@ -154,6 +156,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
           variant="primary"
           className="tablet:w-full"
           onClick={handlePrint}
+          disabled={!hasStops}
         >
           PDF
         </Button>
@@ -164,11 +167,17 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         <h2 className="text-h3 font-nunito-sans text-grey-500 font-bold">
           Map View
         </h2>
-        <RouteMap
-          encodedPolyline={route.encoded_polyline}
-          stops={stops}
-          className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
-        />
+        {hasStops ? (
+          <RouteMap
+            encodedPolyline={route.encoded_polyline}
+            stops={stops}
+            className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
+          />
+        ) : (
+          <div className="desktop:h-[408px] tablet:h-[270px] text-p2 text-grey-400 bg-grey-150 flex h-[182px] items-center justify-center rounded-lg">
+            No stops on this route yet
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           {/* Stored RFC 3966, so it's already the href. */}
           {contactPhone ? (
@@ -184,7 +193,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
             variant="primary"
             className="tablet:w-full"
             onClick={handleGoogleMaps}
-            disabled={mapsLoading}
+            disabled={mapsLoading || !hasStops}
           >
             {mapsLoading ? 'Opening…' : 'Google Maps'}
           </Button>
@@ -206,7 +215,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
           All Stops
         </h2>
         {stops.length === 0 ? (
-          <p className="text-p2 text-grey-500">This route has no stops.</p>
+          <p className="text-p2 text-grey-500">No stops on this route yet.</p>
         ) : (
           /* The cards sit 20px apart, not the 12px that separates the heading
              from the list. The mobile frame draws 24 here; tablet and desktop
