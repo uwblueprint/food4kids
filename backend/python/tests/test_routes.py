@@ -33,6 +33,7 @@ from app.dependencies.services import (
 )
 from app.models import get_session
 from app.models.enum import NotePermission, ProgressEnum, RouteStatusEnum
+from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -4219,16 +4220,6 @@ class TestRouteRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_route(
-        self, async_client: AsyncClient, test_route: Any
-    ) -> None:
-        """DELETE /routes/{id} removes the route."""
-        response = await async_client.delete(f"/routes/{test_route.route_id}")
-        assert response.status_code == 204
-        get_response = await async_client.get(f"/routes/{test_route.route_id}")
-        assert get_response.status_code == 404
-
-    @pytest.mark.asyncio
     async def test_delete_route_not_found(self, async_client: AsyncClient) -> None:
         """DELETE /routes/{id} returns 404 for an unknown route."""
         response = await async_client.delete(f"/routes/{uuid4()}")
@@ -5339,87 +5330,172 @@ class TestRouteGroupRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_route_group(
+    @pytest.mark.parametrize("individual", [True, False])
+    async def test_delete_route_scope(
         self,
         async_client: AsyncClient,
-        test_route_group: Any,
+        test_route: Route,
+        test_route_group: RouteGroup,
         test_session: AsyncSession,
+        test_location_group: LocationGroup,
+        test_driver: Any,
+        individual: bool,
     ) -> None:
-        """DELETE removes the route group and cascades routes, stops, and snapshots."""
-        loc_group = LocationGroup(
-            name="Delete Cascade Locations", color="#654321", notes=""
-        )
-        test_session.add(loc_group)
-        await test_session.flush()
-
-        location = Location(
-            location_group_id=loc_group.location_group_id,
-            name="Delete Cascade Location",
+        """Upcoming routes cascade to stops and preserve locations and job history."""
+        drive_date = today_local() + timedelta(days=1)
+        test_route_group.drive_date = drive_date
+        test_route.driver_id = test_driver.driver_id
+        test_route.start_time = time(9)
+        other_group = RouteGroup(name="Other group", drive_date=drive_date)
+        test_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Unrouted after deletion",
             delivery_type="Family",
-            contact_name="Delete",
+            contact_name="Recipient",
+            address="1 Main St",
+            phone_primary="tel:+1-519-576-1108",
+        )
+        second_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Still routed",
+            delivery_type="Family",
+            contact_name="Recipient",
             address="3 Main St",
             phone_primary="tel:+1-519-576-1108",
-            num_children=2,
         )
-        test_session.add(location)
+        test_session.add_all([other_group, test_location, second_location])
         await test_session.flush()
 
-        route = Route(
-            name="Delete Cascade Route",
-            length=5.0,
+        other_route = Route(
+            name="Retained route", length=5, route_group_id=other_group.route_group_id
+        )
+        test_session.add(other_route)
+        await test_session.flush()
+
+        stops = [
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=test_location.location_id,
+                stop_number=1,
+            ),
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=second_location.location_id,
+                stop_number=2,
+            ),
+            RouteStop(
+                route_id=other_route.route_id,
+                location_id=second_location.location_id,
+                stop_number=1,
+            ),
+        ]
+        job = Job(
             route_group_id=test_route_group.route_group_id,
+            progress=ProgressEnum.COMPLETED,
         )
-        test_session.add(route)
-        await test_session.flush()
-
-        route_stop = RouteStop(
-            route_id=route.route_id,
-            location_id=location.location_id,
-            stop_number=1,
-        )
-        test_session.add(route_stop)
-        await test_session.flush()
-
-        test_session.add_all(
-            [
-                RouteSnapshot(
-                    route_id=route.route_id,
-                    start_address="Warehouse",
-                    start_latitude=43.0,
-                    start_longitude=-80.0,
-                ),
-                RouteStopSnapshot(
-                    route_stop_id=route_stop.route_stop_id,
-                    address="Snapshot Address",
-                    contact_name="Snapshot Contact",
-                    phone_primary="tel:+1-519-576-1109",
-                    num_children=2,
-                    latitude=43.1,
-                    longitude=-80.1,
-                ),
-            ]
-        )
+        test_session.add_all([*stops, job])
         await test_session.commit()
+        deleted_stop_ids = [stop.route_stop_id for stop in stops[:2]]
 
-        response = await async_client.delete(
-            f"/route-groups/{test_route_group.route_group_id}"
+        url = (
+            f"/routes/{test_route.route_id}"
+            if individual
+            else f"/route-groups/{test_route_group.route_group_id}"
         )
+        preview = await async_client.get(f"{url}/deletion-impact")
+        assert preview.status_code == 200
+        assert preview.json() == {
+            "name": test_route.name if individual else test_route_group.name,
+            "drive_date": drive_date.isoformat(),
+            "num_routes": 1,
+            "num_stops": 2,
+            "num_drivers": 1,
+            "num_unrouted_locations": 1,
+            "blocked_reason": None,
+            "blocked_code": None,
+        }
+        response = await async_client.delete(url)
         assert response.status_code == 204
-
-        # Verify deletion by trying to get all route groups
-        get_response = await async_client.get("/route-groups")
-        assert response.status_code == 204
-        data = get_response.json()["items"]
-        assert not any(
-            str(rg["route_group_id"]) == str(test_route_group.route_group_id)
-            for rg in data
+        assert (await async_client.delete(url)).status_code == 404
+        assert (await async_client.get(f"{url}/deletion-impact")).status_code == 404
+        saved_group = await test_session.get(
+            RouteGroup, test_route_group.route_group_id, populate_existing=True
         )
-        assert await test_session.get(Route, route.route_id) is None
-        assert await test_session.get(RouteStop, route_stop.route_stop_id) is None
-        assert await test_session.get(RouteSnapshot, route.route_id) is None
+        assert (saved_group is not None) == individual
         assert (
-            await test_session.get(RouteStopSnapshot, route_stop.route_stop_id) is None
+            await test_session.get(Route, test_route.route_id, populate_existing=True)
+            is None
         )
+        for stop_id in deleted_stop_ids:
+            assert (
+                await test_session.get(RouteStop, stop_id, populate_existing=True)
+                is None
+            )
+        assert (
+            await test_session.get(
+                Location, test_location.location_id, populate_existing=True
+            )
+            is not None
+        )
+        assert (
+            await test_session.get(
+                RouteStop, stops[2].route_stop_id, populate_existing=True
+            )
+            is not None
+        )
+        await test_session.refresh(job)
+        assert job.route_group_id == (
+            test_route_group.route_group_id if individual else None
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("individual", [True, False])
+    @pytest.mark.parametrize("frozen", [True, False])
+    async def test_cannot_delete_route_history(
+        self,
+        async_client: AsyncClient,
+        test_route: Route,
+        test_route_group: RouteGroup,
+        test_session: AsyncSession,
+        individual: bool,
+        frozen: bool,
+    ) -> None:
+        if frozen:
+            test_route_group.drive_date = today_local() + timedelta(days=1)
+            test_session.add(
+                RouteSnapshot(
+                    route_id=test_route.route_id,
+                    start_address="Warehouse",
+                    start_latitude=43,
+                    start_longitude=-80,
+                )
+            )
+        else:
+            test_route_group.drive_date = today_local() - timedelta(days=1)
+        await test_session.commit()
+        route_id = test_route.route_id
+        url = (
+            f"/routes/{route_id}"
+            if individual
+            else f"/route-groups/{test_route_group.route_group_id}"
+        )
+
+        preview = await async_client.get(f"{url}/deletion-impact")
+        assert preview.status_code == 200
+        assert preview.json()["blocked_code"] == (
+            "completed_route" if frozen else "past_date"
+        )
+        response = await async_client.delete(url)
+        assert response.status_code == 409
+        assert response.json()["detail"] == preview.json()["blocked_reason"]
+        assert (
+            await test_session.get(Route, route_id, populate_existing=True) is not None
+        )
+        if frozen:
+            assert (
+                await test_session.get(RouteSnapshot, route_id, populate_existing=True)
+                is not None
+            )
 
     @pytest.mark.asyncio
     async def test_get_route_groups_with_date_filter(

@@ -24,6 +24,10 @@ from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
 )
+from app.services.implementations.route_deletion import (
+    RouteDeletionImpact,
+    get_route_deletion_impact,
+)
 from app.services.implementations.route_group_service import RouteGroupService
 
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
@@ -162,6 +166,15 @@ async def duplicate_route_group(
             detail=f"RouteGroup with id {route_group_id} not found",
         )
     return duplicated_route_group
+
+
+@router.get("/{route_group_id}/deletion-impact")
+async def get_route_group_delete_impact(
+    route_group_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> RouteDeletionImpact:
+    return await get_route_deletion_impact(session, route_group_id, individual=False)
 
 
 @router.delete("/{route_group_id}", status_code=status.HTTP_204_NO_CONTENT)

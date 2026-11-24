@@ -31,6 +31,7 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.implementations.route_deletion import delete_route_scope
 from app.utilities.boxes import (
     box_count_expr,
     compute_boxes,
@@ -414,24 +415,7 @@ class RouteService:
         )
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
-        """Delete route by ID"""
-        try:
-            statement = select(Route).where(Route.route_id == route_id)
-            result = await session.execute(statement)
-            route = result.scalars().first()
-
-            if not route:
-                self.logger.error(f"Route with id {route_id} not found")
-                return False
-
-            await session.delete(route)
-            await session.commit()
-
-            return True
-        except Exception as error:
-            self.logger.error(f"Failed to delete route {route_id}: {error!s}")
-            await session.rollback()
-            raise error
+        return await delete_route_scope(session, route_id, individual=True)
 
     async def update_route(
         self,
