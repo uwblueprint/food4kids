@@ -1792,6 +1792,46 @@ export type ResendOnboardingEmailRequest = {
 export type RoleEnum = 'driver' | 'admin';
 
 /**
+ * RouteDeletionBlockCode
+ */
+export type RouteDeletionBlockCode = 'past_date' | 'completed_route';
+
+/**
+ * RouteDeletionImpact
+ */
+export type RouteDeletionImpact = {
+  blocked_code: RouteDeletionBlockCode | null;
+  /**
+   * Blocked Reason
+   */
+  blocked_reason: string | null;
+  /**
+   * Drive Date
+   */
+  drive_date: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Num Drivers
+   */
+  num_drivers: number;
+  /**
+   * Num Routes
+   */
+  num_routes: number;
+  /**
+   * Num Stops
+   */
+  num_stops: number;
+  /**
+   * Num Unrouted Locations
+   */
+  num_unrouted_locations: number;
+};
+
+/**
  * RouteDetailRead
  *
  * GET /routes/{route_id} response: the bare route plus its ordered stops.
@@ -4774,6 +4814,38 @@ export type UpdateRouteGroupResponses = {
 export type UpdateRouteGroupResponse =
   UpdateRouteGroupResponses[keyof UpdateRouteGroupResponses];
 
+export type GetRouteGroupDeleteImpactData = {
+  body?: never;
+  path: {
+    /**
+     * Route Group Id
+     */
+    route_group_id: string;
+  };
+  query?: never;
+  url: '/api/route-groups/{route_group_id}/deletion-impact';
+};
+
+export type GetRouteGroupDeleteImpactErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRouteGroupDeleteImpactError =
+  GetRouteGroupDeleteImpactErrors[keyof GetRouteGroupDeleteImpactErrors];
+
+export type GetRouteGroupDeleteImpactResponses = {
+  /**
+   * Successful Response
+   */
+  200: RouteDeletionImpact;
+};
+
+export type GetRouteGroupDeleteImpactResponse =
+  GetRouteGroupDeleteImpactResponses[keyof GetRouteGroupDeleteImpactResponses];
+
 export type DuplicateRouteGroupData = {
   /**
    * Overrides
@@ -5010,6 +5082,38 @@ export type UpdateRouteResponses = {
 
 export type UpdateRouteResponse =
   UpdateRouteResponses[keyof UpdateRouteResponses];
+
+export type GetRouteDeleteImpactData = {
+  body?: never;
+  path: {
+    /**
+     * Route Id
+     */
+    route_id: string;
+  };
+  query?: never;
+  url: '/api/routes/{route_id}/deletion-impact';
+};
+
+export type GetRouteDeleteImpactErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRouteDeleteImpactError =
+  GetRouteDeleteImpactErrors[keyof GetRouteDeleteImpactErrors];
+
+export type GetRouteDeleteImpactResponses = {
+  /**
+   * Successful Response
+   */
+  200: RouteDeletionImpact;
+};
+
+export type GetRouteDeleteImpactResponse =
+  GetRouteDeleteImpactResponses[keyof GetRouteDeleteImpactResponses];
 
 export type GetGoogleMapsLinkData = {
   body?: never;

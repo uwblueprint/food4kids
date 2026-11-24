@@ -127,7 +127,13 @@ import type {
   GetOrgContactData,
   GetOrgContactResponses,
   GetRouteData,
+  GetRouteDeleteImpactData,
+  GetRouteDeleteImpactErrors,
+  GetRouteDeleteImpactResponses,
   GetRouteErrors,
+  GetRouteGroupDeleteImpactData,
+  GetRouteGroupDeleteImpactErrors,
+  GetRouteGroupDeleteImpactResponses,
   GetRouteGroupsData,
   GetRouteGroupsErrors,
   GetRouteGroupsResponses,
@@ -1408,6 +1414,23 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Route Group Delete Impact
+ */
+export const getRouteGroupDeleteImpact = <ThrowOnError extends boolean = false>(
+  options: Options<GetRouteGroupDeleteImpactData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetRouteGroupDeleteImpactResponses,
+    GetRouteGroupDeleteImpactErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/route-groups/{route_group_id}/deletion-impact',
+    ...options,
+  });
+
+/**
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
@@ -1545,6 +1568,23 @@ export const updateRoute = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Route Delete Impact
+ */
+export const getRouteDeleteImpact = <ThrowOnError extends boolean = false>(
+  options: Options<GetRouteDeleteImpactData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetRouteDeleteImpactResponses,
+    GetRouteDeleteImpactErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/routes/{route_id}/deletion-impact',
+    ...options,
   });
 
 /**

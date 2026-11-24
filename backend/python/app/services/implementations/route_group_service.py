@@ -25,6 +25,7 @@ from app.models.route_group import (
 )
 from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.implementations.route_deletion import delete_route_scope
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
 from app.utilities.datetime_utils import today_local
 from app.utilities.pagination import paginate_query
@@ -504,19 +505,4 @@ class RouteGroupService:
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID
     ) -> bool:
-        """Delete a route group. Cascades to its routes (and their stops +
-        snapshots via further cascades)."""
-        statement = select(RouteGroup).where(
-            RouteGroup.route_group_id == route_group_id
-        )
-        result = await session.execute(statement)
-        route_group = result.scalars().first()
-
-        if not route_group:
-            self.logger.error(f"RouteGroup with id {route_group_id} not found")
-            return False
-
-        await session.delete(route_group)
-        await session.commit()
-
-        return True
+        return await delete_route_scope(session, route_group_id, individual=False)

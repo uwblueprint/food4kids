@@ -96,7 +96,11 @@ class Route(RouteBase, BaseModel, table=True):
 
     # Relationships
     route_stops: list["RouteStop"] = Relationship(
-        back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="route",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "passive_deletes": True,
+        },
     )
     route_group: "RouteGroup" = Relationship(back_populates="routes")
     # Optional[] (not "X | None") because SQLAlchemy's relationship resolver
