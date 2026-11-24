@@ -225,8 +225,7 @@ export function GenerateStep() {
   // The generate endpoint's only 400 is the one-route-per-family-per-day
   // refusal; other rejections (e.g. 422) keep the generic wording.
   const startRefusedForDoubleBooking =
-    isAxiosError(jobCreationError) &&
-    jobCreationError.response?.status === 400;
+    isAxiosError(jobCreationError) && jobCreationError.response?.status === 400;
   const errorMessage = jobCreationError
     ? startRefusedForDoubleBooking
       ? 'Some families in this group already have routes on that day. Delete those routes or pick another date.'
