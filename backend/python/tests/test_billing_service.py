@@ -18,7 +18,9 @@ class _FakeBillingClient:
     def __init__(self, budget_error: Exception | None = None) -> None:
         self.budget_error = budget_error
 
-    def fetch_month_to_date_cost(self, _now: datetime) -> CostInfo:
+    def fetch_month_to_date_cost(
+        self, _now: datetime, *, include_history: bool = False
+    ) -> CostInfo:
         return CostInfo(
             gross_cost=100.0,
             credits=-25.0,
@@ -26,6 +28,7 @@ class _FakeBillingClient:
             usd_conversion_rate=1.37,
             last_export_time=datetime(2026, 7, 29, 15, 0),
             year_to_date_cost=250.0,
+            all_time_cost=480.0 if include_history else None,
         )
 
     def fetch_budget(self) -> BudgetInfo | None:
@@ -50,7 +53,7 @@ class TestMonthToDateSummary:
     ) -> None:
         monkeypatch.setattr(settings, "billing_target_project_id", "f4k-123")
 
-        summary = await _service().get_month_to_date_summary()
+        summary = await _service().get_month_to_date_summary(include_history=True)
 
         assert summary.project_id == "f4k-123"
         assert summary.gross_cost == 100.0
@@ -58,6 +61,7 @@ class TestMonthToDateSummary:
         assert summary.usd_conversion_rate == 1.37
         assert summary.month_to_date_cost == 75.0
         assert summary.year_to_date_cost == 250.0
+        assert summary.all_time_cost == 480.0
         assert summary.budget_amount == 500.0
         assert summary.budget_scope == "project"
         assert summary.data_as_of == datetime(2026, 7, 29, 15, 0)
@@ -85,11 +89,32 @@ class TestBudgetDegradation:
         assert summary.budget_scope is None
         assert summary.budget_currency is None
 
+    async def test_historical_failure_preserves_monthly_and_yearly_costs(self) -> None:
+        class _HistoryUnavailable(_FakeBillingClient):
+            def fetch_month_to_date_cost(
+                self, now: datetime, *, include_history: bool = False
+            ) -> CostInfo:
+                if include_history:
+                    raise BillingError("historical scan exceeds the bytes-billed cap")
+                return super().fetch_month_to_date_cost(now)
+
+        import logging
+
+        service = BillingService(logging.getLogger(__name__), _HistoryUnavailable())  # type: ignore[arg-type]
+        summary = await service.get_month_to_date_summary(include_history=True)
+
+        assert summary.gross_cost == 100.0
+        assert summary.year_to_date_cost == 250.0
+        assert summary.all_time_cost is None
+
     async def test_cost_failure_still_propagates(self) -> None:
         """Costs are the point of the endpoint, so their failure is fatal."""
 
         class _Failing(_FakeBillingClient):
-            def fetch_month_to_date_cost(self, _now: datetime) -> CostInfo:
+            def fetch_month_to_date_cost(
+                self, _now: datetime, *, include_history: bool = False
+            ) -> CostInfo:
+                assert not include_history
                 raise BillingError("export table not found")
 
         import logging
@@ -107,9 +132,13 @@ class TestNoCaching:
         calls: list[Any] = []
 
         class _Counting(_FakeBillingClient):
-            def fetch_month_to_date_cost(self, now: datetime) -> CostInfo:
+            def fetch_month_to_date_cost(
+                self, now: datetime, *, include_history: bool = False
+            ) -> CostInfo:
                 calls.append(now)
-                return super().fetch_month_to_date_cost(now)
+                return super().fetch_month_to_date_cost(
+                    now, include_history=include_history
+                )
 
         import logging
 

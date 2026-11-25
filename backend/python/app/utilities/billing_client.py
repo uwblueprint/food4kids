@@ -31,9 +31,8 @@ if TYPE_CHECKING:
 
 SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
-# The export table is partitioned on _PARTITIONTIME, which can lag a row's usage
-# time. Floor the partition scan this far before the year start so the filter
-# only trims cost, never rows.
+# The export is partitioned on ingestion time, which can differ from usage time.
+# Scanning from before the year starts preserves the boundary for scoped queries.
 PARTITION_LOOKBACK_DAYS = 2
 
 T = TypeVar("T")
@@ -105,7 +104,7 @@ class BudgetInfo:
 
 @dataclass
 class CostInfo:
-    """Monthly invoice and calendar-year usage costs for a single project."""
+    """Monthly invoice, calendar-year, and historical usage costs for a single project."""
 
     gross_cost: float
     credits: float
@@ -114,6 +113,7 @@ class CostInfo:
     usd_conversion_rate: float | None
     last_export_time: datetime | None
     year_to_date_cost: float = 0.0
+    all_time_cost: float | None = None
 
     @property
     def net_cost(self) -> float:
@@ -136,6 +136,7 @@ class BillingClient:
         # thread-safe, so this guards the call as well as the construction.
         self._budgets_api_lock = threading.Lock()
         self._cost_cache: _TimedCache[CostInfo] = _TimedCache()
+        self._historical_cost_cache: _TimedCache[CostInfo] = _TimedCache()
         self._budget_cache: _TimedCache[BudgetInfo | None] = _TimedCache()
 
     def _ensure_credentials(self) -> google.auth.credentials.Credentials:
@@ -275,8 +276,10 @@ class BillingClient:
             scope=scope,
         )
 
-    def fetch_month_to_date_cost(self, now: datetime) -> CostInfo:
-        """Query monthly invoice spend and calendar-year usage spend together.
+    def fetch_month_to_date_cost(
+        self, now: datetime, *, include_history: bool = False
+    ) -> CostInfo:
+        """Query monthly invoice, calendar-year, and historical spend together.
 
         The yearly total follows usage timestamps rather than invoice months:
         a late invoice adjustment for last year's usage must not count toward
@@ -293,7 +296,8 @@ class BillingClient:
                 )
 
         invoice_month = now.strftime("%Y%m")
-        hit, cached = self._cost_cache.get(invoice_month)
+        cache = self._historical_cost_cache if include_history else self._cost_cache
+        hit, cached = cache.get(invoice_month)
         if hit and cached is not None:
             return cached
 
@@ -302,8 +306,15 @@ class BillingClient:
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         year_start = month_start.replace(month=1)
 
-        # Dataset/table come from settings, never from the request, so they are
-        # safe to interpolate; the filters are bound parameters.
+        # Historical scans are only used by the dashboard. Keep the partition
+        # floor for route-generation budget checks.
+        usage_window = "usage_start_time < @now"
+        partition_filter = ""
+        if not include_history:
+            usage_window = f"usage_start_time >= @year_start AND {usage_window}"
+            partition_filter = "AND _PARTITIONTIME >= TIMESTAMP(@partition_floor)"
+
+        # Dataset/table come from settings and the filters use bound parameters.
         query = f"""
             SELECT
               SUM(IF(invoice.month = @invoice_month, cost, 0)) AS gross_cost,
@@ -313,6 +324,9 @@ class BillingClient:
               SUM(IF(usage_start_time >= @year_start AND usage_start_time < @now,
                 cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0),
                 0)) AS year_to_date_cost,
+              SUM(IF(usage_start_time < @now,
+                cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0),
+                0)) AS historical_cost,
               ANY_VALUE(currency) AS currency,
               MAX(IF(invoice.month = @invoice_month,
                 currency_conversion_rate, NULL)) AS usd_conversion_rate,
@@ -321,25 +335,29 @@ class BillingClient:
             FROM `{settings.billing_target_project_id}.{settings.billing_export_dataset}.{settings.billing_export_table}`
             WHERE project.id = @project_id
               AND (invoice.month = @invoice_month
-                OR (usage_start_time >= @year_start AND usage_start_time < @now))
-              AND _PARTITIONTIME >= TIMESTAMP(@partition_floor)
+                OR ({usage_window}))
+              {partition_filter}
         """
 
-        job_config = bigquery.QueryJobConfig(
-            maximum_bytes_billed=settings.billing_max_bytes_billed,
-            query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "project_id", "STRING", settings.billing_target_project_id
-                ),
-                bigquery.ScalarQueryParameter("invoice_month", "STRING", invoice_month),
-                bigquery.ScalarQueryParameter("year_start", "TIMESTAMP", year_start),
-                bigquery.ScalarQueryParameter("now", "TIMESTAMP", now),
+        parameters = [
+            bigquery.ScalarQueryParameter(
+                "project_id", "STRING", settings.billing_target_project_id
+            ),
+            bigquery.ScalarQueryParameter("invoice_month", "STRING", invoice_month),
+            bigquery.ScalarQueryParameter("year_start", "TIMESTAMP", year_start),
+            bigquery.ScalarQueryParameter("now", "TIMESTAMP", now),
+        ]
+        if not include_history:
+            parameters.append(
                 bigquery.ScalarQueryParameter(
                     "partition_floor",
                     "TIMESTAMP",
                     year_start - timedelta(days=PARTITION_LOOKBACK_DAYS),
-                ),
-            ],
+                )
+            )
+        job_config = bigquery.QueryJobConfig(
+            maximum_bytes_billed=settings.billing_max_bytes_billed,
+            query_parameters=parameters,
         )
 
         try:
@@ -367,12 +385,12 @@ class BillingClient:
             self.logger.exception("Unexpected error querying billing export")
             raise BillingError("Cost query failed due to an unexpected error.") from e
 
-        cost = self._parse_cost_row(rows[0] if rows else None)
-        self._cost_cache.set(invoice_month, cost)
+        cost = self._parse_cost_row(rows[0] if rows else None, include_history)
+        cache.set(invoice_month, cost)
         return cost
 
     @staticmethod
-    def _parse_cost_row(row: object) -> CostInfo:
+    def _parse_cost_row(row: object, include_history: bool = False) -> CostInfo:
         """Build CostInfo from a result row.
 
         A month with no usage yet aggregates to a single all-NULL row rather than
@@ -389,4 +407,7 @@ class BillingClient:
             usd_conversion_rate=_get("usd_conversion_rate"),  # type: ignore[arg-type]
             last_export_time=_get("last_export_time"),  # type: ignore[arg-type]
             year_to_date_cost=float(_get("year_to_date_cost") or 0.0),  # type: ignore[arg-type]
+            all_time_cost=(
+                float(_get("historical_cost") or 0.0) if include_history else None  # type: ignore[arg-type]
+            ),
         )

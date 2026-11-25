@@ -49,6 +49,7 @@ class FakeRow:
     usd_conversion_rate: float | None
     last_export_time: datetime | None
     year_to_date_cost: float | None = 250.0
+    historical_cost: float | None = 480.0
 
 
 def _budget(
@@ -462,6 +463,21 @@ class TestQueryCost:
         )
         assert cost.year_to_date_cost == 250.0
         assert cost.net_cost == 0.75
+
+    def test_all_time_includes_usage_before_the_current_year(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+    ) -> None:
+        fake, _ = fake_bq
+
+        cost = configured.fetch_month_to_date_cost(
+            datetime(2026, 7, 29), include_history=True
+        )
+
+        assert "OR (usage_start_time < @now))" in fake.queries[0]
+        assert "_PARTITIONTIME" not in fake.queries[0]
+        assert cost.all_time_cost == 480.0
 
     def test_query_caps_bytes_billed(
         self,
