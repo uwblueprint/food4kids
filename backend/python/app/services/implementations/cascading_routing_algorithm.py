@@ -40,7 +40,7 @@ SINGLE_VEHICLE_USD_PER_SHIPMENT = 10.0 / 1000
 class Tier:
     name: str
     algorithm: RoutingAlgorithmProtocol
-    # None for the free in-house floor.
+    # Every location is one billed shipment. None for the free in-house floor.
     usd_per_shipment: float | None = None
 
 
@@ -85,7 +85,7 @@ class CascadingRoutingAlgorithm:
         for tier in self.tiers:
             # Nothing is sent yet, so a failed check only costs this tier.
             try:
-                approved = await self._approve(tier, len(locations), settings)
+                approved = await self._approve(tier, len(locations))
             except Exception:
                 logger.exception("Could not check spend for tier %s", tier.name)
                 attempts.append(f"{tier.name} (spend check failed)")
@@ -116,13 +116,8 @@ class CascadingRoutingAlgorithm:
 
         raise RuntimeError("No routing tier could run. Tried: " + ", ".join(attempts))
 
-    async def _approve(
-        self, tier: Tier, num_locations: int, settings: RouteGenerationSettings
-    ) -> bool:
+    async def _approve(self, tier: Tier, num_locations: int) -> bool:
         if tier.usd_per_shipment is None:
             return True
-        # Every vehicle in a request carries one forced pickup shipment, and
-        # both tiers send at most num_routes vehicles in total.
-        shipments = num_locations + settings.num_routes
-        cost_usd = shipments * tier.usd_per_shipment
-        return await self.spend.try_charge(tier.name, shipments, cost_usd)
+        cost_usd = num_locations * tier.usd_per_shipment
+        return await self.spend.try_charge(tier.name, num_locations, cost_usd)
