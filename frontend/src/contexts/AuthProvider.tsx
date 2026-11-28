@@ -4,11 +4,11 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useLogout, useRefresh } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { Button } from '@/common/components/Button';
+import { homePathForRole, isRole } from '@/common/utils';
 
 import { useInactivityTimeout } from './useInactivityTimeout';
 
 const PUBLIC_ROUTES = [
-  '/login',
   '/create-password',
   '/forgot-password',
   '/get-login-link',
@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
+  const role = useAuthStore((state) => state.user?.role);
   const rememberMe = useAuthStore((state) => state.rememberMe);
 
   const [graceElapsed, setGraceElapsed] = useState(false);
@@ -86,8 +87,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // /login goes through the session check so a signed-in user who opens it
+  // is sent to their home instead of being shown the form again.
+  const isLoginPage = location.pathname === '/login';
+
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return isLoginPage ? <>{children}</> : <Navigate to="/login" replace />;
+  }
+
+  // An unrecognised role has no home (homePathForRole gives back /login), so
+  // show it the form rather than redirecting to itself forever.
+  if (isLoginPage && isRole(role)) {
+    return <Navigate to={homePathForRole(role)} replace />;
   }
 
   return <>{children}</>;

@@ -40,7 +40,10 @@ class RouteGroup(RouteGroupBase, BaseModel, table=True):
     # stops + snapshots).
     routes: list["Route"] = Relationship(
         back_populates="route_group",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "passive_deletes": True,
+        },
     )
 
     @property

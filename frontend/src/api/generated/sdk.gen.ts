@@ -127,7 +127,13 @@ import type {
   GetOrgContactData,
   GetOrgContactResponses,
   GetRouteData,
+  GetRouteDeleteImpactData,
+  GetRouteDeleteImpactErrors,
+  GetRouteDeleteImpactResponses,
   GetRouteErrors,
+  GetRouteGroupDeleteImpactData,
+  GetRouteGroupDeleteImpactErrors,
+  GetRouteGroupDeleteImpactResponses,
   GetRouteGroupsData,
   GetRouteGroupsErrors,
   GetRouteGroupsResponses,
@@ -153,6 +159,9 @@ import type {
   LogoutResponses,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponses,
+  MarkNoteReadData,
+  MarkNoteReadErrors,
+  MarkNoteReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
@@ -413,7 +422,11 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes refresh tokens and clears cookies
+ * Ends this browser's session by clearing its auth cookies.
+ *
+ * Deliberately does not revoke with Firebase: `revoke_refresh_tokens` ends
+ * every session the user has, so logging out (or idling out) on one device
+ * would sign them out everywhere. Password reset still revokes everything.
  */
 export const logout = <ThrowOnError extends boolean = false>(
   options?: Options<LogoutData, ThrowOnError>
@@ -781,6 +794,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
  * Accept a generation request: persist it as PENDING and wake the worker.
  *
  * Admin-only — route generation is an admin workflow, and it burns Maps quota.
+ * Refused with 400 if any family in the group already has a route that day,
+ * since a family should be on at most one route per day.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>
@@ -1230,6 +1245,24 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Mark Note Read
+ *
+ * Mark a location note as viewed for the current admin only.
+ */
+export const markNoteRead = <ThrowOnError extends boolean = false>(
+  options: Options<MarkNoteReadData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    MarkNoteReadResponses,
+    MarkNoteReadErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/notes/{note_id}/read',
+    ...options,
+  });
+
+/**
  * Get Monthly Series
  *
  * Return km and deliveries per month for a trailing window, oldest first.
@@ -1381,10 +1414,29 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Route Group Delete Impact
+ */
+export const getRouteGroupDeleteImpact = <ThrowOnError extends boolean = false>(
+  options: Options<GetRouteGroupDeleteImpactData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetRouteGroupDeleteImpactResponses,
+    GetRouteGroupDeleteImpactErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/route-groups/{route_group_id}/deletion-impact',
+    ...options,
+  });
+
+/**
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
- * Optional body overrides the copy's name and drive date.
+ * Optional body overrides the copy's name and drive date. The date must be
+ * one none of the group's families are already routed on, so in practice
+ * it's needed.
  */
 export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<DuplicateRouteGroupData, ThrowOnError>
@@ -1516,6 +1568,23 @@ export const updateRoute = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Route Delete Impact
+ */
+export const getRouteDeleteImpact = <ThrowOnError extends boolean = false>(
+  options: Options<GetRouteDeleteImpactData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetRouteDeleteImpactResponses,
+    GetRouteDeleteImpactErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/routes/{route_id}/deletion-impact',
+    ...options,
   });
 
 /**

@@ -195,6 +195,8 @@ export function RouteGroupPanel({ group, onClose }: RouteGroupPanelProps) {
                     <div className="min-w-0">
                       <Link
                         to={`/admin/routes/${route.route_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-p1 flex items-center gap-1 font-semibold text-blue-300 hover:underline"
                       >
                         <span className="truncate">{route.name}</span>

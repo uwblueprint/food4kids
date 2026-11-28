@@ -3,7 +3,7 @@
 The invariant under test throughout: a driver's km is always
 SUM(route.length) over their FROZEN routes (those with a RouteSnapshot),
 bucketed by the group's drive_date month. There is no stored total — so
-reassignment, route edits, date corrections, and deletions all update
+reassignment, route edits, and date corrections all update
 history automatically and can never drift.
 """
 
@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -331,18 +332,17 @@ async def test_reassignment_just_works(
 
 
 @pytest.mark.asyncio
-async def test_route_delete_removes_km(
+async def test_blocked_route_deletion_preserves_mileage(
     test_session: AsyncSession, frozen_world: dict[str, Any]
 ) -> None:
-    """Deleting a route removes its km — deletion means 'this never
-    happened' (mistake correction), not archiving. Routes are kept forever
-    otherwise; storage is trivial."""
+    """Historical route mileage remains after a rejected deletion."""
     service = RouteService(logger)
     a = frozen_world["driver_a"].driver_id
 
-    deleted = await service.delete_route(test_session, frozen_world["route"].route_id)
-    assert deleted is True
-    assert await _lifetime(test_session, a) == pytest.approx(0.0)
+    with pytest.raises(HTTPException) as exc:
+        await service.delete_route(test_session, frozen_world["route"].route_id)
+    assert exc.value.status_code == 409
+    assert await _lifetime(test_session, a) == pytest.approx(FROZEN_KM)
 
 
 @pytest.mark.asyncio

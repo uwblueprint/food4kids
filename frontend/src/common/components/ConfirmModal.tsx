@@ -24,6 +24,7 @@ interface ConfirmModalProps {
   cancelLabel?: string;
   /** Disables both actions while the confirmed action is in flight. */
   isLoading?: boolean;
+  confirmDisabled?: boolean;
   /** Shown beside the actions when the confirmed action failed. */
   error?: React.ReactNode;
 }
@@ -45,6 +46,7 @@ export function ConfirmModal({
   confirmVariant = 'primary',
   cancelLabel = 'Cancel',
   isLoading = false,
+  confirmDisabled = false,
   error = null,
 }: ConfirmModalProps) {
   return (
@@ -74,7 +76,7 @@ export function ConfirmModal({
             type="button"
             variant={confirmVariant}
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
           >
             {confirmLabel}
           </Button>

@@ -31,6 +31,7 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.implementations.route_deletion import delete_route_scope
 from app.utilities.boxes import (
     box_count_expr,
     compute_boxes,
@@ -77,6 +78,9 @@ class RouteService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         route_group_id: UUID | None = None,
+        sort_by: Literal[
+            "group_name", "drive_date", "delivery_type", "status"
+        ] = "drive_date",
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes, filtered and paginated. Powers both the admin Routes tab
@@ -90,8 +94,9 @@ class RouteService:
             search: Case-insensitive substring of the assigned driver's full
                 name, the route's name, or its group's name, applied before
                 pagination.
-            order: drive_date ordering — "asc" for the upcoming feed, "desc"
-                for the past feed.
+            sort_by: Column to sort by before pagination (default drive_date).
+            order: Direction for sort_by — for drive_date, "asc" is the
+                upcoming feed and "desc" the past feed.
             weekday, delivery_type, route_status, driver_assignment_status:
                 the Groups-tab filters, applied per route. Upcoming = drive_date
                 today or later, Completed = earlier.
@@ -254,16 +259,24 @@ class RouteService:
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
-        drive_date_order = (
-            col(RouteGroup.drive_date).desc()
-            if order == "desc"
-            else col(RouteGroup.drive_date).asc()
+        # NULL delivery types (routes with no stops) go last either way.
+        sort_expr: Any = {
+            "group_name": col(RouteGroup.name),
+            "drive_date": col(RouteGroup.drive_date),
+            "delivery_type": delivery_type_expr,
+            "status": status_expr,
+        }[sort_by]
+        primary_order = (
+            sort_expr.desc() if order == "desc" else sort_expr.asc()
+        ).nulls_last()
+        # route_id last so the order is total and rows can't shuffle between
+        # pages.
+        tie_breakers = (
+            [] if sort_by == "drive_date" else [col(RouteGroup.drive_date).asc()]
         )
-        # route_id last so the order is total: two routes on the same date can
-        # share a name, and paginate_query's count and page are separate
-        # statements, so any remaining tie can shuffle a row between pages.
         statement = statement.order_by(
-            drive_date_order,
+            primary_order,
+            *tie_breakers,
             *route_name_order_by(col(Route.name), col(Route.route_id)),
         )
 
@@ -402,24 +415,7 @@ class RouteService:
         )
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
-        """Delete route by ID"""
-        try:
-            statement = select(Route).where(Route.route_id == route_id)
-            result = await session.execute(statement)
-            route = result.scalars().first()
-
-            if not route:
-                self.logger.error(f"Route with id {route_id} not found")
-                return False
-
-            await session.delete(route)
-            await session.commit()
-
-            return True
-        except Exception as error:
-            self.logger.error(f"Failed to delete route {route_id}: {error!s}")
-            await session.rollback()
-            raise error
+        return await delete_route_scope(session, route_id, individual=True)
 
     async def update_route(
         self,
@@ -484,6 +480,47 @@ class RouteService:
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:
+                if len(set(patch.location_ids)) != len(patch.location_ids):
+                    raise ValueError("A location can only appear once on a route")
+
+                # A family gets one delivery a day. Only newly added families are
+                # checked, so an existing double-booking can't lock the route.
+                current = set(
+                    (
+                        await session.execute(
+                            select(RouteStop.location_id).where(
+                                RouteStop.route_id == route_id
+                            )
+                        )
+                    ).scalars()
+                )
+                added = [loc for loc in patch.location_ids if loc not in current]
+                drive_date = (
+                    await session.execute(
+                        select(col(RouteGroup.drive_date)).where(
+                            RouteGroup.route_group_id == route.route_group_id
+                        )
+                    )
+                ).scalar_one()
+                taken = (
+                    await session.execute(
+                        select(Route.name, RouteGroup.name)
+                        .join(RouteStop)
+                        .join(RouteGroup)
+                        .where(
+                            RouteGroup.drive_date == drive_date,
+                            Route.route_id != route_id,
+                            col(RouteStop.location_id).in_(added),
+                        )
+                        .distinct()
+                    )
+                ).all()
+                if taken:
+                    raise ValueError(
+                        "Some locations are already on another route that day: "
+                        + ", ".join(sorted(f"{r} ({g})" for r, g in taken))
+                    )
+
                 location_results = await session.execute(
                     select(Location).where(
                         col(Location.location_id).in_(patch.location_ids)
@@ -526,13 +563,19 @@ class RouteService:
                 warehouse_lat = system_settings.warehouse_latitude
                 warehouse_lon = system_settings.warehouse_longitude
 
-                # Call fetch route polyline for new polyline + distance
-                encoded_polyline, distance_km = await fetch_route_polyline(
-                    locations=ordered_locations,
-                    warehouse_lat=warehouse_lat,
-                    warehouse_lon=warehouse_lon,
-                    ends_at_warehouse=route.ends_at_warehouse,
-                )
+                # Call fetch route polyline for new polyline + distance. An
+                # empty route (all stops removed) has no geometry, so skip the
+                # Routes API call entirely.
+                encoded_polyline: str | None
+                if ordered_locations:
+                    encoded_polyline, distance_km = await fetch_route_polyline(
+                        locations=ordered_locations,
+                        warehouse_lat=warehouse_lat,
+                        warehouse_lon=warehouse_lon,
+                        ends_at_warehouse=route.ends_at_warehouse,
+                    )
+                else:
+                    encoded_polyline, distance_km = None, 0.0
 
                 # Delete existing route stops
                 existing_stops_result = await session.execute(
