@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
 from app.utilities.boxes import compute_boxes
+from app.utilities.geo import haversine_km
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -334,10 +335,10 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         return sum(map(self._boxes, stops))
 
     def _km(self, a: Location, b: Location) -> float:
-        return _haversine_km(_coordinates(a), _coordinates(b))
+        return haversine_km(*_coordinates(a), *_coordinates(b))
 
     def _warehouse_km(self, location: Location) -> float:
-        return _haversine_km(self._warehouse, _coordinates(location))
+        return haversine_km(*self._warehouse, *_coordinates(location))
 
 
 def _coordinates(location: Location) -> tuple[float, float]:
@@ -350,15 +351,6 @@ def _coordinates(location: Location) -> tuple[float, float]:
             f"Location {location.location_id} is missing longitude."
         )
     return location.latitude, location.longitude
-
-
-def _haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
-    phi1, phi2 = math.radians(a[0]), math.radians(b[0])
-    h = (
-        math.sin((phi2 - phi1) / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(math.radians(b[1] - a[1]) / 2) ** 2
-    )
-    return 6371.0 * 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h))
 
 
 class SweepRoutingAlgorithm:

@@ -253,12 +253,13 @@ def test_route_generation_settings_declare_no_default(field: str) -> None:
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
+        ("num_routes", 0),
         ("max_boxes_per_driver", 0),
         ("children_per_box", 0),
     ],
 )
 def test_unusable_configured_numbers_are_rejected(field: str, expected: int) -> None:
-    """A capacity or divisor of zero can't size a route."""
+    """Zero routes, capacity or divisor can't size a route."""
     values: dict[str, Any] = {
         "route_start_time": datetime(2026, 6, 1, 8, 0),
         "num_routes": 1,

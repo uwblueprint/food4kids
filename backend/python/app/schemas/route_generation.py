@@ -27,7 +27,7 @@ class RouteGenerationSettings(SQLModel):
     # so a wrong date plans the day against the wrong traffic. Naive values are
     # read as warehouse-local time (settings.scheduler_timezone).
     route_start_time: datetime
-    num_routes: int
+    num_routes: int = Field(ge=1)
     # SystemSettings.boxes_per_car — the per-car capacity, in boxes.
     max_boxes_per_driver: int = Field(gt=0)
     # SystemSettings.children_per_box; used to derive per-location box counts as

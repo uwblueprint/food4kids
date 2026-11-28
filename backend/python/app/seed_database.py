@@ -61,6 +61,7 @@ from app.models.system_settings import (
 from app.models.user import User
 from app.utilities.datetime_utils import from_local_wall_clock, now_utc, today_local
 from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.geo import haversine_km
 from app.utilities.seed_images import render_seed_image
 
 # Initialize Faker
@@ -127,8 +128,6 @@ ASSIGNMENT_RATIO_NEXT_WEEK = 0.8
 ASSIGNMENT_RATIO_FUTURE_ROUTES = 0.4
 
 # Numeric range constants
-# Earth's radius in kilometers (used for haversine distance calculations)
-EARTH_RADIUS_KM = 6371
 # Random state seed for KMeans clustering (for reproducibility)
 KMEANS_RANDOM_STATE = 42
 # Number of times KMeans will run with different centroid seeds
@@ -534,22 +533,6 @@ def generate_valid_phone(*, with_extension: bool = False) -> str:
     return "tel:+1-416-555-1234"
 
 
-def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate haversine distance between two points in km"""
-    from math import asin, cos, radians, sin, sqrt
-
-    # Convert to radians
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-
-    # Haversine formula
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    c = 2 * asin(sqrt(a))
-    r = EARTH_RADIUS_KM
-    return c * r
-
-
 def simple_tsp(
     warehouse_lat: float,
     warehouse_lon: float,
@@ -566,12 +549,12 @@ def simple_tsp(
     while unvisited:
         # Find nearest unvisited location
         nearest_idx = 0
-        nearest_dist = haversine_distance(
+        nearest_dist = haversine_km(
             current_lat, current_lon, unvisited[0][0], unvisited[0][1]
         )
 
         for i, (lat, lon, _) in enumerate(unvisited[1:], 1):
-            dist = haversine_distance(current_lat, current_lon, lat, lon)
+            dist = haversine_km(current_lat, current_lon, lat, lon)
             if dist < nearest_dist:
                 nearest_dist = dist
                 nearest_idx = i
@@ -626,9 +609,7 @@ def calculate_route_length(
         )
         if location.latitude is None or location.longitude is None:
             continue
-        dist = haversine_distance(
-            prev_lat, prev_lon, location.latitude, location.longitude
-        )
+        dist = haversine_km(prev_lat, prev_lon, location.latitude, location.longitude)
         total_length += dist
         prev_lat, prev_lon = location.latitude, location.longitude
 

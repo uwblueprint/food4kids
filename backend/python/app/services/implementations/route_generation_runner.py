@@ -96,6 +96,12 @@ async def run_generation_job(
             request.settings.route_start_time.date(),
         )
         warehouse_lat, warehouse_lon = await _resolve_warehouse(session)
+        if request.settings.num_routes > len(locations):
+            raise GenerationFailed(
+                f"Asked for {request.settings.num_routes} route(s) for "
+                f"{len(locations)} location(s). Every route needs at least one "
+                "stop, so ask for at most one route per location."
+            )
 
         logger.info(
             "Job %s generating with %s for %d location(s) in group '%s' "
@@ -117,10 +123,9 @@ async def run_generation_job(
                 timeout_seconds=ENGINE_TIMEOUT_SECONDS,
             )
             logger.info(
-                "Job %s routing engine finished in %.1fs (%d non-empty cluster(s)).",
+                "Job %s routing engine finished in %.1fs.",
                 job_id,
                 time.perf_counter() - engine_started,
-                sum(1 for cluster in clusters if cluster),
             )
             route_group = await _build_route_group(
                 group, request.settings, clusters, warehouse_lat, warehouse_lon
@@ -374,10 +379,12 @@ async def _build_route_group(
     Nothing here touches the session, because the caller may still throw the
     whole thing away if the job was cancelled while these calls were running.
     """
-    filled = [cluster for cluster in clusters if cluster]
-    if not filled:
+    # The coordinator chose the route count, so every route must have stops.
+    empty = sum(1 for cluster in clusters if not cluster)
+    if len(clusters) != settings.num_routes or empty:
         raise GenerationFailed(
-            "The routing engine did not place any locations onto a route."
+            f"Asked for {settings.num_routes} route(s), but the routing engine "
+            f"returned {len(clusters)}, {empty} of them empty."
         )
 
     name = f"{group.name} - {settings.route_start_time:%Y-%m-%d}"
@@ -394,12 +401,12 @@ async def _build_route_group(
                 warehouse_lon=warehouse_lon,
                 ends_at_warehouse=settings.return_to_warehouse,
             )
-            for cluster in filled
+            for cluster in clusters
         )
     )
 
     for number, (cluster, (encoded_polyline, distance_km)) in enumerate(
-        zip(filled, polyline_results, strict=True),
+        zip(clusters, polyline_results, strict=True),
         start=1,
     ):
         route = Route(
