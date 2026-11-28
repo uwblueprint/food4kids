@@ -353,7 +353,6 @@ def _coordinates(location: Location) -> tuple[float, float]:
     return location.latitude, location.longitude
 
 
-
 class SweepRoutingAlgorithm:
     """Sweep clustering as a complete routing engine, at no API cost.
 
