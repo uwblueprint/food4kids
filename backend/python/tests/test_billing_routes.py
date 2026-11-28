@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from app.config import settings
 from app.dependencies.services import get_billing_service
 from app.services.implementations.billing_service import BillingSummary
 from app.utilities.billing_client import (
@@ -32,6 +33,7 @@ def _summary() -> BillingSummary:
         currency="CAD",
         month_to_date_cost=75.0,
         year_to_date_cost=250.0,
+        all_time_cost=480.0,
         gross_cost=100.0,
         credits=-25.0,
         budget_amount=500.0,
@@ -49,7 +51,10 @@ class _FakeBillingService:
     def __init__(self, error: Exception | None = None) -> None:
         self.error = error
 
-    async def get_month_to_date_summary(self) -> BillingSummary:
+    async def get_month_to_date_summary(
+        self, *, include_history: bool
+    ) -> BillingSummary:
+        assert include_history
         if self.error is not None:
             raise self.error
         return _summary()
@@ -63,7 +68,15 @@ def _override(error: Exception | None = None) -> dict[Any, Any]:
 class TestGetBillingCosts:
     """The happy path returns budget and month-to-date spend."""
 
-    async def test_returns_costs_and_budget(self, client_with_overrides: Any) -> None:
+    @pytest.mark.parametrize("credit_usd, expected", [(0, 30.0), (50, 68.5)])
+    async def test_returns_costs_and_budget(
+        self,
+        client_with_overrides: Any,
+        monkeypatch: pytest.MonkeyPatch,
+        credit_usd: float,
+        expected: float,
+    ) -> None:
+        monkeypatch.setattr(settings, "google_maps_monthly_credit_usd", credit_usd)
         client = await client_with_overrides(_override())
 
         response = await client.get(ENDPOINT)
@@ -74,6 +87,8 @@ class TestGetBillingCosts:
         assert body["invoice_month"] == "2026-07"
         assert body["month_to_date_cost"] == 75.0
         assert body["year_to_date_cost"] == 250.0
+        assert body["all_time_cost"] == 480.0
+        assert body["monthly_credit_allowance"] == pytest.approx(expected)
         assert body["gross_cost"] == 100.0
         assert body["credits"] == -25.0
         assert body["budget_amount"] == 500.0

@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from app.config import settings
 from app.dependencies.auth import require_admin
 from app.dependencies.services import get_billing_service
 from app.services.implementations.billing_service import BillingService
@@ -21,6 +22,8 @@ class BillingCostsResponse(BaseModel):
     currency: str
     month_to_date_cost: float
     year_to_date_cost: float
+    all_time_cost: float | None
+    monthly_credit_allowance: float | None
     gross_cost: float
     credits: float
     budget_amount: float | None
@@ -39,14 +42,14 @@ async def get_billing_costs(
     billing_service: BillingService = Depends(get_billing_service),
     _auth: bool = Depends(require_admin),
 ) -> BillingCostsResponse:
-    """Return monthly invoice and year-to-date usage spend for the project.
+    """Return monthly invoice, year-to-date, and all-time spend for the project.
 
     Figures come from the Cloud Billing export and typically lag by several
     hours — see ``data_as_of``. Responses are cached for
     ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
     """
     try:
-        summary = await billing_service.get_month_to_date_summary()
+        summary = await billing_service.get_month_to_date_summary(include_history=True)
     except BillingNotConfiguredError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
@@ -63,12 +66,23 @@ async def get_billing_costs(
             detail="Billing lookup timed out.",
         ) from e
 
+    currency = summary.currency or summary.budget_currency
+    monthly_credit_allowance = None
+    if settings.google_maps_monthly_credit_usd > 0:
+        rate = 1.0 if currency == "USD" else summary.usd_conversion_rate
+        if rate and rate > 0:
+            monthly_credit_allowance = settings.google_maps_monthly_credit_usd * rate
+    elif currency in (None, "CAD"):
+        monthly_credit_allowance = 30.0
+
     return BillingCostsResponse(
         project_id=summary.project_id,
         invoice_month=summary.invoice_month,
-        currency=summary.currency,
+        currency=currency or summary.currency,
         month_to_date_cost=summary.month_to_date_cost,
         year_to_date_cost=summary.year_to_date_cost,
+        all_time_cost=summary.all_time_cost,
+        monthly_credit_allowance=monthly_credit_allowance,
         gross_cost=summary.gross_cost,
         credits=summary.credits,
         budget_amount=summary.budget_amount,

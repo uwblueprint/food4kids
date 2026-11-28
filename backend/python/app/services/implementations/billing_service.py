@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import logging
     from datetime import datetime
 
-    from app.utilities.billing_client import BillingClient, BudgetInfo
+    from app.utilities.billing_client import BillingClient, BudgetInfo, CostInfo
 
 # Both calls are synchronous SDK calls run off the event loop, so they need an
 # explicit ceiling. A BigQuery job on the export table is normally 1-3s.
@@ -36,6 +36,7 @@ class BillingSummary:
     usd_conversion_rate: float | None
     data_as_of: datetime | None
     year_to_date_cost: float = 0.0
+    all_time_cost: float | None = None
 
 
 class BillingService:
@@ -45,7 +46,9 @@ class BillingService:
         self.logger = logger
         self.billing_client = billing_client
 
-    async def get_month_to_date_summary(self) -> BillingSummary:
+    async def get_month_to_date_summary(
+        self, *, include_history: bool = False
+    ) -> BillingSummary:
         """Fetch budget and month-to-date spend for the configured project.
 
         Both may be served from ``BillingClient``'s short-lived cache; on a miss
@@ -55,10 +58,7 @@ class BillingService:
         now = now_local()
 
         cost, budget = await asyncio.gather(
-            asyncio.wait_for(
-                asyncio.to_thread(self.billing_client.fetch_month_to_date_cost, now),
-                timeout=BILLING_TIMEOUT_SECONDS,
-            ),
+            self._fetch_cost(now, include_history=include_history),
             self._fetch_budget_or_none(),
         )
 
@@ -76,6 +76,28 @@ class BillingService:
             usd_conversion_rate=cost.usd_conversion_rate,
             data_as_of=cost.last_export_time,
             year_to_date_cost=cost.year_to_date_cost,
+            all_time_cost=cost.all_time_cost,
+        )
+
+    async def _fetch_cost(self, now: datetime, *, include_history: bool) -> CostInfo:
+        if include_history:
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.billing_client.fetch_month_to_date_cost,
+                        now,
+                        include_history=True,
+                    ),
+                    timeout=BILLING_TIMEOUT_SECONDS,
+                )
+            except (BillingError, TimeoutError):
+                self.logger.warning(
+                    "Historical billing lookup failed; retrying without history"
+                )
+
+        return await asyncio.wait_for(
+            asyncio.to_thread(self.billing_client.fetch_month_to_date_cost, now),
+            timeout=BILLING_TIMEOUT_SECONDS,
         )
 
     async def _fetch_budget_or_none(self) -> BudgetInfo | None:

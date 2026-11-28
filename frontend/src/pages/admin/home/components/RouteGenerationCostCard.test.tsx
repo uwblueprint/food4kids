@@ -44,6 +44,8 @@ const costs: BillingCostsResponse = {
   currency: 'CAD',
   month_to_date_cost: 5,
   year_to_date_cost: 123.45,
+  all_time_cost: 456.78,
+  monthly_credit_allowance: 30,
   gross_cost: 6,
   credits: -1,
   budget_amount: null,
@@ -86,7 +88,7 @@ describe('Route generation cost integration', () => {
     expect(authorization).toBe('Bearer test-admin-token');
     expect(
       screen.getByText(
-        `as of ${new Date().toLocaleDateString('en-US', {
+        `YTD as of ${new Date().toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
@@ -95,6 +97,45 @@ describe('Route generation cost integration', () => {
     ).toBeDefined();
     expect(screen.queryByText(/CAD\s+5\.00/)).toBeNull();
   });
+
+  it.each([
+    [6, 20, false],
+    [30, 100, true],
+    [31, 100, true],
+  ])(
+    'shows monthly gross spend of %s and switches to all-time spend',
+    async (grossCost, fill, exhausted) => {
+      respond({ ...costs, gross_cost: grossCost });
+      renderCard();
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /change route generation cost view/i,
+        })
+      );
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Month to Date' })
+      );
+
+      const meter = await screen.findByRole('progressbar', {
+        name: 'Monthly free credits used',
+      });
+      expect(meter.getAttribute('aria-valuenow')).toBe(String(fill));
+      expect(meter.className.includes(':bg-red')).toBe(exhausted);
+      expect(
+        screen.getByText(`CAD ${grossCost.toFixed(2)} / 30.00`)
+      ).toBeDefined();
+      expect(screen.getByText('Resets on Nov 1, 2026')).toBeDefined();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /change route generation cost view/i,
+        })
+      );
+      fireEvent.click(await screen.findByRole('button', { name: 'All Time' }));
+      expect(await screen.findByText(/CAD\s+456\.78/)).toBeDefined();
+      expect(screen.queryByRole('progressbar')).toBeNull();
+    }
+  );
 
   it('renders zero without crashing when the export has no currency or usage', async () => {
     respond({ ...costs, currency: '', year_to_date_cost: 0, data_as_of: null });

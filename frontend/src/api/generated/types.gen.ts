@@ -212,6 +212,10 @@ export type AuthResponse = {
  */
 export type BillingCostsResponse = {
   /**
+   * All Time Cost
+   */
+  all_time_cost: number | null;
+  /**
    * Budget Amount
    */
   budget_amount: number | null;
@@ -251,6 +255,10 @@ export type BillingCostsResponse = {
    * Month To Date Cost
    */
   month_to_date_cost: number;
+  /**
+   * Monthly Credit Allowance
+   */
+  monthly_credit_allowance: number | null;
   /**
    * Project Id
    */
