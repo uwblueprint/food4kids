@@ -1,6 +1,6 @@
 import logging
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import and_, case, distinct, exists, func, or_
@@ -25,6 +25,7 @@ from app.models.route_group import (
 )
 from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.implementations.route_deletion import delete_route_scope
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
 from app.utilities.datetime_utils import today_local
 from app.utilities.pagination import paginate_query
@@ -32,6 +33,39 @@ from app.utilities.route_ordering import route_name_sort_key
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
+
+
+async def count_families_already_routed(
+    session: AsyncSession,
+    location_ids: Any,
+    drive_date: date,
+    exclude_group_id: UUID | None = None,
+) -> int:
+    """Count how many of location_ids already have a stop on drive_date.
+
+    location_ids can be a list of ids or a select of them. Routes in
+    exclude_group_id are ignored (used when that group is the one moving).
+    """
+    clash = (
+        select(func.count(distinct(col(RouteStop.location_id))))
+        .join(Route)
+        .join(RouteGroup)
+        .where(
+            RouteGroup.drive_date == drive_date,
+            col(RouteStop.location_id).in_(location_ids),
+        )
+    )
+    if exclude_group_id is not None:
+        clash = clash.where(RouteGroup.route_group_id != exclude_group_id)
+    return (await session.execute(clash)).scalar_one()
+
+
+def double_booking_message(count: int, drive_date: date) -> str:
+    return (
+        f"{count} {'family is' if count == 1 else 'families are'} "
+        f"already on a route on {drive_date.isoformat()}. Pick another "
+        "date, or remove them from the other routes first."
+    )
 
 
 class RouteGroupService:
@@ -48,6 +82,26 @@ class RouteGroupService:
         session.add(route_group)
         await session.commit()
         return await self._read_back(session, route_group.route_group_id)
+
+    async def _check_no_double_booking(
+        self,
+        session: AsyncSession,
+        source_group_id: UUID,
+        drive_date: date,
+        exclude_group_id: UUID | None,
+    ) -> None:
+        """Raise if any of this group's families already has a route on
+        drive_date, other than in exclude_group_id (the group being moved)."""
+        families = (
+            select(RouteStop.location_id)
+            .join(Route)
+            .where(Route.route_group_id == source_group_id)
+        )
+        count = await count_families_already_routed(
+            session, families, drive_date, exclude_group_id
+        )
+        if count:
+            raise ValueError(double_booking_message(count, drive_date))
 
     async def update_route_group(
         self,
@@ -67,6 +121,11 @@ class RouteGroupService:
             return None
 
         update_data = route_group_data.model_dump(exclude_unset=True)
+        new_date = update_data.get("drive_date")
+        if new_date is not None and new_date != route_group.drive_date:
+            await self._check_no_double_booking(
+                session, route_group_id, new_date, exclude_group_id=route_group_id
+            )
         for field, value in update_data.items():
             setattr(route_group, field, value)
 
@@ -101,6 +160,15 @@ class RouteGroupService:
             self.logger.error(f"RouteGroup with id {route_group_id} not found")
             return None
 
+        target_date = (
+            overrides.drive_date
+            if overrides and overrides.drive_date
+            else route_group.drive_date
+        )
+        await self._check_no_double_booking(
+            session, route_group_id, target_date, exclude_group_id=None
+        )
+
         copy_drivers = overrides.copy_drivers if overrides else True
         default_name = f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
             :ROUTE_GROUP_NAME_MAX_LENGTH
@@ -108,11 +176,7 @@ class RouteGroupService:
         duplicated_group = RouteGroup(
             name=(overrides.name if overrides and overrides.name else default_name),
             notes=route_group.notes,
-            drive_date=(
-                overrides.drive_date
-                if overrides and overrides.drive_date
-                else route_group.drive_date
-            ),
+            drive_date=target_date,
         )
         session.add(duplicated_group)
 
@@ -299,6 +363,8 @@ class RouteGroupService:
         include_routes: bool = False,
         search: str | None = None,
         pagination: PaginationParams | None = None,
+        sort_by: Literal["drive_date", "delivery_type", "status"] = "drive_date",
+        order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[RouteGroupRead]:
         """Get route groups with optional date filtering and aggregate stats.
 
@@ -306,7 +372,8 @@ class RouteGroupService:
 
         Paginated like the routes and locations lists: filters and search are
         applied first, so a page is drawn from the matches rather than being
-        filtered after slicing.
+        filtered after slicing. ``sort_by``/``order`` are applied before
+        pagination too, so a sort spans every page.
         """
 
         children_per_box = await resolve_children_per_box(session)
@@ -398,13 +465,28 @@ class RouteGroupService:
                 statement = statement.where(or_(*assignment_conditions))
 
         statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
-        # Groups routinely share a drive date, and paginate_query runs the count
-        # and the page as separate statements — so ordering by the date alone
+        # NULL delivery types (groups with no stops) go last either way.
+        sort_expr: Any = {
+            "drive_date": col(RouteGroup.drive_date),
+            "delivery_type": statement.selected_columns.delivery_type,
+            "status": statement.selected_columns.status,
+        }[sort_by]
+        primary_order = (
+            sort_expr.desc() if order == "desc" else sort_expr.asc()
+        ).nulls_last()
+        # Groups routinely share a sort value, and paginate_query runs the count
+        # and the page as separate statements — so ordering by one column alone
         # lets the database break ties differently between them and a row can be
-        # skipped or repeated across page boundaries. Name then id makes the
-        # order total, so every page is cut from the same sequence.
+        # skipped or repeated across page boundaries. Date, name then id make
+        # the order total, so every page is cut from the same sequence.
+        tie_breakers = (
+            [] if sort_by == "drive_date" else [col(RouteGroup.drive_date).asc()]
+        )
         statement = statement.order_by(
-            RouteGroup.drive_date, RouteGroup.name, RouteGroup.route_group_id
+            primary_order,
+            *tie_breakers,
+            col(RouteGroup.name),
+            col(RouteGroup.route_group_id),
         )
 
         if pagination is None:
@@ -423,19 +505,4 @@ class RouteGroupService:
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID
     ) -> bool:
-        """Delete a route group. Cascades to its routes (and their stops +
-        snapshots via further cascades)."""
-        statement = select(RouteGroup).where(
-            RouteGroup.route_group_id == route_group_id
-        )
-        result = await session.execute(statement)
-        route_group = result.scalars().first()
-
-        if not route_group:
-            self.logger.error(f"RouteGroup with id {route_group_id} not found")
-            return False
-
-        await session.delete(route_group)
-        await session.commit()
-
-        return True
+        return await delete_route_scope(session, route_group_id, individual=False)

@@ -11,6 +11,10 @@ from app.models.job import JobRead
 from app.schemas.generation_responses import JobEnqueueResponse
 from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.job_service import JobService
+from app.services.implementations.route_generation_runner import (
+    count_group_families_already_routed,
+)
+from app.services.implementations.route_group_service import double_booking_message
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +42,24 @@ async def get_jobs(
 async def generate_job(
     req: RouteGenerationGroupInput,
     service: JobService = Depends(get_job_service),
+    session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
 ) -> JobEnqueueResponse:
     """Accept a generation request: persist it as PENDING and wake the worker.
 
     Admin-only — route generation is an admin workflow, and it burns Maps quota.
+    Refused with 400 if any family in the group already has a route that day,
+    since a family should be on at most one route per day.
     """
+    drive_date = req.settings.route_start_time.date()
+    count = await count_group_families_already_routed(
+        session, req.location_group, drive_date
+    )
+    if count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=double_booking_message(count, drive_date),
+        )
     job_id = await service.generate_job(req)
     await service.enqueue(job_id)
     return JobEnqueueResponse(job_id=job_id)

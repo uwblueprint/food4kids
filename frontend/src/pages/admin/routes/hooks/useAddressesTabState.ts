@@ -6,13 +6,18 @@ import type {
   LocationStatusEnum,
 } from '@/api/generated/types.gen';
 import { useSystemSettings } from '@/api/system-settings';
-import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import type {
+  UsePaginationReturn,
+  UseSearchReturn,
+  UseTableSortReturn,
+} from '@/common/hooks';
 import {
   clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
   useSearch,
+  useTableSort,
 } from '@/common/hooks';
 
 export interface AddressesFilterState {
@@ -32,7 +37,13 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
   deliveryTypes: new Set(f.deliveryTypes),
 });
 
-export interface AddressesTabState extends UsePaginationReturn {
+const SORT_KEYS = {
+  last_delivery: 'last_delivery',
+  status: 'status',
+} as const;
+
+export interface AddressesTabState
+  extends UsePaginationReturn, UseTableSortReturn {
   rows: LocationRead[];
   isLoading: boolean;
   totalPages: number;
@@ -77,8 +88,13 @@ export function useAddressesTabState(): AddressesTabState {
   // the query fires once typing pauses.
   const debouncedSearch = useDebouncedValue(search.value);
 
+  // Server-side so the sort spans all pages.
+  const { sort, toggleSort } = useTableSort();
+  const sortKey = SORT_KEYS[sort?.key as keyof typeof SORT_KEYS];
+
   const query = {
     search: debouncedSearch.trim() || undefined,
+    ...(sortKey && { sort_by: sortKey, order: sort?.dir }),
     status:
       appliedFilters.statuses.size > 0
         ? [...appliedFilters.statuses]
@@ -128,6 +144,8 @@ export function useAddressesTabState(): AddressesTabState {
 
   return {
     rows: data?.items ?? [],
+    sort,
+    toggleSort,
     isLoading,
     page: clampPage(page, totalPages, setPage),
     setPage,

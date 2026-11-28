@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,6 +23,10 @@ from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagi
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
+)
+from app.services.implementations.route_deletion import (
+    RouteDeletionImpact,
+    get_route_deletion_impact,
 )
 from app.services.implementations.route_group_service import RouteGroupService
 
@@ -52,6 +57,10 @@ async def get_route_groups(
     search: str | None = Query(
         None, description="Case-insensitive filter on the route group name"
     ),
+    sort_by: Literal["drive_date", "delivery_type", "status"] = Query(
+        "drive_date", description="Column to sort by, applied before pagination"
+    ),
+    order: Literal["asc", "desc"] = Query("asc", description="Direction for sort_by"),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
@@ -76,6 +85,8 @@ async def get_route_groups(
             include_routes,
             search,
             pagination,
+            sort_by,
+            order,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
@@ -107,9 +118,14 @@ async def update_route_group(
     """
     Update an existing route group
     """
-    updated_route_group = await route_group_service.update_route_group(
-        session, route_group_id, route_group
-    )
+    try:
+        updated_route_group = await route_group_service.update_route_group(
+            session, route_group_id, route_group
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     if not updated_route_group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -132,17 +148,33 @@ async def duplicate_route_group(
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
-    Optional body overrides the copy's name and drive date.
+    Optional body overrides the copy's name and drive date. The date must be
+    one none of the group's families are already routed on, so in practice
+    it's needed.
     """
-    duplicated_route_group = await route_group_service.duplicate_route_group(
-        session, route_group_id, overrides
-    )
+    try:
+        duplicated_route_group = await route_group_service.duplicate_route_group(
+            session, route_group_id, overrides
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     if not duplicated_route_group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"RouteGroup with id {route_group_id} not found",
         )
     return duplicated_route_group
+
+
+@router.get("/{route_group_id}/deletion-impact")
+async def get_route_group_delete_impact(
+    route_group_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> RouteDeletionImpact:
+    return await get_route_deletion_impact(session, route_group_id, individual=False)
 
 
 @router.delete("/{route_group_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -25,6 +25,10 @@ from app.models.route import (
     SuggestedDriverResponse,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
+from app.services.implementations.route_deletion import (
+    RouteDeletionImpact,
+    get_route_deletion_impact,
+)
 from app.services.implementations.route_service import (
     RouteService,
     RoutingConfigurationError,
@@ -49,10 +53,14 @@ async def get_routes(
     end_date: date | None = Query(
         None, description="Filter route groups until this date"
     ),
+    sort_by: Literal["group_name", "drive_date", "delivery_type", "status"] = Query(
+        "drive_date", description="Column to sort by, applied before pagination"
+    ),
     order: Literal["asc", "desc"] = Query(
         "asc",
-        description="Order by drive_date: 'asc' (default, oldest-first) for the "
-        "upcoming feed, 'desc' (most-recent-first) for the past feed.",
+        description="Direction for sort_by. For drive_date: 'asc' (default, "
+        "oldest-first) for the upcoming feed, 'desc' (most-recent-first) for "
+        "the past feed.",
     ),
     search: str | None = Query(
         None,
@@ -112,6 +120,7 @@ async def get_routes(
         route_status,
         driver_assignment_status,
         route_group_id,
+        sort_by,
     )
 
 
@@ -194,6 +203,15 @@ async def get_suggested_driver(
         The suggested driver, or null if there's no candidate.
     """
     return await route_service.get_suggested_driver(session, route_id, route_group_id)
+
+
+@router.get("/{route_id}/deletion-impact")
+async def get_route_delete_impact(
+    route_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> RouteDeletionImpact:
+    return await get_route_deletion_impact(session, route_id, individual=True)
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

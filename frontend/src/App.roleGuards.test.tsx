@@ -196,3 +196,24 @@ describe('the root redirect follows the role', () => {
     expect(visit('/')).toBe('/login');
   });
 });
+
+describe('/login while signed in', () => {
+  it.each([
+    ['admin', '/admin/home'],
+    ['driver', '/driver/home'],
+  ])('sends a signed-in %s to %s', (role, home) => {
+    signIn(role);
+    expect(visit('/login')).toBe(home);
+  });
+
+  it('shows the form when signed out', () => {
+    useAuthStore.setState({ isRestoringSession: false });
+    expect(visit('/login')).toBe('/login');
+    expect(screen.getByTestId('login')).toBeTruthy();
+  });
+
+  it('shows the form to an unknown role instead of looping', () => {
+    signIn('manager');
+    expect(visit('/login')).toBe('/login');
+  });
+});

@@ -53,6 +53,8 @@ import {
   getNotesFeed,
   getOrgContact,
   getRoute,
+  getRouteDeleteImpact,
+  getRouteGroupDeleteImpact,
   getRouteGroups,
   getRoutes,
   getSuggestedDriver,
@@ -62,6 +64,7 @@ import {
   login,
   logout,
   markAnnouncementsAsRead,
+  markNoteRead,
   type Options,
   patchSystemSettings,
   previewLocationImport,
@@ -200,7 +203,13 @@ import type {
   GetOrgContactData,
   GetOrgContactResponse,
   GetRouteData,
+  GetRouteDeleteImpactData,
+  GetRouteDeleteImpactError,
+  GetRouteDeleteImpactResponse,
   GetRouteError,
+  GetRouteGroupDeleteImpactData,
+  GetRouteGroupDeleteImpactError,
+  GetRouteGroupDeleteImpactResponse,
   GetRouteGroupsData,
   GetRouteGroupsError,
   GetRouteGroupsResponse,
@@ -226,6 +235,9 @@ import type {
   LogoutResponse,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponse,
+  MarkNoteReadData,
+  MarkNoteReadError,
+  MarkNoteReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
@@ -586,7 +598,11 @@ export const loginMutation = (
 /**
  * Logout
  *
- * Revokes refresh tokens and clears cookies
+ * Ends this browser's session by clearing its auth cookies.
+ *
+ * Deliberately does not revoke with Firebase: `revoke_refresh_tokens` ends
+ * every session the user has, so logging out (or idling out) on one device
+ * would sign them out everywhere. Password reset still revokes everything.
  */
 export const logoutMutation = (
   options?: Partial<Options<LogoutData>>
@@ -1198,6 +1214,8 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
  * Accept a generation request: persist it as PENDING and wake the worker.
  *
  * Admin-only — route generation is an admin workflow, and it burns Maps quota.
+ * Refused with 400 if any family in the group already has a route that day,
+ * since a family should be on at most one route per day.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>
@@ -1984,6 +2002,35 @@ export const getNotesFeedInfiniteOptions = (
     }
   );
 
+/**
+ * Mark Note Read
+ *
+ * Mark a location note as viewed for the current admin only.
+ */
+export const markNoteReadMutation = (
+  options?: Partial<Options<MarkNoteReadData>>
+): UseMutationOptions<
+  MarkNoteReadResponse,
+  AxiosError<MarkNoteReadError>,
+  Options<MarkNoteReadData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarkNoteReadResponse,
+    AxiosError<MarkNoteReadError>,
+    Options<MarkNoteReadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await markNoteRead({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const getMonthlySeriesQueryKey = (
   options?: Options<GetMonthlySeriesData>
 ) => createQueryKey('getMonthlySeries', options);
@@ -2307,11 +2354,41 @@ export const updateRouteGroupMutation = (
   return mutationOptions;
 };
 
+export const getRouteGroupDeleteImpactQueryKey = (
+  options: Options<GetRouteGroupDeleteImpactData>
+) => createQueryKey('getRouteGroupDeleteImpact', options);
+
+/**
+ * Get Route Group Delete Impact
+ */
+export const getRouteGroupDeleteImpactOptions = (
+  options: Options<GetRouteGroupDeleteImpactData>
+) =>
+  queryOptions<
+    GetRouteGroupDeleteImpactResponse,
+    AxiosError<GetRouteGroupDeleteImpactError>,
+    GetRouteGroupDeleteImpactResponse,
+    ReturnType<typeof getRouteGroupDeleteImpactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getRouteGroupDeleteImpact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getRouteGroupDeleteImpactQueryKey(options),
+  });
+
 /**
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
- * Optional body overrides the copy's name and drive date.
+ * Optional body overrides the copy's name and drive date. The date must be
+ * one none of the group's families are already routed on, so in practice
+ * it's needed.
  */
 export const duplicateRouteGroupMutation = (
   options?: Partial<Options<DuplicateRouteGroupData>>
@@ -2541,6 +2618,34 @@ export const updateRouteMutation = (
   };
   return mutationOptions;
 };
+
+export const getRouteDeleteImpactQueryKey = (
+  options: Options<GetRouteDeleteImpactData>
+) => createQueryKey('getRouteDeleteImpact', options);
+
+/**
+ * Get Route Delete Impact
+ */
+export const getRouteDeleteImpactOptions = (
+  options: Options<GetRouteDeleteImpactData>
+) =>
+  queryOptions<
+    GetRouteDeleteImpactResponse,
+    AxiosError<GetRouteDeleteImpactError>,
+    GetRouteDeleteImpactResponse,
+    ReturnType<typeof getRouteDeleteImpactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getRouteDeleteImpact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getRouteDeleteImpactQueryKey(options),
+  });
 
 export const getGoogleMapsLinkQueryKey = (
   options: Options<GetGoogleMapsLinkData>

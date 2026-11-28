@@ -1531,6 +1531,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 contact_name="Emily Loro",
                 # The real office number has an extension; keep the seed honest.
                 contact_phone=generate_valid_phone(with_extension=True),
+                support_phone=generate_valid_phone(),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",
                 f4k_wr_facebook="https://facebook.com/food4kidswr",
                 f4k_wr_twitter="https://twitter.com/food4kidswr",

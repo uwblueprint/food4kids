@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { describeApiFailure } from '@/api';
 import type { LocationRead } from '@/api/generated/types.gen';
 import { useLocations } from '@/api/locations';
 import { useUpdateRoute } from '@/api/routes';
@@ -66,7 +67,13 @@ export function AddStopModal({
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<LocationRead | null>(null);
   const debouncedSearch = useDebouncedValue(search).trim();
-  const { mutate: updateRoute, isPending, isError, reset } = useUpdateRoute();
+  const {
+    mutate: updateRoute,
+    isPending,
+    isError,
+    error,
+    reset,
+  } = useUpdateRoute();
   // Boxes aren't stored on a location — they're derived the same way the
   // backend and stops table do: ceil(num_children / children_per_box). The
   // divisor defaults to 2 (matching SystemSettings) until settings load.
@@ -218,7 +225,8 @@ export function AddStopModal({
 
         {isError && (
           <FieldDescription error>
-            Something went wrong adding the stop. Please try again.
+            {describeApiFailure(error) ??
+              'This family is already on another route that day.'}
           </FieldDescription>
         )}
         <ModalFooter className="shrink-0 grow basis-0 flex-col items-end justify-end gap-2.5 self-stretch">
